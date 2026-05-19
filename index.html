@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Project Timeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #0f1117;
+  --bg2:       #161b27;
+  --bg3:       #1e2535;
+  --border:    #2a3248;
+  --border2:   #374160;
+  --text:      #e8eaf0;
+  --text2:     #8b93a8;
+  --text3:     #5a6278;
+  --blue:      #3b82f6;
+  --blue-dim:  #1d3a6e;
+  --green:     #10b981;
+  --green-dim: #0a3d28;
+  --red:       #ef4444;
+  --red-dim:   #3d1212;
+  --amber:     #f59e0b;
+  --amber-dim: #3d2a06;
+  --radius:    8px;
+  --radius-lg: 12px;
+  --font:      'DM Sans', sans-serif;
+  --mono:      'DM Mono', monospace;
+}
+html { font-size: 14px; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+/* ── LAYOUT ── */
+.app { max-width: 1400px; margin: 0 auto; padding: 1.25rem 1rem; }
+
+/* ── CONNECTION BAR ── */
+.conn-bar { display: flex; align-items: center; gap: .5rem; font-size: .72rem; padding: .4rem .85rem; border-radius: var(--radius); margin-bottom: .85rem; border: 1px solid var(--border); }
+.conn-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.conn-ok      { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+.conn-ok      .conn-dot { background: var(--green); }
+.conn-err     { background: var(--red-dim);   border-color: var(--red);   color: var(--red);   }
+.conn-err     .conn-dot { background: var(--red); }
+.conn-loading { background: var(--bg2); color: var(--text2); border-color: var(--border); }
+.conn-loading .conn-dot { background: var(--amber); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.conn-detail { margin-left: auto; color: var(--text3); font-family: var(--mono); }
+
+/* ── HEADER ── */
+.header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.header-logo { width: 32px; height: 32px; background: var(--blue); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.header-logo svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2; }
+.header-title { font-size: 1.1rem; font-weight: 600; letter-spacing: -.02em; }
+.header-sub { font-size: .72rem; color: var(--text3); font-family: var(--mono); }
+.header-actions { display: flex; align-items: center; gap: .5rem; margin-left: auto; flex-wrap: wrap; }
+.saving-indicator { font-size: .72rem; color: var(--text3); font-family: var(--mono); display: none; align-items: center; gap: .4rem; }
+.saving-indicator.show { display: flex; }
+
+/* ── BUTTONS ── */
+.btn { display: inline-flex; align-items: center; gap: .4rem; padding: .45rem .9rem; border-radius: var(--radius); font-family: var(--font); font-size: .8rem; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; }
+.btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: #2563eb; }
+.btn-ghost { background: transparent; border-color: var(--border2); color: var(--text2); }
+.btn-ghost:hover { background: var(--bg3); color: var(--text); }
+.btn-danger { background: transparent; border-color: var(--red); color: var(--red); }
+.btn-danger:hover { background: var(--red-dim); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── METRICS ── */
+.metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: .6rem; margin-bottom: .85rem; }
+.metric { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .85rem 1rem; }
+.metric-label { font-size: .68rem; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .3rem; }
+.metric-val { font-size: 1.5rem; font-weight: 600; font-family: var(--mono); line-height: 1; }
+.ok { color: var(--green); } .warn { color: var(--amber); } .bad { color: var(--red); } .neutral { color: var(--text); }
+
+/* ── CONTROLS ── */
+.controls { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .7rem 1rem; display: flex; align-items: center; gap: .85rem; flex-wrap: wrap; margin-bottom: .7rem; }
+.ctrl-group { display: flex; align-items: center; gap: .55rem; }
+.ctrl-label { font-size: .75rem; color: var(--text2); white-space: nowrap; }
+input[type=range] { -webkit-appearance: none; width: 100px; height: 4px; background: var(--border2); border-radius: 2px; outline: none; cursor: pointer; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--blue); border-radius: 50%; cursor: pointer; }
+.val-badge { font-family: var(--mono); font-size: .8rem; font-weight: 500; padding: .2rem .55rem; border-radius: 5px; min-width: 24px; text-align: center; background: var(--bg3); color: var(--text); }
+.cap-badge { font-size: .72rem; padding: .25rem .7rem; border-radius: 20px; font-weight: 500; margin-left: auto; white-space: nowrap; }
+.cap-ok  { background: var(--green-dim); color: var(--green); }
+.cap-bad { background: var(--red-dim);   color: var(--red); }
+.divider { width: 1px; height: 20px; background: var(--border2); flex-shrink: 0; }
+select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); font-family: var(--font); font-size: .78rem; padding: .35rem .6rem; border-radius: var(--radius); cursor: pointer; outline: none; }
+select:focus { border-color: var(--blue); }
+
+/* ── LEGEND ── */
+.legend { display: flex; align-items: center; gap: 1rem; margin-bottom: .7rem; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: .4rem; font-size: .72rem; color: var(--text2); }
+.legend-swatch { width: 20px; height: 8px; border-radius: 2px; }
+.legend-hint { font-size: .68rem; color: var(--text3); margin-left: auto; font-family: var(--mono); }
+
+/* ── TABLE ── */
+.table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 620px; table-layout: fixed; }
+thead th { font-size: .68rem; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; padding: .65rem .9rem; background: var(--bg3); border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+tbody td { padding: .5rem .9rem; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: .82rem; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { transition: background .1s; }
+tbody tr:hover td { background: var(--bg3); }
+.col-name { width: 140px; } .col-asgn { width: 85px; } .col-stat { width: 80px; } .col-tl { width: auto; } .col-edit { width: 50px; }
+.task-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.assignee-cell { color: var(--text2); font-size: .75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slip { font-family: var(--mono); font-size: .65rem; margin-left: .35rem; }
+.slip-late { color: var(--red); } .slip-early { color: var(--green); }
+.cap-flag { font-size: .65rem; color: var(--red); margin-left: .3rem; font-family: var(--mono); }
+.empty-row td, .loading-row td { padding: 2.5rem 1rem; text-align: center; color: var(--text3); font-size: .85rem; }
+.loading-row td { font-family: var(--mono); font-size: .78rem; }
+
+/* ── STATUS PILLS ── */
+.pill { display: inline-block; font-size: .65rem; font-weight: 500; padding: .18rem .55rem; border-radius: 20px; white-space: nowrap; }
+.pill-ns { background: rgba(59,130,246,.15); color: #7badf6; }
+.pill-ip { background: rgba(245,158,11,.15); color: #f5b849; }
+.pill-dn { background: rgba(16,185,129,.15); color: #34c88a; }
+.pill-ar { background: rgba(239,68,68,.15);  color: #f07070; }
+
+/* ── TIMELINE BARS ── */
+.bar-cell { padding: .35rem .9rem; }
+.month-header { position: relative; height: 16px; border-bottom: 1px solid var(--border); margin-bottom: 3px; }
+.month-tick { position: absolute; top: 0; bottom: 0; font-size: .6rem; color: var(--text3); font-family: var(--mono); border-left: 1px solid var(--border); padding-left: 3px; overflow: hidden; white-space: nowrap; }
+.bar-track { position: relative; height: 14px; background: var(--bg3); border-radius: 4px; margin: 2px 0; user-select: none; }
+.bar-seg { position: absolute; top: 0; height: 100%; border-radius: 4px; cursor: grab; transition: filter .1s; }
+.bar-seg:hover { filter: brightness(1.15); }
+.bar-seg.dragging { cursor: grabbing; filter: brightness(1.25); opacity: .85; z-index: 10; }
+.drag-handle { position: absolute; top: 0; width: 7px; height: 100%; cursor: ew-resize; z-index: 5; }
+.drag-handle.left { left: 0; border-radius: 4px 0 0 4px; }
+.drag-handle.right { right: 0; border-radius: 0 4px 4px 0; }
+.conflict-ring { outline: 2px solid var(--red); outline-offset: -1px; }
+
+/* ── EDIT BUTTON ── */
+.edit-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; background: transparent; border: 1px solid var(--border2); color: var(--text3); cursor: pointer; transition: all .15s; }
+.edit-btn:hover { background: var(--bg3); color: var(--text); border-color: var(--text3); }
+.edit-btn svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+/* ── CONFLICTS PANEL ── */
+.conflicts-panel { margin-top: .75rem; background: var(--red-dim); border: 1px solid var(--red); border-radius: var(--radius-lg); padding: .9rem 1rem; }
+.conflicts-panel h4 { font-size: .8rem; font-weight: 500; color: var(--red); margin-bottom: .5rem; }
+.conflict-item { font-size: .75rem; color: #f08080; padding: .2rem 0; display: flex; gap: .5rem; }
+
+/* ── DRAG TOOLTIP ── */
+.drag-tooltip { position: fixed; background: var(--bg); border: 1px solid var(--border2); color: var(--text); font-family: var(--mono); font-size: .72rem; padding: .35rem .65rem; border-radius: 6px; pointer-events: none; z-index: 9999; white-space: nowrap; display: none; box-shadow: 0 4px 20px rgba(0,0,0,.5); }
+
+/* ── MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: 1.5rem; width: 100%; max-width: 420px; transform: translateY(16px); transition: transform .2s; }
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-title { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; letter-spacing: -.02em; }
+.form-row { margin-bottom: .7rem; }
+.form-row label { font-size: .72rem; color: var(--text3); display: block; margin-bottom: .3rem; text-transform: uppercase; letter-spacing: .05em; }
+.form-row input, .form-row select { width: 100%; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); font-family: var(--font); font-size: .85rem; padding: .5rem .75rem; border-radius: var(--radius); outline: none; transition: border-color .15s; }
+.form-row input:focus, .form-row select:focus { border-color: var(--blue); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+.form-section { font-size: .65rem; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin: .85rem 0 .5rem; padding-bottom: .3rem; border-bottom: 1px solid var(--border); }
+.modal-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: var(--bg2); border: 1px solid var(--border2); color: var(--text); font-size: .8rem; padding: .6rem 1.1rem; border-radius: var(--radius); z-index: 2000; box-shadow: 0 4px 24px rgba(0,0,0,.5); animation: toastIn .2s ease, toastOut .3s ease 2.2s forwards; white-space: nowrap; }
+.toast.toast-error { border-color: var(--red); color: #f08080; }
+@keyframes toastIn  { from { opacity:0; transform: translateX(-50%) translateY(8px); } }
+@keyframes toastOut { to   { opacity:0; transform: translateX(-50%) translateY(8px); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) { .metrics { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px) {
+  html { font-size: 13px; }
+  .app { padding: .85rem .75rem; }
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+  .metric-val { font-size: 1.3rem; }
+  .divider, .legend-hint, .header-sub { display: none; }
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal { max-width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 1.25rem 1rem 2rem; transform: translateY(100%); }
+  .modal-overlay.open .modal { transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<div class="drag-tooltip" id="dragTooltip"></div>
+
+<div class="app">
+
+  <!-- ── CONNECTION STATUS BAR ── -->
+  <div class="conn-bar conn-loading" id="connBar">
+    <div class="conn-dot"></div>
+    <span id="connMsg">Connecting to Supabase…</span>
+    <span class="conn-detail" id="connDetail"></span>
+  </div>
+
+  <!-- ── HEADER ── -->
+  <div class="header">
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="3" rx="1"/><rect x="3" y="10" width="11" height="3" rx="1"/><rect x="8" y="16" width="13" height="3" rx="1"/></svg>
+    </div>
+    <div>
+      <div class="header-title">Project Timeline</div>
+      <div class="header-sub">PM projected vs actual · drag bars to reschedule</div>
+    </div>
+    <div class="header-actions">
+      <div class="saving-indicator" id="savingIndicator">
+        <svg style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;animation:spin 1s linear infinite" viewBox="0 0 24 24">
+          <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-opacity=".25"/><path d="M21 12a9 9 0 00-9-9"/>
+        </svg>
+        saving…
+      </div>
+      <button class="btn btn-ghost" onclick="exportCSV()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export CSV
+      </button>
+      <button class="btn btn-primary" id="addBtn" onclick="openAdd()" disabled>
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add task
+      </button>
+    </div>
+  </div>
+
+  <!-- ── METRICS ── -->
+  <div class="metrics" id="metricsRow">
+    <div class="metric"><div class="metric-label">Total tasks</div><div class="metric-val neutral">—</div></div>
+    <div class="metric"><div class="metric-label">Completed</div><div class="metric-val ok">—</div></div>
+    <div class="metric"><div class="metric-label">At risk</div><div class="metric-val neutral">—</div></div>
+    <div class="metric"><div class="metric-label">Slipped</div><div class="metric-val neutral">—</div></div>
+    <div class="metric"><div class="metric-label">Peak demand</div><div class="metric-val neutral">—</div></div>
+  </div>
+
+  <!-- ── CONTROLS ── -->
+  <div class="controls">
+    <div class="ctrl-group">
+      <svg style="width:15px;height:15px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 24 24">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      <span class="ctrl-label">Team size</span>
+      <input type="range" min="1" max="20" step="1" id="teamSlider" value="3" oninput="onTeamChange(this.value)">
+      <span class="val-badge" id="teamLabel">3</span>
+      <span class="ctrl-label" style="color:var(--text3)">people</span>
+    </div>
+    <div class="divider"></div>
+    <div class="ctrl-group">
+      <svg style="width:13px;height:13px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 24 24">
+        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+      </svg>
+      <select id="filterAssignee" onchange="render()"><option value="">All assignees</option></select>
+      <select id="filterStatus" onchange="render()">
+        <option value="">All statuses</option>
+        <option value="not-started">Not started</option>
+        <option value="in-progress">In progress</option>
+        <option value="done">Done</option>
+        <option value="at-risk">At risk</option>
+      </select>
+    </div>
+    <span class="cap-badge" id="capBadge"></span>
+  </div>
+
+  <!-- ── LEGEND ── -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--blue)"></div>PM projected</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--green)"></div>Actual / assigned</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--red);opacity:.7"></div>Capacity conflict</div>
+    <div class="legend-item">
+      <span class="pill pill-ns">Not started</span>
+      <span class="pill pill-ip">In progress</span>
+      <span class="pill pill-dn">Done</span>
+      <span class="pill pill-ar">At risk</span>
+    </div>
+    <div class="legend-hint">⟵ drag bar to move · drag edge to resize ⟶</div>
+  </div>
+
+  <!-- ── TABLE ── -->
+  <div class="table-wrap">
+    <div class="table-scroll">
+      <table aria-label="Project Gantt chart">
+        <thead>
+          <tr>
+            <th class="col-name">Task</th>
+            <th class="col-asgn">Assignee</th>
+            <th class="col-stat">Status</th>
+            <th class="col-tl">Timeline</th>
+            <th class="col-edit"></th>
+          </tr>
+        </thead>
+        <tbody id="ganttBody">
+          <tr class="loading-row"><td colspan="5">connecting to database…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── CONFLICTS ── -->
+  <div class="conflicts-panel" id="conflictsPanel" style="display:none">
+    <h4>⚠ Capacity conflicts — PM projected dates require more people than available</h4>
+    <div id="conflictsList"></div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ── EDIT / ADD MODAL ── -->
+<div class="modal-overlay" id="modalOverlay" onclick="overlayClick(event)">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Add task</div>
+
+    <div class="form-row">
+      <label>Task name</label>
+      <input type="text" id="fName" placeholder="e.g. Design sprint" autocomplete="off">
+    </div>
+
+    <div class="form-grid">
+      <div class="form-row">
+        <label>Assignee</label>
+        <input type="text" id="fAssignee" placeholder="e.g. Alice" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label>Status</label>
+        <select id="fStatus">
+          <option value="not-started">Not started</option>
+          <option value="in-progress">In progress</option>
+          <option value="done">Done</option>
+          <option value="at-risk">At risk</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-section">PM projected dates</div>
+    <div class="form-grid">
+      <div class="form-row"><label>Start</label><input type="date" id="fProjStart"></div>
+      <div class="form-row"><label>End</label><input type="date" id="fProjEnd"></div>
+    </div>
+
+    <div class="form-section">Actual / assigned dates</div>
+    <div class="form-grid">
+      <div class="form-row"><label>Start</label><input type="date" id="fActStart"></div>
+      <div class="form-row"><label>End</label><input type="date" id="fActEnd"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost"  onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger" id="deleteBtn" onclick="deleteTask()" style="display:none">Delete</button>
+      <button class="btn btn-primary" onclick="saveTask()">Save task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     SCRIPT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   🔑 YOUR SUPABASE CREDENTIALS — edit these two lines
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const SUPABASE_URL = 'https://ykttrpmdytpvkpfuqvza.supabase.co/rest/v1/';
+const SUPABASE_KEY = 'sb_publishable_WCENQv3WzunyS7lIU1QWdw_8JzecQLa';
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+// ── STATE ────────────────────────────────────────────────────
+const TEAM_KEY = 'gantt_team_v1';
+let tasks      = [];
+let teamSize   = +(localStorage.getItem(TEAM_KEY) || 3);
+let editingId  = null;
+let supabase   = null;
+let realtimeSub = null;
+
+// ── BOOT ─────────────────────────────────────────────────────
+document.getElementById('teamSlider').value    = teamSize;
+document.getElementById('teamLabel').textContent = teamSize;
+
+supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+loadTasks();
+
+// ── SUPABASE: LOAD ────────────────────────────────────────────
+async function loadTasks() {
+  setConn('loading', 'Connecting to Supabase…');
+  try {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at',  { ascending: true });
+    if (error) throw error;
+    tasks = (data || []).map(dbToTask);
+    setConn('ok', `Connected · ${tasks.length} task${tasks.length !== 1 ? 's' : ''} loaded`);
+    document.getElementById('addBtn').disabled = false;
+    render();
+    subscribeRealtime();
+  } catch (e) {
+    setConn('err', `Connection failed: ${e.message}`);
+    showToast('Could not reach Supabase — check your credentials', true);
+    document.getElementById('ganttBody').innerHTML =
+      `<tr class="empty-row"><td colspan="5">⚠ Could not connect. Check SUPABASE_URL and SUPABASE_KEY in the file.</td></tr>`;
+  }
+}
+
+// ── SUPABASE: REALTIME ────────────────────────────────────────
+function subscribeRealtime() {
+  if (realtimeSub) supabase.removeChannel(realtimeSub);
+  realtimeSub = supabase
+    .channel('tasks-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
+      if (payload.eventType === 'INSERT') {
+        const t = dbToTask(payload.new);
+        if (!tasks.find(x => x.id === t.id)) { tasks.push(t); render(); }
+      } else if (payload.eventType === 'UPDATE') {
+        const t = dbToTask(payload.new);
+        const i = tasks.findIndex(x => x.id === t.id);
+        if (i >= 0) { tasks[i] = t; render(); }
+      } else if (payload.eventType === 'DELETE') {
+        tasks = tasks.filter(x => x.id !== payload.old.id);
+        render();
+      }
+    })
+    .subscribe();
+}
+
+// ── SUPABASE: WRITE ───────────────────────────────────────────
+async function upsertTask(taskData, id) {
+  setSaving(true);
+  try {
+    if (id) {
+      const { error } = await supabase.from('tasks').update(taskToDb(taskData)).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { data, error } = await supabase.from('tasks').insert(taskToDb(taskData)).select().single();
+      if (error) throw error;
+      return data.id;
+    }
+  } catch (e) {
+    showToast(`Save failed: ${e.message}`, true);
+    throw e;
+  } finally {
+    setSaving(false);
+  }
+}
+
+async function removeTask(id) {
+  setSaving(true);
+  try {
+    const { error } = await supabase.from('tasks').delete().eq('id', id);
+    if (error) throw error;
+  } catch (e) {
+    showToast(`Delete failed: ${e.message}`, true);
+    throw e;
+  } finally {
+    setSaving(false);
+  }
+}
+
+// ── DATA MAPPERS ──────────────────────────────────────────────
+function dbToTask(row) {
+  return {
+    id:        row.id,
+    name:      row.name,
+    assignee:  row.assignee  || '',
+    status:    row.status    || 'not-started',
+    projStart: row.proj_start || '',
+    projEnd:   row.proj_end   || '',
+    actStart:  row.act_start  || '',
+    actEnd:    row.act_end    || '',
+  };
+}
+function taskToDb(t) {
+  return {
+    name:       t.name,
+    assignee:   t.assignee   || null,
+    status:     t.status,
+    proj_start: t.projStart  || null,
+    proj_end:   t.projEnd    || null,
+    act_start:  t.actStart   || null,
+    act_end:    t.actEnd     || null,
+  };
+}
+
+// ── DATE UTILS ────────────────────────────────────────────────
+const toDay        = d => new Date(d + 'T00:00:00');
+const daysBetween  = (a, b) => Math.round((toDay(b) - toDay(a)) / 864e5);
+const fmtShort     = d => { if (!d) return '—'; const p = d.split('-'); return `${p[2]}/${p[1]}`; };
+const fmtLong      = d => d ? toDay(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—';
+const fmtMonth     = d => d.toLocaleString('en-GB', { month:'short', year:'2-digit' });
+
+function addDays(d, n) {
+  const x = toDay(d); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10);
+}
+
+function getRange() {
+  const all = [];
+  tasks.forEach(t => [t.projStart, t.projEnd, t.actStart, t.actEnd].forEach(d => { if (d) all.push(toDay(d)); }));
+  if (!all.length) {
+    const n = new Date();
+    return { min: n.toISOString().slice(0, 10), max: addDays(n.toISOString().slice(0, 10), 60) };
+  }
+  const mn = new Date(Math.min(...all)), mx = new Date(Math.max(...all));
+  mn.setDate(mn.getDate() - 7); mx.setDate(mx.getDate() + 7);
+  return { min: mn.toISOString().slice(0, 10), max: mx.toISOString().slice(0, 10) };
+}
+
+function barPct(start, end, rMin, total) {
+  if (!start || !end) return null;
+  const s = Math.max(0, daysBetween(rMin, start));
+  const e = Math.min(total, daysBetween(rMin, end) + 1);
+  return { left: (s / total * 100).toFixed(3), width: (Math.max(0.5, (e - s) / total * 100)).toFixed(3) };
+}
+
+function monthTicks(rMin, total) {
+  const ticks = [];
+  let cur = toDay(rMin);
+  const end = toDay(addDays(rMin, total));
+  while (cur <= end) {
+    const off  = daysBetween(rMin, cur.toISOString().slice(0, 10));
+    const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    const nextOff = Math.min(total, daysBetween(rMin, next.toISOString().slice(0, 10)));
+    ticks.push({ label: fmtMonth(cur), left: (off / total * 100).toFixed(2), width: ((nextOff - off) / total * 100).toFixed(2) });
+    cur = next;
+  }
+  return ticks;
+}
+
+// ── CAPACITY ──────────────────────────────────────────────────
+function getConflicts() {
+  const map = {};
+  tasks.forEach(t => {
+    if (!t.projStart || !t.projEnd) return;
+    let d = toDay(t.projStart);
+    const e = toDay(t.projEnd);
+    while (d <= e) {
+      const k = d.toISOString().slice(0, 10);
+      if (!map[k]) map[k] = new Set();
+      map[k].add(t.assignee);
+      d.setDate(d.getDate() + 1);
+    }
+  });
+  return Object.entries(map)
+    .filter(([, s]) => s.size > teamSize)
+    .map(([day, s]) => ({ day, count: s.size, people: [...s] }))
+    .sort((a, b) => a.day.localeCompare(b.day));
+}
+
+function taskInConflict(task, conflicts) {
+  if (!task.projStart || !task.projEnd) return false;
+  return conflicts.some(c => c.day >= task.projStart && c.day <= task.projEnd);
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+let currentRange = null, currentTotal = null;
+
+const STATUS_LABEL = { 'not-started':'Not started', 'in-progress':'In progress', done:'Done', 'at-risk':'At risk' };
+const STATUS_CLS   = { 'not-started':'pill-ns', 'in-progress':'pill-ip', done:'pill-dn', 'at-risk':'pill-ar' };
+
+function updateAssigneeFilter() {
+  const sel = document.getElementById('filterAssignee'), cur = sel.value;
+  const people = [...new Set(tasks.map(t => t.assignee).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All assignees</option>' +
+    people.map(a => `<option value="${a}"${a === cur ? ' selected' : ''}>${a}</option>`).join('');
+}
+
+function render() {
+  updateAssigneeFilter();
+  const conflicts = getConflicts();
+
+  // metrics
+  const total   = tasks.length;
+  const done    = tasks.filter(t => t.status === 'done').length;
+  const atRisk  = tasks.filter(t => t.status === 'at-risk').length;
+  const slipped = tasks.filter(t => t.projEnd && t.actEnd && daysBetween(t.projEnd, t.actEnd) > 0).length;
+  const peak    = conflicts.length ? Math.max(...conflicts.map(c => c.count)) : 0;
+  const peakCls = conflicts.length === 0 ? 'ok' : (peak > teamSize * 1.5 ? 'bad' : 'warn');
+
+  document.getElementById('metricsRow').innerHTML = `
+    <div class="metric"><div class="metric-label">Total tasks</div><div class="metric-val neutral">${total}</div></div>
+    <div class="metric"><div class="metric-label">Completed</div><div class="metric-val ok">${done}</div></div>
+    <div class="metric"><div class="metric-label">At risk</div><div class="metric-val ${atRisk ? 'bad' : 'ok'}">${atRisk}</div></div>
+    <div class="metric"><div class="metric-label">Slipped</div><div class="metric-val ${slipped ? 'warn' : 'ok'}">${slipped}</div></div>
+    <div class="metric"><div class="metric-label">Peak demand</div><div class="metric-val ${peakCls}">${peak || '—'}</div></div>`;
+
+  const badge = document.getElementById('capBadge');
+  if (!conflicts.length) { badge.className = 'cap-badge cap-ok'; badge.textContent = 'Within capacity'; }
+  else { badge.className = 'cap-badge cap-bad'; badge.textContent = `${conflicts.length} day${conflicts.length > 1 ? 's' : ''} over capacity`; }
+
+  // filter
+  const fa = document.getElementById('filterAssignee').value;
+  const fs = document.getElementById('filterStatus').value;
+  const visible = tasks.filter(t => (!fa || t.assignee === fa) && (!fs || t.status === fs));
+
+  // timeline range
+  const range  = getRange();
+  const total2 = Math.max(1, daysBetween(range.min, range.max));
+  currentRange = range; currentTotal = total2;
+
+  const ticks   = monthTicks(range.min, total2);
+  const tickHtml = `<div class="month-header">${ticks.map(t =>
+    `<div class="month-tick" style="left:${t.left}%;width:${t.width}%">${t.label}</div>`).join('')}</div>`;
+
+  const body = document.getElementById('ganttBody');
+  body.innerHTML = '';
+
+  if (!visible.length) {
+    const r = document.createElement('tr'); r.className = 'empty-row';
+    r.innerHTML = '<td colspan="5">No tasks yet — click <strong>Add task</strong> to get started.</td>';
+    body.appendChild(r); renderConflicts(conflicts); return;
+  }
+
+  visible.forEach(t => {
+    const conflict = taskInConflict(t, conflicts);
+    const proj = barPct(t.projStart, t.projEnd, range.min, total2);
+    const act  = barPct(t.actStart,  t.actEnd,  range.min, total2);
+
+    let slipHtml = '';
+    if (t.projEnd && t.actEnd) {
+      const d = daysBetween(t.projEnd, t.actEnd);
+      if (d > 0) slipHtml = `<span class="slip slip-late">+${d}d</span>`;
+      else if (d < 0) slipHtml = `<span class="slip slip-early">${d}d</span>`;
+    }
+    const capFlag = conflict ? `<span class="cap-flag">⚠ cap</span>` : '';
+
+    const projBar = proj
+      ? `<div class="bar-seg${conflict ? ' conflict-ring' : ''}" data-id="${t.id}" data-type="proj" data-action="move"
+            style="left:${proj.left}%;width:${proj.width}%;background:var(--blue)"
+            title="PM: ${fmtShort(t.projStart)} – ${fmtShort(t.projEnd)}">
+           <div class="drag-handle left"  data-id="${t.id}" data-type="proj" data-action="resize-start"></div>
+           <div class="drag-handle right" data-id="${t.id}" data-type="proj" data-action="resize-end"></div>
+         </div>` : '';
+
+    const actBar = act
+      ? `<div class="bar-seg" data-id="${t.id}" data-type="act" data-action="move"
+            style="left:${act.left}%;width:${act.width}%;background:var(--green)${conflict ? ';outline:2px solid var(--red);outline-offset:-1px' : ''}"
+            title="Actual: ${fmtShort(t.actStart)} – ${fmtShort(t.actEnd)}">
+           <div class="drag-handle left"  data-id="${t.id}" data-type="act" data-action="resize-start"></div>
+           <div class="drag-handle right" data-id="${t.id}" data-type="act" data-action="resize-end"></div>
+         </div>` : '';
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="col-name"><div class="task-name" title="${t.name}">${t.name}${slipHtml}${capFlag}</div></td>
+      <td class="col-asgn"><div class="assignee-cell">${t.assignee || '—'}</div></td>
+      <td class="col-stat"><span class="pill ${STATUS_CLS[t.status] || 'pill-ns'}">${STATUS_LABEL[t.status] || t.status}</span></td>
+      <td class="col-tl bar-cell">
+        ${tickHtml}
+        <div class="bar-track">${projBar}</div>
+        <div class="bar-track">${actBar}</div>
+      </td>
+      <td class="col-edit">
+        <button class="edit-btn" onclick="window._openEdit(${t.id})" aria-label="Edit ${t.name}">
+          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      </td>`;
+    body.appendChild(row);
+  });
+
+  renderConflicts(conflicts);
+  attachDrag();
+}
+
+function renderConflicts(conflicts) {
+  const panel = document.getElementById('conflictsPanel');
+  const list  = document.getElementById('conflictsList');
+  if (!conflicts.length) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  const grouped = {};
+  conflicts.forEach(c => {
+    const k = [...c.people].sort().join('|');
+    if (!grouped[k]) grouped[k] = { people: c.people, days: [], count: c.count };
+    grouped[k].days.push(c.day);
+  });
+  list.innerHTML = Object.values(grouped).map(g => {
+    const nd = g.days.length, first = fmtShort(g.days[0]), last = fmtShort(g.days[nd - 1]);
+    const span = nd === 1 ? first : `${first} – ${last}`;
+    return `<div class="conflict-item">→ ${g.count} people needed (team: ${teamSize}) · ${span} · ${g.people.join(', ')}</div>`;
+  }).join('');
+}
+
+// ── DRAG ──────────────────────────────────────────────────────
+let drag = null;
+const tooltip = document.getElementById('dragTooltip');
+
+function attachDrag() {
+  document.querySelectorAll('.bar-seg, .drag-handle').forEach(el => {
+    el.addEventListener('mousedown',  onDragStart, { passive: false });
+    el.addEventListener('touchstart', onDragStart, { passive: false });
+  });
+}
+
+const clientX = e => e.touches ? e.touches[0].clientX : e.clientX;
+const clientY = e => e.touches ? e.touches[0].clientY : e.clientY;
+
+function onDragStart(e) {
+  if (e.button && e.button !== 0) return;
+  e.preventDefault();
+  const el = e.currentTarget;
+  const { id, type, action } = el.dataset;
+  const task  = tasks.find(t => t.id === +id); if (!task) return;
+  const track = el.closest('.bar-track');        if (!track) return;
+  const sk = type === 'proj' ? 'projStart' : 'actStart';
+  const ek = type === 'proj' ? 'projEnd'   : 'actEnd';
+  drag = {
+    id: +id, type, action,
+    trackRect: track.getBoundingClientRect(),
+    startX: clientX(e),
+    origStart: task[sk], origEnd: task[ek],
+    sk, ek,
+  };
+  el.classList.add('dragging');
+  tooltip.style.display = 'block';
+  document.addEventListener('mousemove',  onDragMove);
+  document.addEventListener('mouseup',    onDragEnd);
+  document.addEventListener('touchmove',  onDragMove, { passive: false });
+  document.addEventListener('touchend',   onDragEnd);
+}
+
+function pxToDays(px) {
+  if (!drag || !currentTotal) return 0;
+  return Math.round(px / drag.trackRect.width * currentTotal);
+}
+
+function onDragMove(e) {
+  if (!drag) return;
+  e.preventDefault();
+  const delta = pxToDays(clientX(e) - drag.startX);
+  const task  = tasks.find(t => t.id === drag.id); if (!task) return;
+  const { action, origStart, origEnd, sk, ek } = drag;
+
+  if (action === 'move') {
+    task[sk] = addDays(origStart, delta);
+    task[ek] = addDays(origEnd,   delta);
+    tooltip.textContent = `${fmtLong(task[sk])} → ${fmtLong(task[ek])}`;
+  } else if (action === 'resize-start') {
+    const ns = addDays(origStart, delta);
+    if (daysBetween(ns, origEnd) >= 1) task[sk] = ns;
+    tooltip.textContent = `Start: ${fmtLong(task[sk])}`;
+  } else if (action === 'resize-end') {
+    const ne = addDays(origEnd, delta);
+    if (daysBetween(origStart, ne) >= 1) task[ek] = ne;
+    tooltip.textContent = `End: ${fmtLong(task[ek])}`;
+  }
+
+  tooltip.style.left = (clientX(e) + 16) + 'px';
+  tooltip.style.top  = (clientY(e) - 34) + 'px';
+
+  // live-update bar visually while dragging
+  const barEl = document.querySelector(`.bar-seg[data-id="${drag.id}"][data-type="${drag.type}"][data-action="move"]`);
+  if (barEl && currentRange && currentTotal) {
+    const p = barPct(task[sk], task[ek], currentRange.min, currentTotal);
+    if (p) { barEl.style.left = p.left + '%'; barEl.style.width = p.width + '%'; }
+  }
+}
+
+async function onDragEnd() {
+  if (!drag) return;
+  tooltip.style.display = 'none';
+  document.querySelectorAll('.bar-seg.dragging').forEach(el => el.classList.remove('dragging'));
+  document.removeEventListener('mousemove',  onDragMove);
+  document.removeEventListener('mouseup',    onDragEnd);
+  document.removeEventListener('touchmove',  onDragMove);
+  document.removeEventListener('touchend',   onDragEnd);
+  const task    = tasks.find(t => t.id === drag.id);
+  const savedId = drag.id;
+  drag = null;
+  if (task) {
+    try {
+      await upsertTask(task, savedId);
+      showToast('Dates updated');
+      render();
+    } catch {
+      await loadTasks(); // revert on failure
+    }
+  }
+}
+
+// ── TEAM SIZE ──────────────────────────────────────────────────
+window.onTeamChange = function(v) {
+  teamSize = +v;
+  document.getElementById('teamLabel').textContent = v;
+  localStorage.setItem(TEAM_KEY, v);
+  render();
+};
+
+// ── MODAL ──────────────────────────────────────────────────────
+function openModal() { document.getElementById('modalOverlay').classList.add('open'); }
+window.closeModal = function() { document.getElementById('modalOverlay').classList.remove('open'); };
+window.overlayClick = function(e) { if (e.target === document.getElementById('modalOverlay')) window.closeModal(); };
+
+window.openAdd = function() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = 'Add task';
+  document.getElementById('deleteBtn').style.display = 'none';
+  ['fName','fAssignee','fProjStart','fProjEnd','fActStart','fActEnd'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fStatus').value = 'not-started';
+  openModal();
+  setTimeout(() => document.getElementById('fName').focus(), 80);
+};
+
+window._openEdit = function(id) {
+  const t = tasks.find(x => x.id === id); if (!t) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = 'Edit task';
+  document.getElementById('deleteBtn').style.display = 'inline-flex';
+  document.getElementById('fName').value      = t.name;
+  document.getElementById('fAssignee').value  = t.assignee || '';
+  document.getElementById('fStatus').value    = t.status || 'not-started';
+  document.getElementById('fProjStart').value = t.projStart || '';
+  document.getElementById('fProjEnd').value   = t.projEnd   || '';
+  document.getElementById('fActStart').value  = t.actStart  || '';
+  document.getElementById('fActEnd').value    = t.actEnd    || '';
+  openModal();
+};
+
+window.saveTask = async function() {
+  const name = document.getElementById('fName').value.trim();
+  if (!name) { document.getElementById('fName').focus(); return; }
+  const data = {
+    name,
+    assignee:  document.getElementById('fAssignee').value.trim() || '',
+    status:    document.getElementById('fStatus').value,
+    projStart: document.getElementById('fProjStart').value,
+    projEnd:   document.getElementById('fProjEnd').value,
+    actStart:  document.getElementById('fActStart').value,
+    actEnd:    document.getElementById('fActEnd').value,
+  };
+  window.closeModal();
+  try {
+    if (editingId) {
+      await upsertTask(data, editingId);
+      const i = tasks.findIndex(x => x.id === editingId);
+      if (i >= 0) tasks[i] = { ...tasks[i], ...data };
+      showToast('Task updated');
+    } else {
+      const newId = await upsertTask(data, null);
+      tasks.push({ id: newId, ...data });
+      showToast('Task added');
+    }
+    render();
+  } catch { /* already toasted */ }
+};
+
+window.deleteTask = async function() {
+  if (!editingId || !confirm('Delete this task? This cannot be undone.')) return;
+  window.closeModal();
+  try {
+    await removeTask(editingId);
+    tasks = tasks.filter(x => x.id !== editingId);
+    showToast('Task deleted');
+    render();
+  } catch { /* already toasted */ }
+};
+
+// ── EXPORT ────────────────────────────────────────────────────
+window.exportCSV = function() {
+  const rows = [['Task','Assignee','Status','PM Start','PM End','Actual Start','Actual End','Slip (days)']];
+  tasks.forEach(t => {
+    const slip = t.projEnd && t.actEnd ? daysBetween(t.projEnd, t.actEnd) : '';
+    rows.push([t.name, t.assignee||'', STATUS_LABEL[t.status]||'', t.projStart||'', t.projEnd||'', t.actStart||'', t.actEnd||'', slip]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'project-timeline.csv';
+  a.click();
+};
+
+// ── HELPERS ───────────────────────────────────────────────────
+function setConn(state, msg) {
+  const bar = document.getElementById('connBar');
+  const msgEl = document.getElementById('connMsg');
+  bar.className = `conn-bar conn-${state}`;
+  msgEl.textContent = msg;
+}
+
+function setSaving(v) {
+  const el = document.getElementById('savingIndicator');
+  el.className = 'saving-indicator' + (v ? ' show' : '');
+}
+
+function showToast(msg, isError = false) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (isError ? ' toast-error' : '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+// ── KEYBOARD ──────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') window.closeModal();
+  if (e.key === 'Enter' && document.getElementById('modalOverlay').classList.contains('open')) {
+    if (document.activeElement.tagName !== 'BUTTON') window.saveTask();
+  }
+});
+</script>
+</body>
+</html>
