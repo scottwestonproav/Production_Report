@@ -1105,7 +1105,7 @@ function handleFile(file) {
     try {
       importWorkbook = XLSX.read(e.target.result, { type:'array', cellDates:true });
       const ws = importWorkbook.Sheets[importWorkbook.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:'' });
+      const raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:'' });
 
       // find header row (first row that has 'ProjectName' or similar)
       let headerRowIdx = 0;
