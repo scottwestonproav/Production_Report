@@ -895,12 +895,7 @@ window.render = function() {
     (!fp || t.name === fp) && (!fm || t.project_manager === fm) &&
     (!fw || t.wireman === fw) && (!fs || t.status === fs));
 
-  // sort
-  visible.sort((a,b) => {
-    let av = a[sortCol]||'', bv = b[sortCol]||'';
-    if (!isNaN(av) && !isNaN(bv)) { av=+av; bv=+bv; }
-    return av < bv ? -sortDir : av > bv ? sortDir : 0;
-  });
+  // sort moved above
 
   // timeline range
   console.log('[Debug] render: getRange');
@@ -916,6 +911,19 @@ window.render = function() {
   console.log('[Debug] render: tickHtml built, about to renderChunk');
 
   console.log('[Debug] render: visible rows=', visible.length);
+
+  // sort
+  try {
+    visible.sort((a,b) => {
+      let av = a[sortCol]||'', bv = b[sortCol]||'';
+      if (!isNaN(av) && !isNaN(bv)) { av=+av; bv=+bv; }
+      return av < bv ? -sortDir : av > bv ? sortDir : 0;
+    });
+    console.log('[Debug] render: sort done');
+  } catch(sortErr) {
+    console.error('[Debug] sort crashed:', sortErr.message);
+  }
+
   const body = document.getElementById('ganttBody');
   body.innerHTML = '';
 
