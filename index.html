@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Project Timeline</title>
+<title>Project Timeline v7</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -216,6 +216,7 @@ tbody tr:hover td { background: var(--bg3); }
   <div class="conn-bar conn-loading" id="connBar">
     <div class="conn-dot"></div>
     <span id="connMsg">Connecting to Supabase…</span>
+    <button id="connRetryBtn" onclick="loadTasks()" style="display:none;margin-left:.5rem;font-size:.68rem;padding:.1rem .5rem;border-radius:4px;background:transparent;border:1px solid currentColor;color:inherit;cursor:pointer">↺ Retry</button>
   </div>
 
   <div class="header">
@@ -478,125 +479,9 @@ tbody tr:hover td { background: var(--bg3); }
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script>
-// No module imports needed — we talk to Supabase directly via fetch()
-// and XLSX is loaded above as a global script tag
-
-// Minimal Supabase client using plain fetch
-function createClient(url, key) {
-  const headers = {
-    'apikey': key,
-    'Authorization': 'Bearer ' + key,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
-  };
-  return {
-    from: function(table) {
-      return {
-        select: function(cols) {
-          cols = cols || '*';
-          let url2 = url + '/rest/v1/' + table + '?select=' + encodeURIComponent(cols);
-          let orders = [];
-          let obj = {
-            order: function(col, opts) {
-              opts = opts || {};
-              let o = col + (opts.ascending === false ? '.desc' : '.asc');
-              if (opts.nullsFirst) o += '.nullsfirst';
-              else o += '.nullslast';
-              orders.push(o);
-              return obj;
-            },
-            then: function() { return obj._run().then.apply(obj._run(), arguments); },
-            _run: async function() {
-              if (orders.length) url2 += '&order=' + orders.join(',');
-              try {
-                const r = await fetch(url2, { headers });
-                const data = await r.json();
-                if (!r.ok) return { data: null, error: data };
-                return { data, error: null };
-              } catch(e) { return { data: null, error: e }; }
-            }
-          };
-          return obj;
-        },
-        insert: function(data) {
-          return {
-            select: function() { return this; },
-            single: function() { return this; },
-            then: function() { return this._run().then.apply(this._run(), arguments); },
-            _run: async function() {
-              try {
-                const r = await fetch(url + '/rest/v1/' + table, {
-                  method: 'POST',
-                  headers: { ...headers, 'Prefer': 'return=representation' },
-                  body: JSON.stringify(data)
-                });
-                const resp = await r.json();
-                if (!r.ok) return { data: null, error: resp };
-                const row = Array.isArray(resp) ? resp[0] : resp;
-                return { data: row, error: null };
-              } catch(e) { return { data: null, error: e }; }
-            }
-          };
-        },
-        update: function(data) {
-          let eqCol, eqVal;
-          return {
-            eq: function(col, val) { eqCol = col; eqVal = val; return this; },
-            then: function() { return this._run().then.apply(this._run(), arguments); },
-            _run: async function() {
-              try {
-                const r = await fetch(url + '/rest/v1/' + table + '?' + eqCol + '=eq.' + eqVal, {
-                  method: 'PATCH',
-                  headers: { ...headers, 'Prefer': 'return=minimal' },
-                  body: JSON.stringify(data)
-                });
-                if (!r.ok) { const e = await r.json(); return { error: e }; }
-                return { error: null };
-              } catch(e) { return { error: e }; }
-            }
-          };
-        },
-        delete: function() {
-          let eqCol, eqVal;
-          return {
-            eq: function(col, val) { eqCol = col; eqVal = val; return this; },
-            then: function() { return this._run().then.apply(this._run(), arguments); },
-            _run: async function() {
-              try {
-                const r = await fetch(url + '/rest/v1/' + table + '?' + eqCol + '=eq.' + eqVal, {
-                  method: 'DELETE',
-                  headers
-                });
-                if (!r.ok) { const e = await r.json(); return { error: e }; }
-                return { error: null };
-              } catch(e) { return { error: e }; }
-            }
-          };
-        },
-        upsert: async function(data, opts) {
-          opts = opts || {};
-          let qs = url + '/rest/v1/' + table;
-          if (opts.onConflict) qs += '?on_conflict=' + opts.onConflict;
-          try {
-            const r = await fetch(qs, {
-              method: 'POST',
-              headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-              body: JSON.stringify(data)
-            });
-            if (!r.ok) { const e = await r.json(); return { error: e }; }
-            return { error: null };
-          } catch(e) { return { error: e }; }
-        }
-      };
-    },
-    channel: function() {
-      return { on: function() { return this; }, subscribe: function() { return this; } };
-    },
-    removeChannel: function() {}
-  };
-}
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import * as XLSX from 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm';
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    🔑 YOUR SUPABASE CREDENTIALS — edit these two lines
@@ -619,54 +504,111 @@ let importWorkbook = null, importHeaders = [], importRows = [];
 document.getElementById('teamSlider').value    = teamSize;
 document.getElementById('teamLabel').textContent = teamSize;
 
-supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-loadTasks();
+// ── INIT ──────────────────────────────────────────
+// Validate credentials before even creating the client
+if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
+    !SUPABASE_KEY || SUPABASE_KEY === 'YOUR_SUPABASE_KEY') {
+  setConn('err', 'Missing credentials — update SUPABASE_URL and SUPABASE_KEY in the file');
+  document.getElementById('ganttBody').innerHTML =
+    `<tr class="empty-row"><td colspan="8">⚠ Open this file in a text editor and set your SUPABASE_URL and SUPABASE_KEY at the top of the &lt;script&gt; section.</td></tr>`;
+} else {
+  try {
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false },
+      realtime: { timeout: 10000 },
+    });
+    loadTasks();
+  } catch(initErr) {
+    setConn('err', `Client init failed: ${initErr.message}`);
+  }
+}
 
 // ── SUPABASE ──────────────────────────────────────
+const LOAD_TIMEOUT_MS = 12000;
+
 async function loadTasks() {
-  setConn('loading', 'Connecting…');
+  setConn('loading', 'Connecting to Supabase…');
+  document.getElementById('ganttBody').innerHTML =
+    `<tr class="loading-row"><td colspan="8">connecting to database…</td></tr>`;
+
+  // Race the query against a timeout so the page never hangs
+  const queryPromise = supabase
+    .from('tasks')
+    .select('*')
+    .order('proj_start', { ascending: true, nullsFirst: false });
+
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`Timed out after ${LOAD_TIMEOUT_MS / 1000}s — check your Supabase URL and network`)), LOAD_TIMEOUT_MS)
+  );
+
   try {
-    const { data, error } = await supabase.from('tasks').select('*')
-      .order('proj_start', { ascending: true, nullsFirst: false });
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
     if (error) throw error;
     tasks = (data || []).map(dbToTask);
     setConn('ok', `Connected · ${tasks.length} rack${tasks.length !== 1 ? 's' : ''} loaded`);
     document.getElementById('addBtn').disabled = false;
     document.getElementById('importBtn').disabled = false;
     render();
+    // Only subscribe to realtime after the initial load succeeds
     subscribeRealtime();
   } catch(e) {
-    setConn('err', `Connection failed: ${e.message}`);
-    document.getElementById('ganttBody').innerHTML =
-      `<tr class="empty-row"><td colspan="8">⚠ Could not connect. Check SUPABASE_URL and SUPABASE_KEY in the file.</td></tr>`;
+    const msg = e.message || 'Unknown error';
+    setConn('err', `Connection failed: ${msg}`);
+    document.getElementById('ganttBody').innerHTML = `
+      <tr class="empty-row"><td colspan="8">
+        ⚠ Could not connect to Supabase.<br>
+        <span style="font-size:.72rem;color:var(--text3);font-family:var(--mono)">${msg}</span><br>
+        <span style="font-size:.72rem;color:var(--text3)">Check SUPABASE_URL and SUPABASE_KEY · open browser console for details</span>
+        <br><br>
+        <button class="btn btn-ghost" style="font-size:.75rem" onclick="loadTasks()">↺ Retry</button>
+      </td></tr>`;
+    console.error('[Supabase] loadTasks error:', e);
   }
 }
 
 function subscribeRealtime() {
-  if (realtimeSub) supabase.removeChannel(realtimeSub);
-  realtimeSub = supabase.channel('tasks-rt')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
-      if (payload.eventType === 'INSERT') {
-        const t = dbToTask(payload.new);
-        if (!tasks.find(x => x.id === t.id)) { tasks.push(t); render(); }
-      } else if (payload.eventType === 'UPDATE') {
-        const t = dbToTask(payload.new);
-        const i = tasks.findIndex(x => x.id === t.id);
-        if (i >= 0) { tasks[i] = t; render(); }
-      } else if (payload.eventType === 'DELETE') {
-        tasks = tasks.filter(x => x.id !== payload.old.id); render();
-      }
-    }).subscribe();
+  if (!supabase) return;
+  if (realtimeSub) { try { supabase.removeChannel(realtimeSub); } catch {} }
+  try {
+    realtimeSub = supabase.channel('tasks-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
+        try {
+          if (payload.eventType === 'INSERT') {
+            const t = dbToTask(payload.new);
+            if (!tasks.find(x => x.id === t.id)) { tasks.push(t); render(); }
+          } else if (payload.eventType === 'UPDATE') {
+            const t = dbToTask(payload.new);
+            const i = tasks.findIndex(x => x.id === t.id);
+            if (i >= 0) { tasks[i] = t; render(); }
+          } else if (payload.eventType === 'DELETE') {
+            tasks = tasks.filter(x => x.id !== payload.old.id); render();
+          }
+        } catch(rtErr) { console.warn('[Supabase realtime] handler error:', rtErr); }
+      })
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('[Supabase realtime] channel error — realtime updates paused');
+        }
+      });
+  } catch(subErr) {
+    console.warn('[Supabase realtime] subscribe failed:', subErr);
+    // Non-fatal — the dashboard still works, just without live updates
+  }
 }
 
 async function upsertTask(data, id) {
   setSaving(true);
+  const SAVE_TIMEOUT_MS = 10000;
   try {
     if (id) {
-      const { error } = await supabase.from('tasks').update(taskToDb(data)).eq('id', id);
+      const queryP = supabase.from('tasks').update(taskToDb(data)).eq('id', id);
+      const { error } = await Promise.race([queryP,
+        new Promise((_,rej) => setTimeout(() => rej(new Error('Save timed out')), SAVE_TIMEOUT_MS))]);
       if (error) throw error;
     } else {
-      const { data: row, error } = await supabase.from('tasks').insert(taskToDb(data)).select().single();
+      const queryP = supabase.from('tasks').insert(taskToDb(data)).select().single();
+      const { data: row, error } = await Promise.race([queryP,
+        new Promise((_,rej) => setTimeout(() => rej(new Error('Save timed out')), SAVE_TIMEOUT_MS))]);
       if (error) throw error;
       return row.id;
     }
@@ -676,8 +618,11 @@ async function upsertTask(data, id) {
 
 async function removeTask(id) {
   setSaving(true);
+  const SAVE_TIMEOUT_MS = 10000;
   try {
-    const { error } = await supabase.from('tasks').delete().eq('id', id);
+    const queryP = supabase.from('tasks').delete().eq('id', id);
+    const { error } = await Promise.race([queryP,
+      new Promise((_,rej) => setTimeout(() => rej(new Error('Delete timed out')), SAVE_TIMEOUT_MS))]);
     if (error) throw error;
   } catch(e) { showToast(`Delete failed: ${e.message}`, 'error'); throw e; }
   finally { setSaving(false); }
@@ -1370,7 +1315,7 @@ window.runImport = async function() {
     }).filter(Boolean);
 
     if (records.length) {
-      const { error } = await supabase.from('tasks').upsert(records, { onConflict: 'seqf,rack_pa' });
+      const { error } = await supabase.from('tasks').insert(records);
       if (error) { errors += records.length; console.error(error); }
       else done += records.length;
     }
@@ -1403,8 +1348,9 @@ window.exportCSV = function() {
 
 // ── HELPERS ───────────────────────────────────────
 function setConn(state, msg) {
-  const bar=f('connBar'), msgEl=f('connMsg');
+  const bar=f('connBar'), msgEl=f('connMsg'), retryBtn=f('connRetryBtn');
   bar.className=`conn-bar conn-${state}`; msgEl.textContent=msg;
+  if (retryBtn) retryBtn.style.display = (state === 'err') ? 'inline-block' : 'none';
 }
 function setSaving(v) {
   f('savingIndicator').className='saving-indicator'+(v?' show':'');
