@@ -575,7 +575,7 @@ async function loadTasks() {
       render();
       console.log('[Debug] render() completed successfully');
     } catch(renderErr) {
-      console.error('[Debug] render() threw an error:', renderErr);
+      console.error('[Debug] render() threw:', renderErr.message, renderErr.stack);
     }
     subscribeRealtime();
 
@@ -860,8 +860,11 @@ window.sortBy = function(col) {
 let currentRange = null, currentTotal = null;
 
 window.render = function() {
+  console.log('[Debug] render: updateFilters');
   updateFilters();
+  console.log('[Debug] render: getConflicts');
   const conflicts = getConflicts();
+  console.log('[Debug] render: conflicts done, count=', conflicts.length);
 
   // metrics
   const total   = tasks.length;
@@ -907,6 +910,7 @@ window.render = function() {
   const ticks   = monthTicks(range.min, total2);
   const tickHtml = `<div class="month-header">${ticks.map(t=>`<div class="month-tick" style="left:${t.left}%;width:${t.width}%">${t.label}</div>`).join('')}</div>`;
 
+  console.log('[Debug] render: visible rows=', visible.length);
   const body = document.getElementById('ganttBody');
   body.innerHTML = '';
 
