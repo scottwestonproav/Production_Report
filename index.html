@@ -120,7 +120,7 @@ tbody tr:hover td { background: var(--bg3); }
 .loading-row td { font-family: var(--mono); font-size: .78rem; }
 
 /* ── STATUS PILLS ── */
-.pill { display: inline-block; font-size: .62rem; font-weight: 500; padding: .15rem .5rem; border-radius: 20px; white-space: nowrap; }
+.pill { display: inline-block; font-size: .62rem; font-weight: 500; padding: .15rem .5rem; border-radius: 20px; white-space: nowrap; max-width: 130px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
 .pill-ns  { background: rgba(251,146,60,.15);  color: #ef4444; }  /* Dates Required: light orange / red text */
 .pill-ib  { background: rgba(249,115,22,.2);   color: #f97316; }  /* In Build: orange */
 .pill-bwt { background: rgba(59,130,246,.2);   color: #60a5fa; }  /* Built & waiting testing: blue */
@@ -306,11 +306,11 @@ tbody tr:hover td { background: var(--bg3); }
         <thead>
           <tr>
             <th style="width:200px" onclick="sortBy('name')">Project / Room</th>
-            <th onclick="sortBy('seqf')">SEQF</th>
-            <th onclick="sortBy('rack_pa')">PA No.</th>
-            <th onclick="sortBy('wireman')">Wireman</th>
-            <th onclick="sortBy('project_manager')">PM</th>
-            <th onclick="sortBy('status')">Status</th>
+            <th style="width:65px"  onclick="sortBy('seqf')">SEQF</th>
+            <th style="width:80px"  onclick="sortBy('rack_pa')">PA No.</th>
+            <th style="width:95px"  onclick="sortBy('wireman')">Wireman</th>
+            <th style="width:85px"  onclick="sortBy('project_manager')">PM</th>
+            <th style="width:140px" onclick="sortBy('status')">Status</th>
             <th style="min-width:320px">Timeline</th>
             <th style="width:34px"></th>
           </tr>
@@ -770,28 +770,22 @@ function excelDateToISO(v) {
 }
 
 function getRange() {
-  const all = [];
   const now = new Date();
-  const minSane = new Date(now.getFullYear() - 3, 0, 1); // 3 years ago
-  const maxSane = new Date(now.getFullYear() + 3, 11, 31); // 3 years ahead
-  tasks.forEach(t => [t.projStart,t.projEnd,t.actStart,t.actEnd,t.testStart,t.testEnd,t.fat_date,t.site_date]
-    .forEach(d => {
-      if (!d) return;
-      const dt = toDay(d);
-      // Ignore corrupt/out-of-range dates
-      if (dt >= minSane && dt <= maxSane) all.push(dt);
-    }));
-  if (!all.length) { return { min: now.toISOString().slice(0,10), max: addDays(now.toISOString().slice(0,10), 90) }; }
-  const mn = new Date(Math.min(...all)), mx = new Date(Math.max(...all));
-  mn.setDate(mn.getDate() - 7); mx.setDate(mx.getDate() + 14);
-  return { min: mn.toISOString().slice(0,10), max: mx.toISOString().slice(0,10) };
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  start.setDate(start.getDate() - 7);                            // 1 week lookback
+  const end = new Date(now.getFullYear(), now.getMonth() + 3, 0); // last day of 3rd month ahead
+  end.setDate(end.getDate() + 7);                               // 1 week padding
+  return { min: start.toISOString().slice(0,10), max: end.toISOString().slice(0,10) };
 }
 
 function barPct(start, end, rMin, total) {
   if (!start || !end) return null;
-  const s = Math.max(0, daysBetween(rMin, start));
-  const e = Math.min(total, daysBetween(rMin, end) + 1);
-  return { left: (s/total*100).toFixed(3), width: (Math.max(0.3,(e-s)/total*100)).toFixed(3) };
+  const s = daysBetween(rMin, start);
+  const e = daysBetween(rMin, end) + 1;
+  if (e <= 0 || s >= total) return null;
+  const cs = Math.max(0, s);
+  const ce = Math.min(total, e);
+  return { left: (cs/total*100).toFixed(3), width: (Math.max(0.3,(ce-cs)/total*100)).toFixed(3) };
 }
 
 function monthTicks(rMin, total) {
@@ -995,7 +989,7 @@ window.render = function() {
       <td><span class="mono-sm">${t.rack_pa||'—'}</span></td>
       <td><span class="muted">${t.wireman||'—'}</span></td>
       <td><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
-      <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}">${t.status||'—'}</span></td>
+      <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${t.status||''}">${t.status||'—'}</span></td>
       <td class="bar-cell">
         ${tickHtml}
         <div class="bar-track">${projBar}</div>
