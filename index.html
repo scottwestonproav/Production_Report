@@ -920,7 +920,12 @@ window.render = function() {
     body.appendChild(r); renderConflicts(conflicts); return;
   }
 
-  visible.forEach((t, rowIdx) => {
+  // Render in chunks to avoid locking the browser with 500+ complex rows
+  const CHUNK = 50;
+  let chunkIdx = 0;
+  function renderChunk() {
+    const slice = visible.slice(chunkIdx, chunkIdx + CHUNK);
+    slice.forEach((t, rowIdx) => {
     try {
     const conflict = taskInConflict(t, conflicts);
     const proj = barPct(t.projStart, t.projEnd, range.min, total2);
@@ -983,12 +988,19 @@ window.render = function() {
       </td>`;
     body.appendChild(row);
     } catch(rowErr) {
-      console.error('[Debug] Row', rowIdx, 'crashed on task:', t.id, t.name, '| Error:', rowErr.message, rowErr.stack);
+      console.error('[Debug] Row crashed on task:', t?.id, t?.name, '| Error:', rowErr.message);
     }
-  });
-
-  renderConflicts(conflicts);
-  attachDrag();
+    }); // end slice forEach
+    chunkIdx += CHUNK;
+    if (chunkIdx < visible.length) {
+      requestAnimationFrame(renderChunk);
+    } else {
+      renderConflicts(conflicts);
+      attachDrag();
+      console.log('[Debug] render() completed successfully, total rows:', visible.length);
+    }
+  }
+  renderChunk();
 };
 
 function renderConflicts(conflicts) {
