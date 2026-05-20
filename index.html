@@ -73,8 +73,9 @@ input[type=range] { -webkit-appearance: none; width: 90px; height: 4px; backgrou
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--blue); border-radius: 50%; cursor: pointer; }
 .val-badge { font-family: var(--mono); font-size: .8rem; font-weight: 500; padding: .2rem .5rem; border-radius: 5px; min-width: 24px; text-align: center; background: var(--bg3); color: var(--text); }
 .cap-badge { font-size: .72rem; padding: .25rem .7rem; border-radius: 20px; font-weight: 500; margin-left: auto; white-space: nowrap; }
-.cap-ok  { background: var(--green-dim); color: var(--green); }
-.cap-bad { background: var(--red-dim); color: var(--red); }
+.cap-ok   { background: var(--green-dim); color: var(--green); }
+.cap-warn { background: var(--amber-dim); color: var(--amber); }
+.cap-bad  { background: var(--red-dim);   color: var(--red);   }
 .divider { width: 1px; height: 20px; background: var(--border2); flex-shrink: 0; }
 select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); font-family: var(--font); font-size: .78rem; padding: .35rem .6rem; border-radius: var(--radius); cursor: pointer; outline: none; max-width: 160px; }
 select:focus { border-color: var(--blue); }
@@ -159,6 +160,10 @@ tbody tr:hover td { background: var(--bg3); }
 .conflicts-panel { margin: .75rem 0; background: var(--red-dim); border: 1px solid var(--red); border-radius: var(--radius-lg); padding: .9rem 1rem; }
 .conflicts-panel h4 { font-size: .8rem; font-weight: 500; color: var(--red); margin-bottom: .5rem; }
 .conflict-item { font-size: .75rem; color: #f08080; padding: .2rem 0; }
+/* ── ADVISORY PANEL ── */
+.advisory-panel { margin: .75rem 0; background: var(--amber-dim); border: 1px solid var(--amber); border-radius: var(--radius-lg); padding: .9rem 1rem; }
+.advisory-panel h4 { font-size: .8rem; font-weight: 500; color: var(--amber); margin-bottom: .5rem; }
+.advisory-item { font-size: .75rem; color: #fcd34d; padding: .2rem 0; }
 
 /* ── DRAG TOOLTIP ── */
 .drag-tooltip { position: fixed; background: var(--bg); border: 1px solid var(--border2); color: var(--text); font-family: var(--mono); font-size: .72rem; padding: .35rem .65rem; border-radius: 6px; pointer-events: none; z-index: 9999; white-space: nowrap; display: none; box-shadow: 0 4px 20px rgba(0,0,0,.5); }
@@ -306,6 +311,11 @@ tbody tr:hover td { background: var(--bg3); }
   <div class="conflicts-panel" id="testConflictsPanel" style="display:none">
     <h4>⚠ Offsite Commissioner conflicts — test windows require more offsite commissioners than available</h4>
     <div id="testConflictsList"></div>
+  </div>
+
+  <div class="advisory-panel" id="testAdvisoryPanel" style="display:none">
+    <h4>ℹ Offsite Commissioner advisory — projects with multiple systems sharing the same test window (assumed 1 commissioner each)</h4>
+    <div id="testAdvisoryList"></div>
   </div>
 
   <div class="legend">
@@ -851,25 +861,44 @@ function taskInConflict(task, conflicts) {
 }
 
 function getTestConflicts() {
-  const map = {};
+  const map = {};           // day → Set of slot keys
+  const projDateCount = {}; // "name|start|end" → system count (for advisory)
+
   tasks.forEach(t => {
     if (!t.testStart || !t.testEnd) return;
     if (SENT_STATUSES.has(t.status)) return;
+
+    if (!t.test_engineer) {
+      const ak = `${t.name}|${t.testStart}|${t.testEnd}`;
+      projDateCount[ak] = (projDateCount[ak] || 0) + 1;
+    }
+
+    // Same project + same test dates with no named engineer = 1 slot
+    const slotKey = t.test_engineer || `__proj_${t.name}__${t.testStart}__${t.testEnd}`;
+
     let d = toDay(t.testStart), e = toDay(t.testEnd);
     while (d <= e) {
       const k = d.toISOString().slice(0,10);
       if (!map[k]) map[k] = new Set();
-      map[k].add(t.test_engineer || `__u_${t.id}`);
+      map[k].add(slotKey);
       d.setDate(d.getDate()+1);
     }
   });
-  return Object.entries(map)
+
+  const conflicts = Object.entries(map)
     .filter(([,s]) => s.size > testSize)
     .map(([day,s]) => {
-      const named = [...s].filter(p => !p.startsWith('__u_'));
+      const named = [...s].filter(p => !p.startsWith('__proj_'));
       return { day, count: s.size, people: named, unassigned: s.size - named.length };
     })
     .sort((a,b) => a.day.localeCompare(b.day));
+
+  const advisories = Object.entries(projDateCount)
+    .filter(([,n]) => n > 1)
+    .map(([k, n]) => { const [name, start, end] = k.split('|'); return { name, start, end, count: n }; })
+    .sort((a,b) => a.start.localeCompare(b.start));
+
+  return { conflicts, advisories };
 }
 
 function taskInTestConflict(task, conflicts) {
@@ -945,8 +974,8 @@ let currentRange = null, currentTotal = null;
 
 window.render = function() {
   updateFilters();
-  const conflicts     = getConflicts();
-  const testConflicts = getTestConflicts();
+  const conflicts                         = getConflicts();
+  const { conflicts: testConflicts, advisories: testAdvisories } = getTestConflicts();
 
   // metrics
   const total   = tasks.length;
@@ -969,7 +998,8 @@ window.render = function() {
   else { badge.className='cap-badge cap-bad'; badge.textContent=`Builders: ${conflicts.length} day${conflicts.length>1?'s':''} over capacity`; }
 
   const testBadge = document.getElementById('capBadgeTest');
-  if (!testConflicts.length) { testBadge.className='cap-badge cap-ok'; testBadge.textContent='Commissioners: within capacity'; }
+  if (!testConflicts.length && !testAdvisories.length) { testBadge.className='cap-badge cap-ok'; testBadge.textContent='Commissioners: within capacity'; }
+  else if (!testConflicts.length) { testBadge.className='cap-badge cap-warn'; testBadge.textContent=`Commissioners: advisory (${testAdvisories.length} project${testAdvisories.length>1?'s':''})`; }
   else { testBadge.className='cap-badge cap-bad'; testBadge.textContent=`Commissioners: ${testConflicts.length} day${testConflicts.length>1?'s':''} over capacity`; }
 
   // filter
@@ -994,7 +1024,7 @@ window.render = function() {
   if (!visible.length) {
     const r = document.createElement('tr'); r.className='empty-row';
     r.innerHTML = '<td colspan="8">No tasks match your filters.</td>';
-    body.appendChild(r); renderConflicts(conflicts); renderTestConflicts(testConflicts); return;
+    body.appendChild(r); renderConflicts(conflicts); renderTestConflicts(testConflicts, testAdvisories); return;
   }
 
   // Compute range once, outside chunk loop
@@ -1062,7 +1092,7 @@ window.render = function() {
   // Insert all rows as one innerHTML batch — far faster than appendChild per row
   body.innerHTML = visible.map(buildRowHtml).join('');
   renderConflicts(conflicts);
-  renderTestConflicts(testConflicts);
+  renderTestConflicts(testConflicts, testAdvisories);
   attachDrag();
 };
 
@@ -1084,22 +1114,32 @@ function renderConflicts(conflicts) {
   }).join('');
 }
 
-function renderTestConflicts(conflicts) {
+function renderTestConflicts(conflicts, advisories) {
   const panel = document.getElementById('testConflictsPanel');
   const list  = document.getElementById('testConflictsList');
-  if (!conflicts.length) { panel.style.display='none'; return; }
-  panel.style.display = 'block';
-  const grouped = {};
-  conflicts.forEach(c => {
-    const k = [...c.people].sort().join('|') + ':' + c.unassigned;
-    if (!grouped[k]) grouped[k] = { people: c.people, unassigned: c.unassigned, days: [], count: c.count };
-    grouped[k].days.push(c.day);
-  });
-  list.innerHTML = Object.values(grouped).map(g => {
-    const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
-    const who = [...g.people, ...(g.unassigned ? [`${g.unassigned} unassigned`] : [])].join(', ');
-    return `<div class="conflict-item">→ ${g.count} offsite commissioners needed (available: ${testSize}) · ${nd===1?first:`${first}–${last}`} · ${who}</div>`;
-  }).join('');
+  if (!conflicts.length) { panel.style.display='none'; }
+  else {
+    panel.style.display = 'block';
+    const grouped = {};
+    conflicts.forEach(c => {
+      const k = [...c.people].sort().join('|') + ':' + c.unassigned;
+      if (!grouped[k]) grouped[k] = { people: c.people, unassigned: c.unassigned, days: [], count: c.count };
+      grouped[k].days.push(c.day);
+    });
+    list.innerHTML = Object.values(grouped).map(g => {
+      const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
+      const who = [...g.people, ...(g.unassigned ? [`${g.unassigned} project group${g.unassigned>1?'s':''}`] : [])].join(', ');
+      return `<div class="conflict-item">→ ${g.count} commissioners needed (available: ${testSize}) · ${nd===1?first:`${first}–${last}`} · ${who}</div>`;
+    }).join('');
+  }
+
+  const advPanel = document.getElementById('testAdvisoryPanel');
+  const advList  = document.getElementById('testAdvisoryList');
+  if (!advisories.length) { advPanel.style.display='none'; return; }
+  advPanel.style.display = 'block';
+  advList.innerHTML = advisories.map(a =>
+    `<div class="advisory-item">→ ${escH(a.name)} · ${fmtShort(a.start)}–${fmtShort(a.end)} · ${a.count} systems, assumed 1 commissioner</div>`
+  ).join('');
 }
 
 // ── DRAG ──────────────────────────────────────────
