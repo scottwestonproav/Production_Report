@@ -564,11 +564,19 @@ async function loadTasks() {
     }
 
     const data = await res.json();
+    console.log('[Debug] Raw rows from Supabase:', data?.length, 'first row keys:', data?.[0] ? Object.keys(data[0]) : 'no rows');
     tasks = (data || []).map(dbToTask);
+    console.log('[Debug] Tasks mapped:', tasks.length, 'first task:', tasks[0]);
     setConn('ok', `Connected · ${tasks.length} rack${tasks.length !== 1 ? 's' : ''} loaded`);
     document.getElementById('addBtn').disabled = false;
     document.getElementById('importBtn').disabled = false;
-    render();
+    console.log('[Debug] About to call render()');
+    try {
+      render();
+      console.log('[Debug] render() completed successfully');
+    } catch(renderErr) {
+      console.error('[Debug] render() threw an error:', renderErr);
+    }
     subscribeRealtime();
 
   } catch(e) {
