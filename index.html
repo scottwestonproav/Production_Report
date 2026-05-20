@@ -495,7 +495,7 @@ const TEAM_KEY = 'gantt_team_v1';
 let tasks     = [];
 let teamSize  = +(localStorage.getItem(TEAM_KEY) || 9);
 let editingId = null;
-let sortCol   = 'name', sortDir = 1;
+let sortCol   = 'earliestDate', sortDir = 1;
 let supabase  = null, realtimeSub = null;
 
 // import state
@@ -667,6 +667,7 @@ function dbToTask(r) {
     testStart: r.test_start || '', testEnd: r.test_end || '',
     fat_date: r.fat_date || '', site_date: r.site_date || '',
     comments: r.comments || '', qty: r.qty || 1,
+    earliestDate: [r.proj_start,r.act_start,r.test_start,r.fat_date,r.site_date].filter(Boolean).sort()[0] || '',
   };
 }
 
@@ -895,6 +896,9 @@ window.render = function() {
   // sort
   visible.sort((a,b) => {
     let av = a[sortCol]||'', bv = b[sortCol]||'';
+    if (!av && !bv) return 0;
+    if (!av) return 1;
+    if (!bv) return -1;
     if (!isNaN(av) && !isNaN(bv)) { av=+av; bv=+bv; }
     return av < bv ? -sortDir : av > bv ? sortDir : 0;
   });
