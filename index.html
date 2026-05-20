@@ -156,7 +156,7 @@ tbody tr:hover td { background: var(--bg3); }
 .edit-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
 
 /* ── CONFLICTS PANEL ── */
-.conflicts-panel { margin-top: .75rem; background: var(--red-dim); border: 1px solid var(--red); border-radius: var(--radius-lg); padding: .9rem 1rem; }
+.conflicts-panel { margin: .75rem 0; background: var(--red-dim); border: 1px solid var(--red); border-radius: var(--radius-lg); padding: .9rem 1rem; }
 .conflicts-panel h4 { font-size: .8rem; font-weight: 500; color: var(--red); margin-bottom: .5rem; }
 .conflict-item { font-size: .75rem; color: #f08080; padding: .2rem 0; }
 
@@ -291,6 +291,11 @@ tbody tr:hover td { background: var(--bg3); }
     <span class="cap-badge" id="capBadge"></span>
   </div>
 
+  <div class="conflicts-panel" id="conflictsPanel" style="display:none">
+    <h4>⚠ Capacity conflicts — PM projected build dates require more wiremen than available</h4>
+    <div id="conflictsList"></div>
+  </div>
+
   <div class="legend">
     <div class="legend-item"><div class="legend-swatch" style="background:#eab308"></div>PM projected (build)</div>
     <div class="legend-item"><div class="legend-swatch" style="background:#f97316"></div>Actual / assigned</div>
@@ -320,11 +325,6 @@ tbody tr:hover td { background: var(--bg3); }
         </tbody>
       </table>
     </div>
-  </div>
-
-  <div class="conflicts-panel" id="conflictsPanel" style="display:none">
-    <h4>⚠ Capacity conflicts — PM projected build dates require more wiremen than available</h4>
-    <div id="conflictsList"></div>
   </div>
 </div>
 
