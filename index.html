@@ -105,7 +105,7 @@ thead th { font-size: .65rem; font-weight: 500; color: var(--text3); text-transf
 thead th:hover { color: var(--text2); }
 thead th.sort-asc::after { content: ' ↑'; color: var(--blue); }
 thead th.sort-desc::after { content: ' ↓'; color: var(--blue); }
-tbody td { padding: .45rem .75rem; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; }
+tbody td { padding: .45rem .75rem; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: .78rem; white-space: nowrap; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr { transition: background .1s; }
 tbody tr:hover td { background: var(--bg3); }
@@ -304,12 +304,12 @@ tbody tr:hover td { background: var(--bg3); }
       <table aria-label="Production report Gantt chart">
         <thead>
           <tr>
-            <th style="width:170px" onclick="sortBy('name')">Project / Room</th>
-            <th style="width:60px"  onclick="sortBy('seqf')">SEQF</th>
-            <th style="width:65px"  onclick="sortBy('rack_pa')">PA No.</th>
-            <th style="width:75px"  onclick="sortBy('wireman')">Wireman</th>
-            <th style="width:75px"  onclick="sortBy('project_manager')">PM</th>
-            <th style="width:80px"  onclick="sortBy('status')">Status</th>
+            <th onclick="sortBy('name')">Project / Room</th>
+            <th onclick="sortBy('seqf')">SEQF</th>
+            <th onclick="sortBy('rack_pa')">PA No.</th>
+            <th onclick="sortBy('wireman')">Wireman</th>
+            <th onclick="sortBy('project_manager')">PM</th>
+            <th onclick="sortBy('status')">Status</th>
             <th style="min-width:320px">Timeline</th>
             <th style="width:34px"></th>
           </tr>
@@ -989,12 +989,12 @@ window.render = function() {
     const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:var(--green);opacity:.9;cursor:default" title="Site: ${fmtShort(t.site_date)}"></div>` : '';
     const pmShort = (t.project_manager||'').replace('@proav.com','');
     return `<tr>
-      <td style="width:170px"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${slipHtml}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
-      <td style="width:60px"><span class="mono-sm">${t.seqf||'—'}</span></td>
-      <td style="width:65px"><span class="mono-sm">${t.rack_pa||'—'}</span></td>
-      <td style="width:75px"><span class="muted">${t.wireman||'—'}</span></td>
-      <td style="width:75px"><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
-      <td style="width:80px"><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}">${t.status||'—'}</span></td>
+      <td><div class="task-name" title="${t.name} · ${t.room}">${t.name}${slipHtml}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
+      <td><span class="mono-sm">${t.seqf||'—'}</span></td>
+      <td><span class="mono-sm">${t.rack_pa||'—'}</span></td>
+      <td><span class="muted">${t.wireman||'—'}</span></td>
+      <td><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
+      <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}">${t.status||'—'}</span></td>
       <td class="bar-cell">
         ${tickHtml}
         <div class="bar-track">${projBar}</div>
