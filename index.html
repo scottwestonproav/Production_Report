@@ -760,9 +760,17 @@ function excelDateToISO(v) {
 
 function getRange() {
   const all = [];
+  const now = new Date();
+  const minSane = new Date(now.getFullYear() - 3, 0, 1); // 3 years ago
+  const maxSane = new Date(now.getFullYear() + 3, 11, 31); // 3 years ahead
   tasks.forEach(t => [t.projStart,t.projEnd,t.actStart,t.actEnd,t.testStart,t.testEnd,t.fat_date,t.site_date]
-    .forEach(d => { if(d) all.push(toDay(d)); }));
-  if (!all.length) { const n = new Date(); return { min: n.toISOString().slice(0,10), max: addDays(n.toISOString().slice(0,10), 90) }; }
+    .forEach(d => {
+      if (!d) return;
+      const dt = toDay(d);
+      // Ignore corrupt/out-of-range dates
+      if (dt >= minSane && dt <= maxSane) all.push(dt);
+    }));
+  if (!all.length) { return { min: now.toISOString().slice(0,10), max: addDays(now.toISOString().slice(0,10), 90) }; }
   const mn = new Date(Math.min(...all)), mx = new Date(Math.max(...all));
   mn.setDate(mn.getDate() - 7); mx.setDate(mx.getDate() + 14);
   return { min: mn.toISOString().slice(0,10), max: mx.toISOString().slice(0,10) };
@@ -884,23 +892,12 @@ window.render = function() {
     (!fp || t.name === fp) && (!fm || t.project_manager === fm) &&
     (!fw || t.wireman === fw) && (!fs || t.status === fs));
 
-  // timeline range
-  const range  = getRange();
-  const total2 = Math.max(1, daysBetween(range.min, range.max));
-  currentRange = range; currentTotal = total2;
-
-  const ticks   = monthTicks(range.min, total2);
-  const tickHtml = `<div class="month-header">${ticks.map(t=>`<div class="month-tick" style="left:${t.left}%;width:${t.width}%">${t.label}</div>`).join('')}</div>`;
-
   // sort
-  try {
-    visible.sort((a,b) => {
-      let av = a[sortCol]||'', bv = b[sortCol]||'';
-      if (!isNaN(av) && !isNaN(bv)) { av=+av; bv=+bv; }
-      return av < bv ? -sortDir : av > bv ? sortDir : 0;
-    });
-  } catch(sortErr) {
-  }
+  visible.sort((a,b) => {
+    let av = a[sortCol]||'', bv = b[sortCol]||'';
+    if (!isNaN(av) && !isNaN(bv)) { av=+av; bv=+bv; }
+    return av < bv ? -sortDir : av > bv ? sortDir : 0;
+  });
 
   const body = document.getElementById('ganttBody');
   body.innerHTML = '';
@@ -910,6 +907,13 @@ window.render = function() {
     r.innerHTML = '<td colspan="8">No tasks match your filters.</td>';
     body.appendChild(r); renderConflicts(conflicts); return;
   }
+
+  // Compute range once, outside chunk loop
+  const range  = getRange();
+  const total2 = Math.max(1, daysBetween(range.min, range.max));
+  currentRange = range; currentTotal = total2;
+  const ticks   = monthTicks(range.min, total2);
+  const tickHtml = `<div class="month-header">${ticks.map(t=>`<div class="month-tick" style="left:${t.left}%;width:${t.width}%">${t.label}</div>`).join('')}</div>`;
 
   // Render in chunks to avoid locking the browser with 500+ complex rows
   const CHUNK = 50;
