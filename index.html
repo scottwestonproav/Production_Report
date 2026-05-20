@@ -288,10 +288,10 @@ tbody tr:hover td { background: var(--bg3); }
   </div>
 
   <div class="legend">
-    <div class="legend-item"><div class="legend-swatch" style="background:var(--blue)"></div>PM projected (build)</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:var(--green)"></div>Actual / assigned</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#eab308"></div>PM projected (build)</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#f97316"></div>Actual / assigned</div>
     <div class="legend-item"><div class="legend-swatch" style="background:var(--purple);opacity:.8"></div>Test window</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:var(--amber);opacity:.8"></div>FAT / site date</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--green);opacity:.8"></div>FAT / site date</div>
     <div class="legend-item"><div class="legend-swatch" style="background:var(--red);opacity:.7"></div>Capacity conflict</div>
     <div class="legend-hint">⟵ drag bar to move · drag edge to resize ⟶</div>
   </div>
@@ -960,13 +960,13 @@ window.render = function() {
     }
     const capFlag = conflict ? `<span class="cap-flag">⚠</span>` : '';
     const projBar = proj ? `<div class="bar-seg${conflict?' conflict-ring':''}" data-id="${t.id}" data-type="proj" data-action="move"
-        style="left:${proj.left}%;width:${proj.width}%;background:var(--blue);opacity:.9"
+        style="left:${proj.left}%;width:${proj.width}%;background:#eab308;opacity:.9"
         title="PM build: ${fmtShort(t.projStart)} – ${fmtShort(t.projEnd)}">
         <div class="drag-handle left" data-id="${t.id}" data-type="proj" data-action="resize-start"></div>
         <div class="drag-handle right" data-id="${t.id}" data-type="proj" data-action="resize-end"></div>
       </div>` : '';
     const actBar = act ? `<div class="bar-seg" data-id="${t.id}" data-type="act" data-action="move"
-        style="left:${act.left}%;width:${act.width}%;background:var(--green);opacity:.9"
+        style="left:${act.left}%;width:${act.width}%;background:#f97316;opacity:.9"
         title="Actual: ${fmtShort(t.actStart)} – ${fmtShort(t.actEnd)}">
         <div class="drag-handle left" data-id="${t.id}" data-type="act" data-action="resize-start"></div>
         <div class="drag-handle right" data-id="${t.id}" data-type="act" data-action="resize-end"></div>
@@ -977,8 +977,8 @@ window.render = function() {
         <div class="drag-handle left" data-id="${t.id}" data-type="test" data-action="resize-start"></div>
         <div class="drag-handle right" data-id="${t.id}" data-type="test" data-action="resize-end"></div>
       </div>` : '';
-    const fatMarker  = fat  ? `<div class="bar-seg" style="left:${fat.left}%;width:max(${fat.width}%,2px);background:var(--amber);opacity:.9;cursor:default" title="FAT: ${fmtShort(t.fat_date)}"></div>` : '';
-    const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:#f97316;opacity:.9;cursor:default" title="Site: ${fmtShort(t.site_date)}"></div>` : '';
+    const fatMarker  = fat  ? `<div class="bar-seg" style="left:${fat.left}%;width:max(${fat.width}%,2px);background:var(--green);opacity:.9;cursor:default" title="FAT: ${fmtShort(t.fat_date)}"></div>` : '';
+    const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:var(--green);opacity:.9;cursor:default" title="Site: ${fmtShort(t.site_date)}"></div>` : '';
     const pmShort = (t.project_manager||'').replace('@proav.com','');
     return `<tr>
       <td style="width:170px"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${slipHtml}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
