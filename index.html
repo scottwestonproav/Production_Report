@@ -156,12 +156,12 @@ tbody tr:hover td { background: var(--bg3); }
 .edit-btn:hover { background: var(--bg3); color: var(--text); }
 .edit-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
 
-/* ── CONFLICTS PANEL ── */
-.conflicts-panel { margin: .75rem 0; background: var(--red-dim); border: 1px solid var(--red); border-radius: var(--radius-lg); padding: .9rem 1rem; }
+/* ── CAPACITY ROW ── */
+.capacity-row { display:flex; gap:.75rem; margin:.75rem 0; align-items:flex-start; }
+.conflicts-panel { flex:1; min-width:0; background: var(--red-dim); border: 1px solid var(--red); border-radius: var(--radius-lg); padding: .9rem 1rem; }
 .conflicts-panel h4 { font-size: .8rem; font-weight: 500; color: var(--red); margin-bottom: .5rem; }
 .conflict-item { font-size: .75rem; color: #f08080; padding: .2rem 0; }
-/* ── ADVISORY PANEL ── */
-.advisory-panel { margin: .75rem 0; background: var(--amber-dim); border: 1px solid var(--amber); border-radius: var(--radius-lg); padding: .9rem 1rem; }
+.advisory-panel { flex:1; min-width:0; background: var(--amber-dim); border: 1px solid var(--amber); border-radius: var(--radius-lg); padding: .9rem 1rem; }
 .advisory-panel h4 { font-size: .8rem; font-weight: 500; color: var(--amber); margin-bottom: .5rem; }
 .advisory-item { font-size: .75rem; color: #fcd34d; padding: .2rem 0; }
 
@@ -303,19 +303,21 @@ tbody tr:hover td { background: var(--bg3); }
     <span class="cap-badge" id="capBadgeTest"></span>
   </div>
 
-  <div class="conflicts-panel" id="conflictsPanel" style="display:none">
-    <h4>⚠ Rack Builder conflicts — PM projected build dates require more rack builders than available</h4>
-    <div id="conflictsList"></div>
-  </div>
+  <div class="capacity-row">
+    <div class="conflicts-panel" id="conflictsPanel" style="display:none">
+      <h4>⚠ Rack Builder conflicts — PM projected build dates require more rack builders than available</h4>
+      <div id="conflictsList"></div>
+    </div>
 
-  <div class="conflicts-panel" id="testConflictsPanel" style="display:none">
-    <h4>⚠ Offsite Commissioner conflicts — test windows require more offsite commissioners than available</h4>
-    <div id="testConflictsList"></div>
-  </div>
+    <div class="conflicts-panel" id="testConflictsPanel" style="display:none">
+      <h4>⚠ Offsite Commissioner conflicts — test windows require more offsite commissioners than available</h4>
+      <div id="testConflictsList"></div>
+    </div>
 
-  <div class="advisory-panel" id="testAdvisoryPanel" style="display:none">
-    <h4>ℹ Offsite Commissioner advisory — projects with multiple systems sharing the same test window (assumed 1 commissioner each)</h4>
-    <div id="testAdvisoryList"></div>
+    <div class="advisory-panel" id="testAdvisoryPanel" style="display:none">
+      <h4>ℹ Offsite Commissioner advisory — projects with multiple systems sharing the same test window (assumed 1 commissioner each)</h4>
+      <div id="testAdvisoryList"></div>
+    </div>
   </div>
 
   <div class="legend">
