@@ -915,19 +915,14 @@ window.render = function() {
   const ticks   = monthTicks(range.min, total2);
   const tickHtml = `<div class="month-header">${ticks.map(t=>`<div class="month-tick" style="left:${t.left}%;width:${t.width}%">${t.label}</div>`).join('')}</div>`;
 
-  // Render in chunks to avoid locking the browser with 500+ complex rows
-  const CHUNK = 50;
-  let chunkIdx = 0;
-  function renderChunk() {
-    const slice = visible.slice(chunkIdx, chunkIdx + CHUNK);
-    slice.forEach(t => {
+  // Build a row HTML string helper
+  function buildRowHtml(t) {
     const conflict = taskInConflict(t, conflicts);
     const proj = barPct(t.projStart, t.projEnd, range.min, total2);
     const act  = barPct(t.actStart,  t.actEnd,  range.min, total2);
     const test = barPct(t.testStart, t.testEnd, range.min, total2);
     const fat  = barPct(t.fat_date,  t.fat_date, range.min, total2);
     const site = barPct(t.site_date, t.site_date, range.min, total2);
-
     let slipHtml = '';
     if (t.projEnd && t.actEnd) {
       const d = daysBetween(t.projEnd, t.actEnd);
@@ -935,40 +930,33 @@ window.render = function() {
       else if (d < 0) slipHtml = `<span class="slip slip-early">${d}d</span>`;
     }
     const capFlag = conflict ? `<span class="cap-flag">⚠</span>` : '';
-
     const projBar = proj ? `<div class="bar-seg${conflict?' conflict-ring':''}" data-id="${t.id}" data-type="proj" data-action="move"
         style="left:${proj.left}%;width:${proj.width}%;background:var(--blue);opacity:.9"
         title="PM build: ${fmtShort(t.projStart)} – ${fmtShort(t.projEnd)}">
-        <div class="drag-handle left"  data-id="${t.id}" data-type="proj" data-action="resize-start"></div>
+        <div class="drag-handle left" data-id="${t.id}" data-type="proj" data-action="resize-start"></div>
         <div class="drag-handle right" data-id="${t.id}" data-type="proj" data-action="resize-end"></div>
       </div>` : '';
-
     const actBar = act ? `<div class="bar-seg" data-id="${t.id}" data-type="act" data-action="move"
         style="left:${act.left}%;width:${act.width}%;background:var(--green);opacity:.9"
         title="Actual: ${fmtShort(t.actStart)} – ${fmtShort(t.actEnd)}">
-        <div class="drag-handle left"  data-id="${t.id}" data-type="act" data-action="resize-start"></div>
+        <div class="drag-handle left" data-id="${t.id}" data-type="act" data-action="resize-start"></div>
         <div class="drag-handle right" data-id="${t.id}" data-type="act" data-action="resize-end"></div>
       </div>` : '';
-
     const testBar = test ? `<div class="bar-seg" data-id="${t.id}" data-type="test" data-action="move"
         style="left:${test.left}%;width:${test.width}%;background:var(--purple);opacity:.75"
         title="Test: ${fmtShort(t.testStart)} – ${fmtShort(t.testEnd)}">
-        <div class="drag-handle left"  data-id="${t.id}" data-type="test" data-action="resize-start"></div>
+        <div class="drag-handle left" data-id="${t.id}" data-type="test" data-action="resize-start"></div>
         <div class="drag-handle right" data-id="${t.id}" data-type="test" data-action="resize-end"></div>
       </div>` : '';
-
     const fatMarker  = fat  ? `<div class="bar-seg" style="left:${fat.left}%;width:max(${fat.width}%,2px);background:var(--amber);opacity:.9;cursor:default" title="FAT: ${fmtShort(t.fat_date)}"></div>` : '';
     const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:#f97316;opacity:.9;cursor:default" title="Site: ${fmtShort(t.site_date)}"></div>` : '';
-
-    const pmShort = t.project_manager.replace('@proav.com','');
-
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td style="width:170px"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${slipHtml}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room}</div></td>
+    const pmShort = (t.project_manager||'').replace('@proav.com','');
+    return `<tr>
+      <td style="width:170px"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${slipHtml}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
       <td style="width:60px"><span class="mono-sm">${t.seqf||'—'}</span></td>
       <td style="width:65px"><span class="mono-sm">${t.rack_pa||'—'}</span></td>
       <td style="width:75px"><span class="muted">${t.wireman||'—'}</span></td>
-      <td style="width:75px"><span class="muted" title="${t.project_manager}">${pmShort||'—'}</span></td>
+      <td style="width:75px"><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
       <td style="width:80px"><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}">${t.status||'—'}</span></td>
       <td class="bar-cell">
         ${tickHtml}
@@ -979,18 +967,13 @@ window.render = function() {
         <button class="edit-btn" onclick="window._openEdit(${t.id})" aria-label="Edit">
           <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
-      </td>`;
-    body.appendChild(row);
-  }); // end slice forEach
-    chunkIdx += CHUNK;
-    if (chunkIdx < visible.length) {
-      requestAnimationFrame(renderChunk);
-    } else {
-      renderConflicts(conflicts);
-      attachDrag();
-    }
+      </td></tr>`;
   }
-  renderChunk();
+
+  // Insert all rows as one innerHTML batch — far faster than appendChild per row
+  body.innerHTML = visible.map(buildRowHtml).join('');
+  renderConflicts(conflicts);
+  attachDrag();
 };
 
 function renderConflicts(conflicts) {
