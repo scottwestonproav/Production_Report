@@ -120,18 +120,21 @@ tbody tr:hover td { background: var(--bg3); }
 
 /* ── STATUS PILLS ── */
 .pill { display: inline-block; font-size: .62rem; font-weight: 500; padding: .15rem .5rem; border-radius: 20px; white-space: nowrap; }
-.pill-ns  { background: rgba(59,130,246,.15);  color: #7badf6; }
-.pill-ib  { background: rgba(245,158,11,.15);  color: #f5b849; }
-.pill-bwt { background: rgba(139,92,246,.15);  color: #b98df6; }
-.pill-tdw { background: rgba(16,185,129,.15);  color: #34c88a; }
-.pill-rts { background: rgba(16,185,129,.25);  color: #10b981; }
-.pill-ob  { background: rgba(245,158,11,.25);  color: #f59e0b; }
-.pill-rdr { background: rgba(239,68,68,.15);   color: #f07070; }
-.pill-can { background: rgba(90,98,120,.2);    color: #8b93a8; }
+.pill-ns  { background: rgba(251,146,60,.15);  color: #ef4444; }  /* Dates Required: light orange / red text */
+.pill-ib  { background: rgba(249,115,22,.2);   color: #f97316; }  /* In Build: orange */
+.pill-bwt { background: rgba(59,130,246,.2);   color: #60a5fa; }  /* Built & waiting testing: blue */
+.pill-tdw { background: rgba(139,92,246,.2);   color: #a78bfa; }  /* Test dept: purple */
+.pill-rts { background: rgba(236,72,153,.2);   color: #ec4899; }  /* Ready to send: pink */
+.pill-ob  { background: rgba(245,158,11,.25);  color: #f59e0b; }  /* Onsite build: amber */
+.pill-rdr { background: rgba(120,60,20,.2);    color: #b45309; }  /* Resubmit dates: brown */
+.pill-can { background: rgba(239,68,68,.2);    color: #ef4444; }  /* Cancelled: red */
 .pill-ar  { background: rgba(239,68,68,.2);    color: #ef4444; }
-.pill-dso { background: rgba(139,92,246,.08);  color: #a78bfa; }
-.pill-lks { background: rgba(59,130,246,.08);  color: #93c5fd; }
+.pill-dso { background: rgba(22,163,74,.2);    color: #16a34a; }  /* DSP Only: dark green */
+.pill-lks { background: rgba(132,204,22,.15);  color: #84cc16; }  /* Loose Kit: olive green */
 .pill-dr  { background: rgba(245,158,11,.08);  color: #fcd34d; }
+.pill-iob { background: rgba(134,239,172,.2);  color: #4ade80; }  /* Ireland Office Build: light green */
+.pill-par { background: rgba(234,179,8,.2);    color: #ca8a04; }  /* Parked: yellow */
+.pill-oh  { background: rgba(156,163,175,.2);  color: #9ca3af; }  /* On Hold: grey */
 
 /* ── TIMELINE BARS ── */
 .bar-cell { padding: .3rem .75rem; min-width: 280px; }
@@ -388,8 +391,11 @@ tbody tr:hover td { background: var(--bg3); }
           <option value="Ready To Send">Ready To Send</option>
           <option value="Onsite build">Onsite build</option>
           <option value="Resubmit Dates Required">Resubmit Dates Required</option>
+          <option value="Parked (work stopped on it - build/test)">Parked (work stopped on it - build/test)</option>
+          <option value="On Hold">On Hold</option>
           <option value="DSP Only System">DSP Only System</option>
           <option value="Loose Kit Systems">Loose Kit Systems</option>
+          <option value="Ireland Office Build">Ireland Office Build</option>
           <option value="Canceled">Canceled</option>
         </select>
       </div>
@@ -826,17 +832,19 @@ function taskInConflict(task, conflicts) {
 
 // ── STATUS → PILL ─────────────────────────────────
 const STATUS_CLS = {
-  'In Build':                       'pill-ib',
-  'Built and waiting testing':      'pill-bwt',
-  'Test Department Working On Rack':'pill-tdw',
-  'Ready To Send':                  'pill-rts',
-  'Onsite build':                   'pill-ob',
-  'Resubmit Dates Required':        'pill-rdr',
-  'Dates Required':                 'pill-ns',
-  'Canceled':                       'pill-can',
-  'DSP Only System':                'pill-dso',
-  'Loose Kit Systems':              'pill-lks',
-  'Ireland Office Build':           'pill-ns',
+  'In Build':                                 'pill-ib',
+  'Built and waiting testing':                'pill-bwt',
+  'Test Department Working On Rack':          'pill-tdw',
+  'Ready To Send':                            'pill-rts',
+  'Onsite build':                             'pill-ob',
+  'Resubmit Dates Required':                  'pill-rdr',
+  'Dates Required':                           'pill-ns',
+  'Canceled':                                 'pill-can',
+  'DSP Only System':                          'pill-dso',
+  'Loose Kit Systems':                        'pill-lks',
+  'Ireland Office Build':                     'pill-iob',
+  'Parked (work stopped on it - build/test)': 'pill-par',
+  'On Hold':                                  'pill-oh',
 };
 
 // ── FILTERS ───────────────────────────────────────
