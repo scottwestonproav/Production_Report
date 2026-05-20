@@ -664,7 +664,7 @@ function dbToTask(r) {
     wireman: r.wireman || '', cables_by: r.cables_by || '',
     project_manager: r.project_manager || '', coordinator: r.coordinator || '',
     dsp_owner: r.dsp_owner || '', test_engineer: r.test_engineer || '',
-    priority: r.priority || '', status: r.status || 'Dates Required',
+    priority: r.priority || '', status: r.status || '',
     projStart: r.proj_start || '', projEnd: r.proj_end || '',
     actStart:  r.act_start  || '', actEnd:  r.act_end  || '',
     testStart: r.test_start || '', testEnd: r.test_end || '',
@@ -825,11 +825,6 @@ function taskInConflict(task, conflicts) {
 }
 
 // ── STATUS → PILL ─────────────────────────────────
-const STATUS_OPTIONS = [
-  'In Build','Built and waiting testing','Test Department Working On Rack',
-  'Ready To Send','Onsite build','Resubmit Dates Required','Dates Required',
-  'DSP Only System','Loose Kit Systems','Ireland Office Build','Canceled',
-];
 const STATUS_CLS = {
   'In Build':                       'pill-ib',
   'Built and waiting testing':      'pill-bwt',
@@ -852,7 +847,9 @@ function updateFilters() {
   buildMs('ms-project', projects,       'All projects', 'project');
   buildMs('ms-pm',      pms,            'All PMs',      'pm');
   buildMs('ms-wireman', wiremen,        'All wiremen',  'wireman');
-  buildMs('ms-status',  STATUS_OPTIONS, 'All statuses', 'status');
+  const statusVals = [...new Set(tasks.map(t => t.status))];
+  const statusOpts = [...statusVals.filter(Boolean).sort(), ...statusVals.filter(s => !s).map(() => '')];
+  buildMs('ms-status', statusOpts, 'All statuses', 'status');
 }
 
 function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -863,8 +860,9 @@ function buildMs(id, options, placeholder, key) {
   [...sel].forEach(v => { if (!options.includes(v)) sel.delete(v); });
   const wasOpen = wrap.querySelector('.ms-panel')?.classList.contains('open');
   const count   = sel.size;
+  const displayVal = v => v === '' ? '(No status)' : v.replace('@proav.com','');
   const label   = count === 0 ? placeholder
-                : count === 1 ? [...sel][0].replace('@proav.com','')
+                : count === 1 ? displayVal([...sel][0])
                 : `${count} selected`;
   wrap.innerHTML = `
     <button class="ms-btn${wasOpen?' active':''}" onclick="toggleMs(event,'${id}')">
@@ -875,7 +873,7 @@ function buildMs(id, options, placeholder, key) {
       ${options.map(opt => `<label class="ms-item">
         <input type="checkbox" data-val="${escH(opt)}" ${sel.has(opt)?'checked':''}
           onchange="onMsChange('${key}',this.dataset.val,this.checked)">
-        <span>${escH(opt.replace('@proav.com',''))}</span>
+        <span>${opt === '' ? '<em style="color:var(--text3)">(No status)</em>' : escH(opt.replace('@proav.com',''))}</span>
       </label>`).join('')}
       ${count ? `<div class="ms-clear" onclick="clearMs('${key}')">✕ Clear filter</div>` : ''}
     </div>`;
