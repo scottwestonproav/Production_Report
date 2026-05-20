@@ -564,19 +564,11 @@ async function loadTasks() {
     }
 
     const data = await res.json();
-    console.log('[Debug] Raw rows from Supabase:', data?.length, 'first row keys:', data?.[0] ? Object.keys(data[0]) : 'no rows');
     tasks = (data || []).map(dbToTask);
-    console.log('[Debug] Tasks mapped:', tasks.length, 'first task:', tasks[0]);
     setConn('ok', `Connected · ${tasks.length} rack${tasks.length !== 1 ? 's' : ''} loaded`);
     document.getElementById('addBtn').disabled = false;
     document.getElementById('importBtn').disabled = false;
-    console.log('[Debug] About to call render()');
-    try {
-      render();
-      console.log('[Debug] render() completed successfully');
-    } catch(renderErr) {
-      console.error('[Debug] render() threw:', renderErr.message, renderErr.stack);
-    }
+    render();
     subscribeRealtime();
 
   } catch(e) {
@@ -860,11 +852,8 @@ window.sortBy = function(col) {
 let currentRange = null, currentTotal = null;
 
 window.render = function() {
-  console.log('[Debug] render: updateFilters');
   updateFilters();
-  console.log('[Debug] render: getConflicts');
   const conflicts = getConflicts();
-  console.log('[Debug] render: conflicts done, count=', conflicts.length);
 
   // metrics
   const total   = tasks.length;
@@ -895,22 +884,13 @@ window.render = function() {
     (!fp || t.name === fp) && (!fm || t.project_manager === fm) &&
     (!fw || t.wireman === fw) && (!fs || t.status === fs));
 
-  // sort moved above
-
   // timeline range
-  console.log('[Debug] render: getRange');
   const range  = getRange();
   const total2 = Math.max(1, daysBetween(range.min, range.max));
   currentRange = range; currentTotal = total2;
-  console.log('[Debug] render: range=', range.min, 'to', range.max, 'total days=', total2);
 
-  console.log('[Debug] render: monthTicks');
   const ticks   = monthTicks(range.min, total2);
-  console.log('[Debug] render: ticks count=', ticks.length);
   const tickHtml = `<div class="month-header">${ticks.map(t=>`<div class="month-tick" style="left:${t.left}%;width:${t.width}%">${t.label}</div>`).join('')}</div>`;
-  console.log('[Debug] render: tickHtml built, about to renderChunk');
-
-  console.log('[Debug] render: visible rows=', visible.length);
 
   // sort
   try {
@@ -919,9 +899,7 @@ window.render = function() {
       if (!isNaN(av) && !isNaN(bv)) { av=+av; bv=+bv; }
       return av < bv ? -sortDir : av > bv ? sortDir : 0;
     });
-    console.log('[Debug] render: sort done');
   } catch(sortErr) {
-    console.error('[Debug] sort crashed:', sortErr.message);
   }
 
   const body = document.getElementById('ganttBody');
@@ -938,8 +916,7 @@ window.render = function() {
   let chunkIdx = 0;
   function renderChunk() {
     const slice = visible.slice(chunkIdx, chunkIdx + CHUNK);
-    slice.forEach((t, rowIdx) => {
-    try {
+    slice.forEach(t => {
     const conflict = taskInConflict(t, conflicts);
     const proj = barPct(t.projStart, t.projEnd, range.min, total2);
     const act  = barPct(t.actStart,  t.actEnd,  range.min, total2);
@@ -1000,17 +977,13 @@ window.render = function() {
         </button>
       </td>`;
     body.appendChild(row);
-    } catch(rowErr) {
-      console.error('[Debug] Row crashed on task:', t?.id, t?.name, '| Error:', rowErr.message);
-    }
-    }); // end slice forEach
+  }); // end slice forEach
     chunkIdx += CHUNK;
     if (chunkIdx < visible.length) {
       requestAnimationFrame(renderChunk);
     } else {
       renderConflicts(conflicts);
       attachDrag();
-      console.log('[Debug] render() completed successfully, total rows:', visible.length);
     }
   }
   renderChunk();
