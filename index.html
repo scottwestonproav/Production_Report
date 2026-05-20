@@ -818,21 +818,30 @@ function monthTicks(rMin, total) {
 }
 
 // ── CAPACITY ──────────────────────────────────────
+// Statuses that mean the rack is already built — exclude from rack builder demand
+const BUILT_STATUSES = new Set(['Ready To Send', 'Test Department Working On Rack', 'Built and waiting testing']);
+// Statuses that mean the rack has left the building — exclude from commissioner demand
+const SENT_STATUSES  = new Set(['Ready To Send']);
+
 function getConflicts() {
   const map = {};
   tasks.forEach(t => {
-    if (!t.projStart || !t.projEnd || !t.wireman) return;
+    if (!t.projStart || !t.projEnd) return;
+    if (BUILT_STATUSES.has(t.status)) return;
     let d = toDay(t.projStart), e = toDay(t.projEnd);
     while (d <= e) {
       const k = d.toISOString().slice(0,10);
       if (!map[k]) map[k] = new Set();
-      map[k].add(t.wireman);
+      map[k].add(t.wireman || `__u_${t.id}`);
       d.setDate(d.getDate()+1);
     }
   });
   return Object.entries(map)
     .filter(([,s]) => s.size > teamSize)
-    .map(([day,s]) => ({ day, count: s.size, people: [...s] }))
+    .map(([day,s]) => {
+      const named = [...s].filter(p => !p.startsWith('__u_'));
+      return { day, count: s.size, people: named, unassigned: s.size - named.length };
+    })
     .sort((a,b) => a.day.localeCompare(b.day));
 }
 
@@ -844,18 +853,22 @@ function taskInConflict(task, conflicts) {
 function getTestConflicts() {
   const map = {};
   tasks.forEach(t => {
-    if (!t.testStart || !t.testEnd || !t.test_engineer) return;
+    if (!t.testStart || !t.testEnd) return;
+    if (SENT_STATUSES.has(t.status)) return;
     let d = toDay(t.testStart), e = toDay(t.testEnd);
     while (d <= e) {
       const k = d.toISOString().slice(0,10);
       if (!map[k]) map[k] = new Set();
-      map[k].add(t.test_engineer);
+      map[k].add(t.test_engineer || `__u_${t.id}`);
       d.setDate(d.getDate()+1);
     }
   });
   return Object.entries(map)
     .filter(([,s]) => s.size > testSize)
-    .map(([day,s]) => ({ day, count: s.size, people: [...s] }))
+    .map(([day,s]) => {
+      const named = [...s].filter(p => !p.startsWith('__u_'));
+      return { day, count: s.size, people: named, unassigned: s.size - named.length };
+    })
     .sort((a,b) => a.day.localeCompare(b.day));
 }
 
@@ -1060,13 +1073,14 @@ function renderConflicts(conflicts) {
   panel.style.display = 'block';
   const grouped = {};
   conflicts.forEach(c => {
-    const k = [...c.people].sort().join('|');
-    if (!grouped[k]) grouped[k] = { people: c.people, days: [], count: c.count };
+    const k = [...c.people].sort().join('|') + ':' + c.unassigned;
+    if (!grouped[k]) grouped[k] = { people: c.people, unassigned: c.unassigned, days: [], count: c.count };
     grouped[k].days.push(c.day);
   });
   list.innerHTML = Object.values(grouped).map(g => {
     const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
-    return `<div class="conflict-item">→ ${g.count} rack builders needed (available: ${teamSize}) · ${nd===1?first:`${first}–${last}`} · ${g.people.join(', ')}</div>`;
+    const who = [...g.people, ...(g.unassigned ? [`${g.unassigned} unassigned`] : [])].join(', ');
+    return `<div class="conflict-item">→ ${g.count} rack builders needed (available: ${teamSize}) · ${nd===1?first:`${first}–${last}`} · ${who}</div>`;
   }).join('');
 }
 
@@ -1077,13 +1091,14 @@ function renderTestConflicts(conflicts) {
   panel.style.display = 'block';
   const grouped = {};
   conflicts.forEach(c => {
-    const k = [...c.people].sort().join('|');
-    if (!grouped[k]) grouped[k] = { people: c.people, days: [], count: c.count };
+    const k = [...c.people].sort().join('|') + ':' + c.unassigned;
+    if (!grouped[k]) grouped[k] = { people: c.people, unassigned: c.unassigned, days: [], count: c.count };
     grouped[k].days.push(c.day);
   });
   list.innerHTML = Object.values(grouped).map(g => {
     const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
-    return `<div class="conflict-item">→ ${g.count} offsite commissioners needed (available: ${testSize}) · ${nd===1?first:`${first}–${last}`} · ${g.people.join(', ')}</div>`;
+    const who = [...g.people, ...(g.unassigned ? [`${g.unassigned} unassigned`] : [])].join(', ');
+    return `<div class="conflict-item">→ ${g.count} offsite commissioners needed (available: ${testSize}) · ${nd===1?first:`${first}–${last}`} · ${who}</div>`;
   }).join('');
 }
 
