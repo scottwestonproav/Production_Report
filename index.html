@@ -667,7 +667,7 @@ function dbToTask(r) {
     testStart: r.test_start || '', testEnd: r.test_end || '',
     fat_date: r.fat_date || '', site_date: r.site_date || '',
     comments: r.comments || '', qty: r.qty || 1,
-    earliestDate: [r.proj_start,r.act_start,r.test_start,r.fat_date,r.site_date].filter(Boolean).sort()[0] || '',
+    earliestDate: r.proj_start || '',
   };
 }
 
