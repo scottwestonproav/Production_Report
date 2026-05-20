@@ -275,10 +275,16 @@ tbody tr:hover td { background: var(--bg3); }
   <div class="controls">
     <div class="ctrl-group">
       <svg style="width:15px;height:15px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-      <span class="ctrl-label">Team size</span>
+      <span class="ctrl-label">Rack Builders</span>
       <input type="range" min="1" max="20" step="1" id="teamSlider" value="9" oninput="onTeamChange(this.value)">
       <span class="val-badge" id="teamLabel">9</span>
-      <span class="ctrl-label" style="color:var(--text3)">wiremen</span>
+    </div>
+    <div class="divider"></div>
+    <div class="ctrl-group">
+      <svg style="width:15px;height:15px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      <span class="ctrl-label">Offsite Commissioners</span>
+      <input type="range" min="1" max="20" step="1" id="testSlider" value="3" oninput="onTestChange(this.value)">
+      <span class="val-badge" id="testLabel">3</span>
     </div>
     <div class="divider"></div>
     <div class="ctrl-group" style="gap:.4rem;flex-wrap:wrap">
@@ -289,11 +295,17 @@ tbody tr:hover td { background: var(--bg3); }
       <div class="ms-wrap" id="ms-status"></div>
     </div>
     <span class="cap-badge" id="capBadge"></span>
+    <span class="cap-badge" id="capBadgeTest"></span>
   </div>
 
   <div class="conflicts-panel" id="conflictsPanel" style="display:none">
-    <h4>⚠ Capacity conflicts — PM projected build dates require more wiremen than available</h4>
+    <h4>⚠ Rack Builder conflicts — PM projected build dates require more rack builders than available</h4>
     <div id="conflictsList"></div>
+  </div>
+
+  <div class="conflicts-panel" id="testConflictsPanel" style="display:none">
+    <h4>⚠ Offsite Commissioner conflicts — test windows require more offsite commissioners than available</h4>
+    <div id="testConflictsList"></div>
   </div>
 
   <div class="legend">
@@ -501,8 +513,10 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 // ── STATE ─────────────────────────────────────────
 const TEAM_KEY = 'gantt_team_v1';
+const TEST_KEY  = 'gantt_test_v1';
 let tasks     = [];
 let teamSize  = +(localStorage.getItem(TEAM_KEY) || 9);
+let testSize  = +(localStorage.getItem(TEST_KEY)  || 3);
 let editingId = null;
 let sortCol   = 'earliestDate', sortDir = 1;
 const filterSets = { project: new Set(), pm: new Set(), wireman: new Set(), status: new Set() };
@@ -511,8 +525,10 @@ let supabase  = null, realtimeSub = null;
 // import state
 let importWorkbook = null, importHeaders = [], importRows = [];
 
-document.getElementById('teamSlider').value    = teamSize;
+document.getElementById('teamSlider').value     = teamSize;
 document.getElementById('teamLabel').textContent = teamSize;
+document.getElementById('testSlider').value     = testSize;
+document.getElementById('testLabel').textContent = testSize;
 
 // ── TIMEOUTS (must be declared before loadTasks is called) ─────────────────
 const LOAD_TIMEOUT_MS = 12000;
@@ -825,6 +841,29 @@ function taskInConflict(task, conflicts) {
   return conflicts.some(c => c.day >= task.projStart && c.day <= task.projEnd);
 }
 
+function getTestConflicts() {
+  const map = {};
+  tasks.forEach(t => {
+    if (!t.testStart || !t.testEnd || !t.test_engineer) return;
+    let d = toDay(t.testStart), e = toDay(t.testEnd);
+    while (d <= e) {
+      const k = d.toISOString().slice(0,10);
+      if (!map[k]) map[k] = new Set();
+      map[k].add(t.test_engineer);
+      d.setDate(d.getDate()+1);
+    }
+  });
+  return Object.entries(map)
+    .filter(([,s]) => s.size > testSize)
+    .map(([day,s]) => ({ day, count: s.size, people: [...s] }))
+    .sort((a,b) => a.day.localeCompare(b.day));
+}
+
+function taskInTestConflict(task, conflicts) {
+  if (!task.testStart || !task.testEnd) return false;
+  return conflicts.some(c => c.day >= task.testStart && c.day <= task.testEnd);
+}
+
 // ── STATUS → PILL ─────────────────────────────────
 const STATUS_CLS = {
   'In Build':                                 'pill-ib',
@@ -893,7 +932,8 @@ let currentRange = null, currentTotal = null;
 
 window.render = function() {
   updateFilters();
-  const conflicts = getConflicts();
+  const conflicts     = getConflicts();
+  const testConflicts = getTestConflicts();
 
   // metrics
   const total   = tasks.length;
@@ -912,8 +952,12 @@ window.render = function() {
     <div class="metric"><div class="metric-label">Peak demand</div><div class="metric-val ${peakCls}">${peak||'—'}</div></div>`;
 
   const badge = document.getElementById('capBadge');
-  if (!conflicts.length) { badge.className='cap-badge cap-ok'; badge.textContent='Within capacity'; }
-  else { badge.className='cap-badge cap-bad'; badge.textContent=`${conflicts.length} day${conflicts.length>1?'s':''} over capacity`; }
+  if (!conflicts.length) { badge.className='cap-badge cap-ok'; badge.textContent='Builders: within capacity'; }
+  else { badge.className='cap-badge cap-bad'; badge.textContent=`Builders: ${conflicts.length} day${conflicts.length>1?'s':''} over capacity`; }
+
+  const testBadge = document.getElementById('capBadgeTest');
+  if (!testConflicts.length) { testBadge.className='cap-badge cap-ok'; testBadge.textContent='Commissioners: within capacity'; }
+  else { testBadge.className='cap-badge cap-bad'; testBadge.textContent=`Commissioners: ${testConflicts.length} day${testConflicts.length>1?'s':''} over capacity`; }
 
   // filter
   const fp = filterSets.project, fm = filterSets.pm, fw = filterSets.wireman, fs = filterSets.status;
@@ -937,7 +981,7 @@ window.render = function() {
   if (!visible.length) {
     const r = document.createElement('tr'); r.className='empty-row';
     r.innerHTML = '<td colspan="8">No tasks match your filters.</td>';
-    body.appendChild(r); renderConflicts(conflicts); return;
+    body.appendChild(r); renderConflicts(conflicts); renderTestConflicts(testConflicts); return;
   }
 
   // Compute range once, outside chunk loop
@@ -1005,6 +1049,7 @@ window.render = function() {
   // Insert all rows as one innerHTML batch — far faster than appendChild per row
   body.innerHTML = visible.map(buildRowHtml).join('');
   renderConflicts(conflicts);
+  renderTestConflicts(testConflicts);
   attachDrag();
 };
 
@@ -1021,7 +1066,24 @@ function renderConflicts(conflicts) {
   });
   list.innerHTML = Object.values(grouped).map(g => {
     const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
-    return `<div class="conflict-item">→ ${g.count} wiremen needed (team: ${teamSize}) · ${nd===1?first:`${first}–${last}`} · ${g.people.join(', ')}</div>`;
+    return `<div class="conflict-item">→ ${g.count} rack builders needed (available: ${teamSize}) · ${nd===1?first:`${first}–${last}`} · ${g.people.join(', ')}</div>`;
+  }).join('');
+}
+
+function renderTestConflicts(conflicts) {
+  const panel = document.getElementById('testConflictsPanel');
+  const list  = document.getElementById('testConflictsList');
+  if (!conflicts.length) { panel.style.display='none'; return; }
+  panel.style.display = 'block';
+  const grouped = {};
+  conflicts.forEach(c => {
+    const k = [...c.people].sort().join('|');
+    if (!grouped[k]) grouped[k] = { people: c.people, days: [], count: c.count };
+    grouped[k].days.push(c.day);
+  });
+  list.innerHTML = Object.values(grouped).map(g => {
+    const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
+    return `<div class="conflict-item">→ ${g.count} offsite commissioners needed (available: ${testSize}) · ${nd===1?first:`${first}–${last}`} · ${g.people.join(', ')}</div>`;
   }).join('');
 }
 
@@ -1110,6 +1172,11 @@ async function onDragEnd() {
 window.onTeamChange = function(v) {
   teamSize=+v; document.getElementById('teamLabel').textContent=v;
   localStorage.setItem(TEAM_KEY,v); render();
+};
+
+window.onTestChange = function(v) {
+  testSize=+v; document.getElementById('testLabel').textContent=v;
+  localStorage.setItem(TEST_KEY,v); render();
 };
 
 // ── MODAL HELPERS ─────────────────────────────────
