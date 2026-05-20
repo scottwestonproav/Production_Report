@@ -903,12 +903,17 @@ window.render = function() {
   });
 
   // timeline range
+  console.log('[Debug] render: getRange');
   const range  = getRange();
   const total2 = Math.max(1, daysBetween(range.min, range.max));
   currentRange = range; currentTotal = total2;
+  console.log('[Debug] render: range=', range.min, 'to', range.max, 'total days=', total2);
 
+  console.log('[Debug] render: monthTicks');
   const ticks   = monthTicks(range.min, total2);
+  console.log('[Debug] render: ticks count=', ticks.length);
   const tickHtml = `<div class="month-header">${ticks.map(t=>`<div class="month-tick" style="left:${t.left}%;width:${t.width}%">${t.label}</div>`).join('')}</div>`;
+  console.log('[Debug] render: tickHtml built, about to renderChunk');
 
   console.log('[Debug] render: visible rows=', visible.length);
   const body = document.getElementById('ganttBody');
