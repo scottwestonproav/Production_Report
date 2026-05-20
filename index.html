@@ -78,6 +78,18 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
 .divider { width: 1px; height: 20px; background: var(--border2); flex-shrink: 0; }
 select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); font-family: var(--font); font-size: .78rem; padding: .35rem .6rem; border-radius: var(--radius); cursor: pointer; outline: none; max-width: 160px; }
 select:focus { border-color: var(--blue); }
+.ms-wrap { position: relative; display: inline-block; }
+.ms-btn { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); font-family: var(--font); font-size: .78rem; padding: .35rem .6rem; border-radius: var(--radius); cursor: pointer; outline: none; display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; }
+.ms-btn:hover, .ms-btn.active { border-color: var(--blue); color: var(--text); }
+.ms-count { background: var(--blue); color: #fff; border-radius: 10px; font-size: .62rem; padding: .05rem .42rem; font-weight: 600; }
+.ms-caret { color: var(--text3); font-size: .65rem; }
+.ms-panel { position: absolute; top: calc(100% + 4px); left: 0; min-width: 210px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); z-index: 200; box-shadow: 0 4px 24px rgba(0,0,0,.5); max-height: 260px; overflow-y: auto; display: none; }
+.ms-panel.open { display: block; }
+.ms-item { display: flex; align-items: center; gap: .55rem; padding: .42rem .8rem; font-size: .78rem; color: var(--text2); cursor: pointer; }
+.ms-item:hover { background: var(--bg3); color: var(--text); }
+.ms-item input { accent-color: var(--blue); cursor: pointer; }
+.ms-clear { font-size: .68rem; color: var(--text3); padding: .35rem .8rem; border-top: 1px solid var(--border); cursor: pointer; }
+.ms-clear:hover { color: var(--red); }
 
 /* ── LEGEND ── */
 .legend { display: flex; align-items: center; gap: 1rem; margin-bottom: .7rem; flex-wrap: wrap; }
@@ -267,20 +279,10 @@ tbody tr:hover td { background: var(--bg3); }
     <div class="divider"></div>
     <div class="ctrl-group" style="gap:.4rem;flex-wrap:wrap">
       <svg style="width:13px;height:13px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-      <select id="filterProject"  onchange="render()"><option value="">All projects</option></select>
-      <select id="filterPM"       onchange="render()"><option value="">All PMs</option></select>
-      <select id="filterWireman"  onchange="render()"><option value="">All wiremen</option></select>
-      <select id="filterStatus"   onchange="render()">
-        <option value="">All statuses</option>
-        <option value="In Build">In Build</option>
-        <option value="Built and waiting testing">Built &amp; waiting test</option>
-        <option value="Test Department Working On Rack">Test dept working</option>
-        <option value="Ready To Send">Ready to send</option>
-        <option value="Onsite build">Onsite build</option>
-        <option value="Resubmit Dates Required">Resubmit dates</option>
-        <option value="Dates Required">Dates required</option>
-        <option value="Canceled">Canceled</option>
-      </select>
+      <div class="ms-wrap" id="ms-project"></div>
+      <div class="ms-wrap" id="ms-pm"></div>
+      <div class="ms-wrap" id="ms-wireman"></div>
+      <div class="ms-wrap" id="ms-status"></div>
     </div>
     <span class="cap-badge" id="capBadge"></span>
   </div>
@@ -496,6 +498,7 @@ let tasks     = [];
 let teamSize  = +(localStorage.getItem(TEAM_KEY) || 9);
 let editingId = null;
 let sortCol   = 'earliestDate', sortDir = 1;
+const filterSets = { project: new Set(), pm: new Set(), wireman: new Set(), status: new Set() };
 let supabase  = null, realtimeSub = null;
 
 // import state
@@ -822,6 +825,11 @@ function taskInConflict(task, conflicts) {
 }
 
 // ── STATUS → PILL ─────────────────────────────────
+const STATUS_OPTIONS = [
+  'In Build','Built and waiting testing','Test Department Working On Rack',
+  'Ready To Send','Onsite build','Resubmit Dates Required','Dates Required',
+  'DSP Only System','Loose Kit Systems','Ireland Office Build','Canceled',
+];
 const STATUS_CLS = {
   'In Build':                       'pill-ib',
   'Built and waiting testing':      'pill-bwt',
@@ -841,14 +849,36 @@ function updateFilters() {
   const projects = [...new Set(tasks.map(t => t.name).filter(Boolean))].sort();
   const pms      = [...new Set(tasks.map(t => t.project_manager).filter(Boolean))].sort();
   const wiremen  = [...new Set(tasks.map(t => t.wireman).filter(Boolean))].sort();
-  const setOpts  = (id, vals) => {
-    const sel = document.getElementById(id), cur = sel.value;
-    sel.innerHTML = `<option value="">All ${id.replace('filter','').toLowerCase()}</option>` +
-      vals.map(v => `<option value="${v}"${v===cur?' selected':''}>${v.replace('@proav.com','')}</option>`).join('');
-  };
-  setOpts('filterProject', projects);
-  setOpts('filterPM', pms);
-  setOpts('filterWireman', wiremen);
+  buildMs('ms-project', projects,       'All projects', 'project');
+  buildMs('ms-pm',      pms,            'All PMs',      'pm');
+  buildMs('ms-wireman', wiremen,        'All wiremen',  'wireman');
+  buildMs('ms-status',  STATUS_OPTIONS, 'All statuses', 'status');
+}
+
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function buildMs(id, options, placeholder, key) {
+  const wrap = document.getElementById(id); if (!wrap) return;
+  const sel  = filterSets[key];
+  [...sel].forEach(v => { if (!options.includes(v)) sel.delete(v); });
+  const wasOpen = wrap.querySelector('.ms-panel')?.classList.contains('open');
+  const count   = sel.size;
+  const label   = count === 0 ? placeholder
+                : count === 1 ? [...sel][0].replace('@proav.com','')
+                : `${count} selected`;
+  wrap.innerHTML = `
+    <button class="ms-btn${wasOpen?' active':''}" onclick="toggleMs(event,'${id}')">
+      <span>${escH(label)}</span>
+      ${count ? `<span class="ms-count">${count}</span>` : `<span class="ms-caret">▾</span>`}
+    </button>
+    <div class="ms-panel${wasOpen?' open':''}" onclick="event.stopPropagation()">
+      ${options.map(opt => `<label class="ms-item">
+        <input type="checkbox" data-val="${escH(opt)}" ${sel.has(opt)?'checked':''}
+          onchange="onMsChange('${key}',this.dataset.val,this.checked)">
+        <span>${escH(opt.replace('@proav.com',''))}</span>
+      </label>`).join('')}
+      ${count ? `<div class="ms-clear" onclick="clearMs('${key}')">✕ Clear filter</div>` : ''}
+    </div>`;
 }
 
 // ── SORT ──────────────────────────────────────────
@@ -885,13 +915,10 @@ window.render = function() {
   else { badge.className='cap-badge cap-bad'; badge.textContent=`${conflicts.length} day${conflicts.length>1?'s':''} over capacity`; }
 
   // filter
-  const fp = document.getElementById('filterProject').value;
-  const fm = document.getElementById('filterPM').value;
-  const fw = document.getElementById('filterWireman').value;
-  const fs = document.getElementById('filterStatus').value;
+  const fp = filterSets.project, fm = filterSets.pm, fw = filterSets.wireman, fs = filterSets.status;
   let visible = tasks.filter(t =>
-    (!fp || t.name === fp) && (!fm || t.project_manager === fm) &&
-    (!fw || t.wireman === fw) && (!fs || t.status === fs));
+    (!fp.size || fp.has(t.name)) && (!fm.size || fm.has(t.project_manager)) &&
+    (!fw.size || fw.has(t.wireman)) && (!fs.size || fs.has(t.status)));
 
   // sort
   visible.sort((a,b) => {
@@ -1391,6 +1418,26 @@ function showToast(msg, type='ok') {
   document.body.appendChild(el);
   setTimeout(()=>el.remove(),2800);
 }
+
+window.toggleMs = function(e, id) {
+  e.stopPropagation();
+  const wrap = document.getElementById(id);
+  const panel = wrap?.querySelector('.ms-panel');
+  const btn   = wrap?.querySelector('.ms-btn');
+  const isOpen = panel?.classList.contains('open');
+  document.querySelectorAll('.ms-panel.open').forEach(p => { p.classList.remove('open'); p.closest('.ms-wrap')?.querySelector('.ms-btn')?.classList.remove('active'); });
+  if (!isOpen) { panel?.classList.add('open'); btn?.classList.add('active'); }
+};
+window.onMsChange = function(key, val, checked) {
+  if (checked) filterSets[key].add(val); else filterSets[key].delete(val);
+  render();
+};
+window.clearMs = function(key) {
+  filterSets[key].clear(); render();
+};
+document.addEventListener('click', () => {
+  document.querySelectorAll('.ms-panel.open').forEach(p => { p.classList.remove('open'); p.closest('.ms-wrap')?.querySelector('.ms-btn')?.classList.remove('active'); });
+});
 
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){ window.closeModal(); window.closeImport(); }
