@@ -303,7 +303,7 @@ tbody tr:hover td { background: var(--bg3); }
     <span class="cap-badge" id="capBadgeTest"></span>
   </div>
 
-  <div class="capacity-row">
+  <div class="capacity-row" style="display:flex;gap:.75rem;align-items:flex-start;margin:.75rem 0">
     <div class="conflicts-panel" id="conflictsPanel" style="display:none">
       <h4>⚠ Rack Builder conflicts — PM projected build dates require more rack builders than available</h4>
       <div id="conflictsList"></div>
@@ -1102,7 +1102,7 @@ function renderConflicts(conflicts) {
   const panel = document.getElementById('conflictsPanel');
   const list  = document.getElementById('conflictsList');
   if (!conflicts.length) { panel.style.display='none'; return; }
-  panel.style.display = 'block';
+  panel.style.display = '';
   const grouped = {};
   conflicts.forEach(c => {
     const k = [...c.people].sort().join('|') + ':' + c.unassigned;
@@ -1121,7 +1121,7 @@ function renderTestConflicts(conflicts, advisories) {
   const list  = document.getElementById('testConflictsList');
   if (!conflicts.length) { panel.style.display='none'; }
   else {
-    panel.style.display = 'block';
+    panel.style.display = '';
     const grouped = {};
     conflicts.forEach(c => {
       const k = [...c.people].sort().join('|') + ':' + c.unassigned;
@@ -1138,7 +1138,7 @@ function renderTestConflicts(conflicts, advisories) {
   const advPanel = document.getElementById('testAdvisoryPanel');
   const advList  = document.getElementById('testAdvisoryList');
   if (!advisories.length) { advPanel.style.display='none'; return; }
-  advPanel.style.display = 'block';
+  advPanel.style.display = '';
   advList.innerHTML = advisories.map(a =>
     `<div class="advisory-item">→ ${escH(a.name)} · ${fmtShort(a.start)}–${fmtShort(a.end)} · ${a.count} systems, assumed 1 commissioner</div>`
   ).join('');
