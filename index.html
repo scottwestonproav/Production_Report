@@ -478,9 +478,125 @@ tbody tr:hover td { background: var(--bg3); }
   </div>
 </div>
 
-<script type="module">
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import * as XLSX from 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm';
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// No module imports needed — we talk to Supabase directly via fetch()
+// and XLSX is loaded above as a global script tag
+
+// Minimal Supabase client using plain fetch
+function createClient(url, key) {
+  const headers = {
+    'apikey': key,
+    'Authorization': 'Bearer ' + key,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
+  };
+  return {
+    from: function(table) {
+      return {
+        select: function(cols) {
+          cols = cols || '*';
+          let url2 = url + '/rest/v1/' + table + '?select=' + encodeURIComponent(cols);
+          let orders = [];
+          let obj = {
+            order: function(col, opts) {
+              opts = opts || {};
+              let o = col + (opts.ascending === false ? '.desc' : '.asc');
+              if (opts.nullsFirst) o += '.nullsfirst';
+              else o += '.nullslast';
+              orders.push(o);
+              return obj;
+            },
+            then: function() { return obj._run().then.apply(obj._run(), arguments); },
+            _run: async function() {
+              if (orders.length) url2 += '&order=' + orders.join(',');
+              try {
+                const r = await fetch(url2, { headers });
+                const data = await r.json();
+                if (!r.ok) return { data: null, error: data };
+                return { data, error: null };
+              } catch(e) { return { data: null, error: e }; }
+            }
+          };
+          return obj;
+        },
+        insert: function(data) {
+          return {
+            select: function() { return this; },
+            single: function() { return this; },
+            then: function() { return this._run().then.apply(this._run(), arguments); },
+            _run: async function() {
+              try {
+                const r = await fetch(url + '/rest/v1/' + table, {
+                  method: 'POST',
+                  headers: { ...headers, 'Prefer': 'return=representation' },
+                  body: JSON.stringify(data)
+                });
+                const resp = await r.json();
+                if (!r.ok) return { data: null, error: resp };
+                const row = Array.isArray(resp) ? resp[0] : resp;
+                return { data: row, error: null };
+              } catch(e) { return { data: null, error: e }; }
+            }
+          };
+        },
+        update: function(data) {
+          let eqCol, eqVal;
+          return {
+            eq: function(col, val) { eqCol = col; eqVal = val; return this; },
+            then: function() { return this._run().then.apply(this._run(), arguments); },
+            _run: async function() {
+              try {
+                const r = await fetch(url + '/rest/v1/' + table + '?' + eqCol + '=eq.' + eqVal, {
+                  method: 'PATCH',
+                  headers: { ...headers, 'Prefer': 'return=minimal' },
+                  body: JSON.stringify(data)
+                });
+                if (!r.ok) { const e = await r.json(); return { error: e }; }
+                return { error: null };
+              } catch(e) { return { error: e }; }
+            }
+          };
+        },
+        delete: function() {
+          let eqCol, eqVal;
+          return {
+            eq: function(col, val) { eqCol = col; eqVal = val; return this; },
+            then: function() { return this._run().then.apply(this._run(), arguments); },
+            _run: async function() {
+              try {
+                const r = await fetch(url + '/rest/v1/' + table + '?' + eqCol + '=eq.' + eqVal, {
+                  method: 'DELETE',
+                  headers
+                });
+                if (!r.ok) { const e = await r.json(); return { error: e }; }
+                return { error: null };
+              } catch(e) { return { error: e }; }
+            }
+          };
+        },
+        upsert: async function(data, opts) {
+          opts = opts || {};
+          let qs = url + '/rest/v1/' + table;
+          if (opts.onConflict) qs += '?on_conflict=' + opts.onConflict;
+          try {
+            const r = await fetch(qs, {
+              method: 'POST',
+              headers: { ...headers, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+              body: JSON.stringify(data)
+            });
+            if (!r.ok) { const e = await r.json(); return { error: e }; }
+            return { error: null };
+          } catch(e) { return { error: e }; }
+        }
+      };
+    },
+    channel: function() {
+      return { on: function() { return this; }, subscribe: function() { return this; } };
+    },
+    removeChannel: function() {}
+  };
+}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    🔑 YOUR SUPABASE CREDENTIALS — edit these two lines
@@ -1254,7 +1370,7 @@ window.runImport = async function() {
     }).filter(Boolean);
 
     if (records.length) {
-      const { error } = await supabase.from('tasks').insert(records);
+      const { error } = await supabase.from('tasks').upsert(records, { onConflict: 'seqf,rack_pa' });
       if (error) { errors += records.length; console.error(error); }
       else done += records.length;
     }
