@@ -364,7 +364,8 @@ tbody tr:hover td { background: var(--bg3); }
   <div class="legend">
     <div class="legend-item"><div class="legend-swatch" style="background:#eab308"></div>Rack Build</div>
     <div class="legend-item"><div class="legend-swatch" style="background:var(--purple);opacity:.8"></div>Test window</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:var(--green);opacity:.8"></div>FAT / site date</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:var(--green);opacity:.8"></div>FAT date</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#ec4899;opacity:.8"></div>Rack to Site</div>
     <div class="legend-item"><div class="legend-swatch" style="background:var(--red);opacity:.7"></div>Capacity conflict</div>
     <div class="legend-hint">⟵ drag bar to move · drag edge to resize ⟶</div>
   </div>
@@ -1128,7 +1129,7 @@ window.render = function() {
         <div class="drag-handle right" data-id="${t.id}" data-type="test" data-action="resize-end"></div>
       </div>` : '';
     const fatMarker  = fat  ? `<div class="bar-seg" style="left:${fat.left}%;width:max(${fat.width}%,2px);background:var(--green);opacity:.9;cursor:default" title="FAT: ${fmtShort(t.fat_date)}"></div>` : '';
-    const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:var(--green);opacity:.9;cursor:default" title="Site: ${fmtShort(t.site_date)}"></div>` : '';
+    const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:#ec4899;opacity:.9;cursor:default" title="Rack to Site: ${fmtShort(t.site_date)}"></div>` : '';
     const pmShort = (t.project_manager||'').replace('@proav.com','');
     return `<tr>
       <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
