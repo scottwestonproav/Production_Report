@@ -12,7 +12,7 @@
   --bg:        #0f1117; --bg2: #161b27; --bg3: #1e2535;
   --border:    #2a3248; --border2: #374160;
   --text:      #e8eaf0; --text2: #8b93a8; --text3: #5a6278;
-  --blue:      #3b82f6; --blue-dim: #1d3a6e;
+  --blue:      #7ab800; --blue-dim: #1e2d05;
   --green:     #10b981; --green-dim: #0a3d28;
   --red:       #ef4444; --red-dim: #3d1212;
   --amber:     #f59e0b; --amber-dim: #3d2a06;
@@ -36,11 +36,12 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
 
 /* ── HEADER ── */
-.header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; }
-.header-logo { width: 32px; height: 32px; background: var(--blue); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.header-logo svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2; }
-.header-title { font-size: 1.1rem; font-weight: 600; letter-spacing: -.02em; }
-.header-sub { font-size: .72rem; color: var(--text3); font-family: var(--mono); }
+.header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.header-brand { display: flex; align-items: center; gap: 1rem; flex-shrink: 0; }
+.header-brand-logo { display: flex; align-items: center; flex-shrink: 0; }
+.header-divider { width: 1px; height: 34px; background: var(--border2); flex-shrink: 0; }
+.header-title { font-size: 1rem; font-weight: 600; letter-spacing: -.02em; color: var(--text); }
+.header-sub { font-size: .72rem; color: var(--text3); font-family: var(--mono); margin-top: .1rem; }
 .header-actions { display: flex; align-items: center; gap: .5rem; margin-left: auto; flex-wrap: wrap; }
 .saving-indicator { font-size: .72rem; color: var(--text3); font-family: var(--mono); display: none; align-items: center; gap: .4rem; }
 .saving-indicator.show { display: flex; }
@@ -49,7 +50,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .45rem .9rem; border-radius: var(--radius); font-family: var(--font); font-size: .8rem; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap; }
 .btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
 .btn-primary { background: var(--blue); color: #fff; }
-.btn-primary:hover { background: #2563eb; }
+.btn-primary:hover { background: #639600; }
 .btn-ghost { background: transparent; border-color: var(--border2); color: var(--text2); }
 .btn-ghost:hover { background: var(--bg3); color: var(--text); }
 .btn-danger { background: transparent; border-color: var(--red); color: var(--red); }
@@ -142,7 +143,7 @@ tbody tr:hover td { background: var(--bg3); }
 .bar-cell { padding: .3rem .75rem; min-width: 280px; }
 .month-header { position: relative; height: 14px; border-bottom: 1px solid var(--border); margin-bottom: 3px; }
 .month-tick { position: absolute; top: 0; bottom: 0; font-size: .58rem; color: var(--text3); font-family: var(--mono); border-left: 1px solid var(--border); padding-left: 3px; overflow: hidden; white-space: nowrap; }
-.today-tick { position: absolute; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: rgba(147,197,253,.8); box-shadow: 0 0 6px rgba(147,197,253,.6); pointer-events: none; z-index: 5; border-radius: 1px; }
+.today-tick { position: absolute; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: rgba(122,184,0,.85); box-shadow: 0 0 6px rgba(122,184,0,.5); pointer-events: none; z-index: 5; border-radius: 1px; }
 .bar-track { position: relative; height: 12px; background: var(--bg3); border-radius: 3px; margin: 2px 0; user-select: none; }
 .bar-seg { position: absolute; top: 0; height: 100%; border-radius: 3px; cursor: grab; transition: filter .1s; }
 .bar-seg:hover { filter: brightness(1.15); }
@@ -242,12 +243,31 @@ tbody tr:hover td { background: var(--bg3); }
   </div>
 
   <div class="header">
-    <div class="header-logo">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="3" rx="1"/><rect x="3" y="10" width="11" height="3" rx="1"/><rect x="8" y="16" width="13" height="3" rx="1"/></svg>
-    </div>
-    <div>
-      <div class="header-title">Production Report</div>
-      <div class="header-sub">proAV · PM projected vs actual · drag bars to reschedule</div>
+    <div class="header-brand">
+      <div class="header-brand-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 165 38.343">
+          <g transform="translate(-192.662 -398.538)">
+            <g transform="translate(283.839 398.538)">
+              <path d="M305.921,428.649l13.742-23.8c.072-.121.139-.217.195-.294a2.422,2.422,0,0,1,.2.3l13.743,23.8h6.72L325.1,401.935a5.736,5.736,0,0,0-10.475,0L299.2,428.649Z" transform="translate(-299.199 -398.538)" fill="#7ab800"/>
+            </g>
+            <g transform="translate(316.34 399.47)">
+              <path d="M371.776,399.628l-13.744,23.8a2.8,2.8,0,0,1-.195.3,2.782,2.782,0,0,1-.2-.3l-13.743-23.8h-6.72L352.6,426.342a5.736,5.736,0,0,0,10.475,0L378.5,399.628Z" transform="translate(-337.176 -399.628)" fill="#7ab800"/>
+            </g>
+            <g transform="translate(192.662 398.671)">
+              <path d="M198.483,437.037h-5.821V409.521a9.911,9.911,0,0,1,9.9-9.9h8.053a14.608,14.608,0,0,1,0,29.216h-8.538v-5.826h8.538a8.782,8.782,0,0,0,0-17.564h-8.053a4.081,4.081,0,0,0-4.075,4.078v27.516Z" transform="translate(-192.662 -398.828)" fill="#b0b0b0"/>
+              <g transform="translate(35.513 0.789)">
+                <path d="M259.588,402.722a14.5,14.5,0,0,0-9-3.1h-6.5a9.909,9.909,0,0,0-9.9,9.9V428.8h5.821V409.515a4.081,4.081,0,0,1,4.076-4.075h6.5a8.714,8.714,0,0,1,5.979,2.363A18.432,18.432,0,0,1,259.588,402.722Z" transform="translate(-234.193 -399.617)" fill="#b0b0b0"/>
+              </g>
+              <path d="M279.622,429.48c-8.972,0-16.268-6.906-16.268-15.392s7.3-15.393,16.268-15.393,16.27,6.9,16.27,15.393-7.3,15.392-16.27,15.392Zm0-24.965c-5.76,0-10.446,4.294-10.446,9.573s4.686,9.573,10.446,9.573,10.448-4.3,10.448-9.573-4.688-9.573-10.448-9.573Z" transform="translate(-202.906 -398.694)" fill="#b0b0b0"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <div class="header-divider"></div>
+      <div>
+        <div class="header-title">Production Report</div>
+        <div class="header-sub">PM projected vs actual · drag bars to reschedule</div>
+      </div>
     </div>
     <div class="header-actions">
       <div class="saving-indicator" id="savingIndicator">
@@ -1051,7 +1071,7 @@ window.render = function() {
   const todayInRange = todayOff >= 0 && todayOff <= total2;
   const todayPct   = (todayOff / total2 * 100).toFixed(3);
   const todayGrad  = todayInRange
-    ? `linear-gradient(to right,transparent calc(${todayPct}% - 1px),rgba(147,197,253,.65) calc(${todayPct}% - 1px),rgba(147,197,253,.65) calc(${todayPct}% + 1px),transparent calc(${todayPct}% + 1px))`
+    ? `linear-gradient(to right,transparent calc(${todayPct}% - 1px),rgba(122,184,0,.6) calc(${todayPct}% - 1px),rgba(122,184,0,.6) calc(${todayPct}% + 1px),transparent calc(${todayPct}% + 1px))`
     : '';
   const todayTickEl = todayInRange ? `<div class="today-tick" style="left:${todayPct}%"></div>` : '';
   const tickHtml   = `<div class="month-header">${todayTickEl}${ticks.map(t=>`<div class="month-tick" style="left:${t.left}%;width:${t.width}%">${t.label}</div>`).join('')}</div>`;
