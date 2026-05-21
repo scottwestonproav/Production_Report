@@ -279,7 +279,7 @@ tbody tr:hover td { background: var(--bg3); }
       <div class="header-divider"></div>
       <div>
         <div class="header-title">Production Report</div>
-        <div class="header-sub">PM projected vs actual · drag bars to reschedule</div>
+        <div class="header-sub">Rack Build schedule · drag bars to reschedule</div>
       </div>
     </div>
     <div class="header-actions">
@@ -347,7 +347,7 @@ tbody tr:hover td { background: var(--bg3); }
     </div>
     <div class="notif-panels" id="notifPanels">
       <div class="conflicts-panel" id="conflictsPanel" style="display:none">
-        <h4>⚠ Rack Builder conflicts — PM projected build dates require more rack builders than available</h4>
+        <h4>⚠ Rack Builder conflicts — Rack Build dates require more rack builders than available</h4>
         <div id="conflictsList"></div>
       </div>
       <div class="conflicts-panel" id="testConflictsPanel" style="display:none">
@@ -362,8 +362,7 @@ tbody tr:hover td { background: var(--bg3); }
   </div>
 
   <div class="legend">
-    <div class="legend-item"><div class="legend-swatch" style="background:#eab308"></div>PM projected (build)</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#f97316"></div>Actual / assigned</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#eab308"></div>Rack Build</div>
     <div class="legend-item"><div class="legend-swatch" style="background:var(--purple);opacity:.8"></div>Test window</div>
     <div class="legend-item"><div class="legend-swatch" style="background:var(--green);opacity:.8"></div>FAT / site date</div>
     <div class="legend-item"><div class="legend-swatch" style="background:var(--red);opacity:.7"></div>Capacity conflict</div>
@@ -424,16 +423,10 @@ tbody tr:hover td { background: var(--bg3); }
       <div class="form-row"><label>Priority / Level</label><input type="text" id="fPriority"></div>
     </div>
 
-    <div class="form-section">PM projected dates (build)</div>
+    <div class="form-section">Rack Build dates</div>
     <div class="form-grid-2">
-      <div class="form-row"><label>Build start</label><input type="date" id="fProjStart"></div>
-      <div class="form-row"><label>Build end</label><input type="date" id="fProjEnd"></div>
-    </div>
-
-    <div class="form-section">Actual / assigned dates</div>
-    <div class="form-grid-2">
-      <div class="form-row"><label>Actual start</label><input type="date" id="fActStart"></div>
-      <div class="form-row"><label>Actual end</label><input type="date" id="fActEnd"></div>
+      <div class="form-row"><label>Rack Build Start Date</label><input type="date" id="fProjStart"></div>
+      <div class="form-row"><label>Rack Build End Date</label><input type="date" id="fProjEnd"></div>
     </div>
 
     <div class="form-section">Test &amp; delivery dates</div>
@@ -630,7 +623,7 @@ async function loadTasks() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
 
-  const url = `${SUPABASE_URL}/rest/v1/tasks?select=*&order=proj_start.asc.nullslast`;
+  const url = `${SUPABASE_URL}/rest/v1/tasks?select=*&order=rack_build_start.asc.nullslast`;
 
   try {
     const res = await fetch(url, {
@@ -753,12 +746,11 @@ function dbToTask(r) {
     project_manager: r.project_manager || '', coordinator: r.coordinator || '',
     dsp_owner: r.dsp_owner || '', test_engineer: r.test_engineer || '',
     priority: r.priority || '', status: r.status || '',
-    projStart: r.proj_start || '', projEnd: r.proj_end || '',
-    actStart:  r.act_start  || '', actEnd:  r.act_end  || '',
+    projStart: r.rack_build_start || '', projEnd: r.rack_build_end || '',
     testStart: r.test_start || '', testEnd: r.test_end || '',
     fat_date: r.fat_date || '', site_date: r.site_date || '',
     comments: r.comments || '', qty: r.qty || 1,
-    earliestDate: r.proj_start || '',
+    earliestDate: r.rack_build_start || '',
   };
 }
 
@@ -771,8 +763,7 @@ function taskToDb(t) {
     project_manager: d(t.project_manager), coordinator: d(t.coordinator),
     dsp_owner: d(t.dsp_owner), test_engineer: d(t.test_engineer),
     priority: d(t.priority), status: t.status || 'Dates Required',
-    proj_start: d(t.projStart), proj_end: d(t.projEnd),
-    act_start:  d(t.actStart),  act_end:  d(t.actEnd),
+    rack_build_start: d(t.projStart), rack_build_end: d(t.projEnd),
     test_start: d(t.testStart), test_end: d(t.testEnd),
     fat_date: d(t.fat_date), site_date: d(t.site_date),
     comments: d(t.comments), qty: t.qty || 1,
@@ -1048,7 +1039,7 @@ window.render = function() {
   const rts     = tasks.filter(t => t.status === 'Ready To Send').length;
   const inBuild = tasks.filter(t => t.status === 'In Build').length;
   const testing = tasks.filter(t => t.status === 'Test Department Working On Rack').length;
-  const slipped = tasks.filter(t => t.projEnd && t.actEnd && daysBetween(t.projEnd, t.actEnd) > 0).length;
+  const noDate  = tasks.filter(t => !t.projStart && !t.projEnd).length;
   const peak    = conflicts.length ? Math.max(...conflicts.map(c => c.count)) : 0;
   const peakCls = !conflicts.length ? 'ok' : peak > teamSize*1.5 ? 'bad' : 'warn';
   document.getElementById('metricsRow').innerHTML = `
@@ -1056,7 +1047,7 @@ window.render = function() {
     <div class="metric"><div class="metric-label">Ready to send</div><div class="metric-val ok">${rts}</div></div>
     <div class="metric"><div class="metric-label">In build</div><div class="metric-val warn">${inBuild}</div></div>
     <div class="metric"><div class="metric-label">Testing</div><div class="metric-val neutral">${testing}</div></div>
-    <div class="metric"><div class="metric-label">Slipped</div><div class="metric-val ${slipped?'bad':'ok'}">${slipped}</div></div>
+    <div class="metric"><div class="metric-label">No dates</div><div class="metric-val ${noDate?'warn':'ok'}">${noDate}</div></div>
     <div class="metric"><div class="metric-label">Peak demand</div><div class="metric-val ${peakCls}">${peak||'—'}</div></div>`;
 
   const badge = document.getElementById('capBadge');
@@ -1120,28 +1111,15 @@ window.render = function() {
   function buildRowHtml(t) {
     const conflict = taskInConflict(t, conflicts);
     const proj = barPct(t.projStart, t.projEnd, range.min, total2);
-    const act  = barPct(t.actStart,  t.actEnd,  range.min, total2);
     const test = barPct(t.testStart, t.testEnd, range.min, total2);
     const fat  = barPct(t.fat_date,  t.fat_date, range.min, total2);
     const site = barPct(t.site_date, t.site_date, range.min, total2);
-    let slipHtml = '';
-    if (t.projEnd && t.actEnd) {
-      const d = daysBetween(t.projEnd, t.actEnd);
-      if (d > 0) slipHtml = `<span class="slip slip-late">+${d}d</span>`;
-      else if (d < 0) slipHtml = `<span class="slip slip-early">${d}d</span>`;
-    }
     const capFlag = conflict ? `<span class="cap-flag">⚠</span>` : '';
     const projBar = proj ? `<div class="bar-seg${conflict?' conflict-ring':''}" data-id="${t.id}" data-type="proj" data-action="move"
         style="left:${proj.left}%;width:${proj.width}%;background:#eab308;opacity:.9"
-        title="PM build: ${fmtShort(t.projStart)} – ${fmtShort(t.projEnd)}">
+        title="Rack Build: ${fmtShort(t.projStart)} – ${fmtShort(t.projEnd)}">
         <div class="drag-handle left" data-id="${t.id}" data-type="proj" data-action="resize-start"></div>
         <div class="drag-handle right" data-id="${t.id}" data-type="proj" data-action="resize-end"></div>
-      </div>` : '';
-    const actBar = act ? `<div class="bar-seg" data-id="${t.id}" data-type="act" data-action="move"
-        style="left:${act.left}%;width:${act.width}%;background:#f97316;opacity:.9"
-        title="Actual: ${fmtShort(t.actStart)} – ${fmtShort(t.actEnd)}">
-        <div class="drag-handle left" data-id="${t.id}" data-type="act" data-action="resize-start"></div>
-        <div class="drag-handle right" data-id="${t.id}" data-type="act" data-action="resize-end"></div>
       </div>` : '';
     const testBar = test ? `<div class="bar-seg" data-id="${t.id}" data-type="test" data-action="move"
         style="left:${test.left}%;width:${test.width}%;background:var(--purple);opacity:.75"
@@ -1153,7 +1131,7 @@ window.render = function() {
     const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:var(--green);opacity:.9;cursor:default" title="Site: ${fmtShort(t.site_date)}"></div>` : '';
     const pmShort = (t.project_manager||'').replace('@proav.com','');
     return `<tr>
-      <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${slipHtml}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
+      <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
       <td><span class="mono-sm">${t.seqf||'—'}</span></td>
       <td><span class="mono-sm">${t.rack_pa||'—'}</span></td>
       <td><span class="muted">${t.wireman||'—'}</span></td>
@@ -1162,7 +1140,7 @@ window.render = function() {
       <td class="bar-cell">
         ${tickHtml}
         <div class="bar-track"${todayGrad?` style="background-image:${todayGrad}"`:''}>  ${projBar}</div>
-        <div class="bar-track"${todayGrad?` style="background-image:${todayGrad}"`:''}>  ${actBar}${testBar}${fatMarker}${siteMarker}</div>
+        <div class="bar-track"${todayGrad?` style="background-image:${todayGrad}"`:''}>  ${testBar}${fatMarker}${siteMarker}</div>
       </td>
       <td style="width:34px">
         <button class="edit-btn" onclick="window._openEdit(${t.id})" aria-label="Edit">
@@ -1233,7 +1211,6 @@ let drag = null;
 const tooltip = document.getElementById('dragTooltip');
 const TYPE_KEYS = {
   proj: { sk:'projStart', ek:'projEnd' },
-  act:  { sk:'actStart',  ek:'actEnd'  },
   test: { sk:'testStart', ek:'testEnd' },
 };
 
@@ -1353,7 +1330,6 @@ window._openEdit = function(id) {
   fs('fDsp',t.dsp_owner); fs('fTestEng',t.test_engineer);
   fs('fPriority',t.priority); fs('fStatus',t.status);
   fs('fProjStart',t.projStart); fs('fProjEnd',t.projEnd);
-  fs('fActStart',t.actStart); fs('fActEnd',t.actEnd);
   fs('fTestStart',t.testStart); fs('fTestEnd',t.testEnd);
   fs('fFat',t.fat_date); fs('fSite',t.site_date);
   fs('fComments',t.comments); fs('fQty',t.qty||1);
@@ -1370,7 +1346,6 @@ window.saveTask = async function() {
     dsp_owner:fv('fDsp'), test_engineer:fv('fTestEng'),
     priority:fv('fPriority'), status:fv('fStatus'),
     projStart:fv('fProjStart'), projEnd:fv('fProjEnd'),
-    actStart:fv('fActStart'), actEnd:fv('fActEnd'),
     testStart:fv('fTestStart'), testEnd:fv('fTestEnd'),
     fat_date:fv('fFat'), site_date:fv('fSite'),
     comments:fv('fComments'), qty:+fv('fQty')||1,
@@ -1411,10 +1386,8 @@ const DB_FIELDS = [
   { key:'dsp_owner',      label:'DSP owner' },
   { key:'test_engineer',  label:'Test engineer' },
   { key:'priority',       label:'Priority / Level' },
-  { key:'proj_start',     label:'PM projected start (build)' },
-  { key:'proj_end',       label:'PM projected end (build)' },
-  { key:'act_start',      label:'Actual start' },
-  { key:'act_end',        label:'Actual end' },
+  { key:'rack_build_start', label:'Rack Build Start Date' },
+  { key:'rack_build_end',   label:'Rack Build End Date' },
   { key:'test_start',     label:'Test start' },
   { key:'test_end',       label:'Test end' },
   { key:'fat_date',       label:'FAT date' },
@@ -1445,8 +1418,10 @@ const AUTO_MAP = {
   'test engineer':      'test_engineer',
   'priority':           'priority',
   'level (if applicable)':'priority',
-  'build start date':   'proj_start',
-  'build end date':     'proj_end',
+  'build start date':   'rack_build_start',
+  'build end date':     'rack_build_end',
+  'rack build start':   'rack_build_start',
+  'rack build end':     'rack_build_end',
   'test start date':    'test_start',
   'test end date':      'test_end',
   'fatdate':            'fat_date',
@@ -1552,7 +1527,7 @@ function buildPreview() {
 window.runImport = async function() {
   goImportStep(4);
   const hIdx = importHeaders.reduce((acc,h,i)=>({...acc,[h]:i}),{});
-  const dateFields = new Set(['proj_start','proj_end','act_start','act_end','test_start','test_end','fat_date','site_date']);
+  const dateFields = new Set(['rack_build_start','rack_build_end','test_start','test_end','fat_date','site_date']);
   const total = importRows.length;
   let done=0, errors=0;
 
@@ -1603,7 +1578,7 @@ window.runImport = async function() {
 
 // ── EXPORT ────────────────────────────────────────
 window.exportCSV = function() {
-  const cols=['name','seqf','room','rack_pa','rack_type','wireman','cables_by','project_manager','coordinator','dsp_owner','test_engineer','priority','status','projStart','projEnd','actStart','actEnd','testStart','testEnd','fat_date','site_date','comments','qty'];
+  const cols=['name','seqf','room','rack_pa','rack_type','wireman','cables_by','project_manager','coordinator','dsp_owner','test_engineer','priority','status','projStart','projEnd','testStart','testEnd','fat_date','site_date','comments','qty'];
   const rows=[cols.map(c=>c.toUpperCase())];
   tasks.forEach(t=>rows.push(cols.map(c=>t[c]||'')));
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
