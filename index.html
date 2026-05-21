@@ -365,6 +365,7 @@ window.toggleNotif = function() {
 };
 applyNotifState();
 let tasks     = [];
+let visibleTasks = [];
 let teamSize  = +(localStorage.getItem(TEAM_KEY) || 9);
 let testSize  = +(localStorage.getItem(TEST_KEY)  || 3);
 let sortCol   = 'earliestDate', sortDir = 1;
@@ -869,6 +870,7 @@ window.render = function() {
     if (!isNaN(av) && !isNaN(bv)) { av=+av; bv=+bv; }
     return av < bv ? -sortDir : av > bv ? sortDir : 0;
   });
+  visibleTasks = visible;
 
   const body = document.getElementById('ganttBody');
   body.innerHTML = '';
@@ -1085,11 +1087,13 @@ function f(id) { return document.getElementById(id); }
 window.exportCSV = function() {
   const cols=['name','seqf','room','rack_pa','rack_type','wireman','cables_by','project_manager','coordinator','dsp_owner','test_engineer','priority','status','projStart','projEnd','testStart','testEnd','fat_date','site_date','comments','qty'];
   const rows=[cols.map(c=>c.toUpperCase())];
-  tasks.forEach(t=>rows.push(cols.map(c=>t[c]||'')));
+  visibleTasks.forEach(t=>rows.push(cols.map(c=>t[c]||'')));
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='production-report.csv'; a.click();
+  const filtered = visibleTasks.length !== tasks.length;
+  a.download = filtered ? `production-report-filtered-${visibleTasks.length}.csv` : 'production-report.csv';
+  a.click();
 };
 
 // ── HELPERS ───────────────────────────────────────
