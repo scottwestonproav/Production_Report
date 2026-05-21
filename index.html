@@ -145,12 +145,8 @@ tbody tr:hover td { background: var(--bg3); }
 .month-tick { position: absolute; top: 0; bottom: 0; font-size: .58rem; color: var(--text3); font-family: var(--mono); border-left: 1px solid var(--border); padding-left: 3px; overflow: hidden; white-space: nowrap; }
 .today-tick { position: absolute; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: rgba(122,184,0,.85); box-shadow: 0 0 6px rgba(122,184,0,.5); pointer-events: none; z-index: 5; border-radius: 1px; }
 .bar-track { position: relative; height: 12px; background: var(--bg3); border-radius: 3px; margin: 2px 0; user-select: none; }
-.bar-seg { position: absolute; top: 0; height: 100%; border-radius: 3px; cursor: grab; transition: filter .1s; }
+.bar-seg { position: absolute; top: 0; height: 100%; border-radius: 3px; transition: filter .1s; }
 .bar-seg:hover { filter: brightness(1.15); }
-.bar-seg.dragging { cursor: grabbing; filter: brightness(1.25); opacity: .85; z-index: 10; }
-.drag-handle { position: absolute; top: 0; width: 6px; height: 100%; cursor: ew-resize; z-index: 5; }
-.drag-handle.left { left: 0; border-radius: 3px 0 0 3px; }
-.drag-handle.right { right: 0; border-radius: 0 3px 3px 0; }
 .conflict-ring { outline: 2px solid var(--red); outline-offset: -1px; }
 
 
@@ -176,9 +172,6 @@ tbody tr:hover td { background: var(--bg3); }
 .advisory-panel h4 { font-size: .8rem; font-weight: 500; color: var(--amber); margin-bottom: .5rem; }
 .advisory-item { font-size: .75rem; color: #fcd34d; padding: .2rem 0; }
 
-/* ── DRAG TOOLTIP ── */
-.drag-tooltip { position: fixed; background: var(--bg); border: 1px solid var(--border2); color: var(--text); font-family: var(--mono); font-size: .72rem; padding: .35rem .65rem; border-radius: 6px; pointer-events: none; z-index: 9999; white-space: nowrap; display: none; box-shadow: 0 4px 20px rgba(0,0,0,.5); }
-
 
 /* ── TOAST ── */
 .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: var(--bg2); border: 1px solid var(--border2); color: var(--text); font-size: .8rem; padding: .6rem 1.1rem; border-radius: var(--radius); z-index: 2000; box-shadow: 0 4px 24px rgba(0,0,0,.5); animation: toastIn .2s ease, toastOut .3s ease 2.5s forwards; white-space: nowrap; }
@@ -200,7 +193,6 @@ tbody tr:hover td { background: var(--bg3); }
 </head>
 <body>
 
-<div class="drag-tooltip" id="dragTooltip"></div>
 
 <div class="app">
   <div class="conn-bar conn-loading" id="connBar">
@@ -233,7 +225,7 @@ tbody tr:hover td { background: var(--bg3); }
       <div class="header-divider"></div>
       <div>
         <div class="header-title">Production Report</div>
-        <div class="header-sub">Rack Build schedule · drag bars to reschedule</div>
+        <div class="header-sub">Rack Build schedule</div>
       </div>
     </div>
     <div class="header-actions">
@@ -313,7 +305,6 @@ tbody tr:hover td { background: var(--bg3); }
     <div class="legend-item"><div class="legend-swatch" style="background:var(--green);opacity:.8"></div>FAT date</div>
     <div class="legend-item"><div class="legend-swatch" style="background:#ec4899;opacity:.8"></div>Rack to Site</div>
     <div class="legend-item"><div class="legend-swatch" style="background:var(--red);opacity:.7"></div>Capacity conflict</div>
-    <div class="legend-hint">⟵ drag bar to move · drag edge to resize ⟶</div>
   </div>
 
   <div class="table-wrap">
@@ -905,18 +896,12 @@ window.render = function() {
     const fat  = barPct(t.fat_date,  t.fat_date, range.min, total2);
     const site = barPct(t.site_date, t.site_date, range.min, total2);
     const capFlag = conflict ? `<span class="cap-flag">⚠</span>` : '';
-    const projBar = proj ? `<div class="bar-seg${conflict?' conflict-ring':''}" data-id="${t.id}" data-type="proj" data-action="move"
+    const projBar = proj ? `<div class="bar-seg${conflict?' conflict-ring':''}"
         style="left:${proj.left}%;width:${proj.width}%;background:#eab308;opacity:.9"
-        title="Rack Build: ${fmtShort(t.projStart)} – ${fmtShort(t.projEnd)}">
-        <div class="drag-handle left" data-id="${t.id}" data-type="proj" data-action="resize-start"></div>
-        <div class="drag-handle right" data-id="${t.id}" data-type="proj" data-action="resize-end"></div>
-      </div>` : '';
-    const testBar = test ? `<div class="bar-seg" data-id="${t.id}" data-type="test" data-action="move"
+        title="Rack Build: ${fmtShort(t.projStart)} – ${fmtShort(t.projEnd)}"></div>` : '';
+    const testBar = test ? `<div class="bar-seg"
         style="left:${test.left}%;width:${test.width}%;background:var(--purple);opacity:.75"
-        title="Test: ${fmtShort(t.testStart)} – ${fmtShort(t.testEnd)}">
-        <div class="drag-handle left" data-id="${t.id}" data-type="test" data-action="resize-start"></div>
-        <div class="drag-handle right" data-id="${t.id}" data-type="test" data-action="resize-end"></div>
-      </div>` : '';
+        title="Test: ${fmtShort(t.testStart)} – ${fmtShort(t.testEnd)}"></div>` : '';
     const fatMarker  = fat  ? `<div class="bar-seg" style="left:${fat.left}%;width:max(${fat.width}%,2px);background:var(--green);opacity:.9;cursor:default" title="FAT: ${fmtShort(t.fat_date)}"></div>` : '';
     const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:#ec4899;opacity:.9;cursor:default" title="Rack to Site: ${fmtShort(t.site_date)}"></div>` : '';
     const pmShort = (t.project_manager||'').replace('@proav.com','');
@@ -937,7 +922,6 @@ window.render = function() {
   body.innerHTML = visible.map(buildRowHtml).join('');
   renderConflicts(conflicts);
   renderTestConflicts(testConflicts, testAdvisories);
-  attachDrag();
   if (!hasScrolledToToday && todayInRange) {
     requestAnimationFrame(scrollTodayIntoCenter);
     hasScrolledToToday = true;
@@ -990,85 +974,6 @@ function renderTestConflicts(conflicts, advisories) {
   ).join('');
 }
 
-// ── DRAG ──────────────────────────────────────────
-let drag = null;
-const tooltip = document.getElementById('dragTooltip');
-const TYPE_KEYS = {
-  proj: { sk:'projStart', ek:'projEnd' },
-  test: { sk:'testStart', ek:'testEnd' },
-};
-
-function attachDrag() {
-  document.querySelectorAll('.bar-seg[data-id], .drag-handle[data-id]').forEach(el => {
-    el.addEventListener('mousedown',  onDragStart, { passive:false });
-    el.addEventListener('touchstart', onDragStart, { passive:false });
-  });
-}
-const cx = e => e.touches ? e.touches[0].clientX : e.clientX;
-const cy = e => e.touches ? e.touches[0].clientY : e.clientY;
-
-function onDragStart(e) {
-  if (e.button && e.button!==0) return;
-  e.preventDefault();
-  const el = e.currentTarget;
-  const { id, type, action } = el.dataset;
-  if (!TYPE_KEYS[type]) return;
-  const task = tasks.find(t=>t.id===+id); if (!task) return;
-  const track = el.closest('.bar-track'); if (!track) return;
-  const { sk, ek } = TYPE_KEYS[type];
-  drag = { id:+id, type, action, trackRect:track.getBoundingClientRect(),
-           startX:cx(e), origStart:task[sk], origEnd:task[ek], sk, ek };
-  el.classList.add('dragging');
-  tooltip.style.display = 'block';
-  document.addEventListener('mousemove',  onDragMove);
-  document.addEventListener('mouseup',    onDragEnd);
-  document.addEventListener('touchmove',  onDragMove, { passive:false });
-  document.addEventListener('touchend',   onDragEnd);
-}
-
-function pxToDays(px) { return !drag||!currentTotal ? 0 : Math.round(px/drag.trackRect.width*currentTotal); }
-
-function onDragMove(e) {
-  if (!drag) return; e.preventDefault();
-  const delta = pxToDays(cx(e)-drag.startX);
-  const task  = tasks.find(t=>t.id===drag.id); if (!task) return;
-  const { action, origStart, origEnd, sk, ek } = drag;
-  if (!origStart) return;
-  if (action==='move') {
-    task[sk]=addDays(origStart,delta); task[ek]=addDays(origEnd,delta);
-    tooltip.textContent = `${fmtLong(task[sk])} → ${fmtLong(task[ek])}`;
-  } else if (action==='resize-start') {
-    const ns=addDays(origStart,delta);
-    if (origEnd && daysBetween(ns,origEnd)>=1) task[sk]=ns;
-    tooltip.textContent = `Start: ${fmtLong(task[sk])}`;
-  } else if (action==='resize-end') {
-    const ne=addDays(origEnd,delta);
-    if (origStart && daysBetween(origStart,ne)>=1) task[ek]=ne;
-    tooltip.textContent = `End: ${fmtLong(task[ek])}`;
-  }
-  tooltip.style.left=(cx(e)+16)+'px'; tooltip.style.top=(cy(e)-34)+'px';
-  const barEl=document.querySelector(`.bar-seg[data-id="${drag.id}"][data-type="${drag.type}"][data-action="move"]`);
-  if (barEl&&currentRange&&currentTotal) {
-    const p=barPct(task[sk],task[ek],currentRange.min,currentTotal);
-    if (p) { barEl.style.left=p.left+'%'; barEl.style.width=p.width+'%'; }
-  }
-}
-
-async function onDragEnd() {
-  if (!drag) return;
-  tooltip.style.display='none';
-  document.querySelectorAll('.bar-seg.dragging').forEach(el=>el.classList.remove('dragging'));
-  document.removeEventListener('mousemove', onDragMove);
-  document.removeEventListener('mouseup',   onDragEnd);
-  document.removeEventListener('touchmove', onDragMove);
-  document.removeEventListener('touchend',  onDragEnd);
-  const task=tasks.find(t=>t.id===drag.id), savedId=drag.id;
-  drag=null;
-  if (task) {
-    try { await upsertTask(task,savedId); showToast('Dates updated'); render(); }
-    catch { await loadTasks(); }
-  }
-}
 
 // ── TEAM ──────────────────────────────────────────
 window.onTeamChange = function(v) {
