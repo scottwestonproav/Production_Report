@@ -153,10 +153,6 @@ tbody tr:hover td { background: var(--bg3); }
 .drag-handle.right { right: 0; border-radius: 0 3px 3px 0; }
 .conflict-ring { outline: 2px solid var(--red); outline-offset: -1px; }
 
-/* ── EDIT BUTTON ── */
-.edit-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 6px; background: transparent; border: 1px solid var(--border2); color: var(--text3); cursor: pointer; transition: all .15s; }
-.edit-btn:hover { background: var(--bg3); color: var(--text); }
-.edit-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
 
 /* ── NOTIFICATION SECTION ── */
 .notif-section { margin: .75rem 0; }
@@ -183,45 +179,6 @@ tbody tr:hover td { background: var(--bg3); }
 /* ── DRAG TOOLTIP ── */
 .drag-tooltip { position: fixed; background: var(--bg); border: 1px solid var(--border2); color: var(--text); font-family: var(--mono); font-size: .72rem; padding: .35rem .65rem; border-radius: 6px; pointer-events: none; z-index: 9999; white-space: nowrap; display: none; box-shadow: 0 4px 20px rgba(0,0,0,.5); }
 
-/* ── MODAL BASE ── */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; opacity: 0; pointer-events: none; transition: opacity .2s; }
-.modal-overlay.open { opacity: 1; pointer-events: all; }
-.modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: 1.5rem; width: 100%; transform: translateY(16px); transition: transform .2s; max-height: 90vh; overflow-y: auto; }
-.modal-overlay.open .modal { transform: translateY(0); }
-.modal-title { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; letter-spacing: -.02em; display: flex; align-items: center; gap: .5rem; }
-.modal-title svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
-.form-row { margin-bottom: .7rem; }
-.form-row label { font-size: .68rem; color: var(--text3); display: block; margin-bottom: .28rem; text-transform: uppercase; letter-spacing: .05em; }
-.form-row input, .form-row select, .form-row textarea { width: 100%; background: var(--bg3); border: 1px solid var(--border2); color: var(--text); font-family: var(--font); font-size: .82rem; padding: .48rem .72rem; border-radius: var(--radius); outline: none; transition: border-color .15s; }
-.form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: var(--blue); }
-.form-row textarea { resize: vertical; min-height: 60px; }
-.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
-.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .6rem; }
-.form-section { font-size: .62rem; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin: .9rem 0 .5rem; padding-bottom: .3rem; border-bottom: 1px solid var(--border); }
-.modal-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1.1rem; flex-wrap: wrap; }
-
-/* ── IMPORT MODAL ── */
-.import-modal { max-width: 680px; }
-.import-step { display: none; }
-.import-step.active { display: block; }
-.file-drop { border: 2px dashed var(--border2); border-radius: var(--radius-lg); padding: 2rem; text-align: center; cursor: pointer; transition: all .2s; margin-bottom: 1rem; }
-.file-drop:hover, .file-drop.over { border-color: var(--blue); background: var(--blue-dim); }
-.file-drop svg { width: 32px; height: 32px; stroke: var(--text3); fill: none; stroke-width: 1.5; margin-bottom: .75rem; }
-.file-drop p { font-size: .85rem; color: var(--text2); margin-bottom: .25rem; }
-.file-drop span { font-size: .72rem; color: var(--text3); }
-.mapping-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
-.mapping-table th { font-size: .65rem; color: var(--text3); text-transform: uppercase; padding: .5rem .75rem; background: var(--bg3); border-bottom: 1px solid var(--border); text-align: left; }
-.mapping-table td { padding: .45rem .75rem; border-bottom: 1px solid var(--border); font-size: .8rem; vertical-align: middle; }
-.mapping-table td:first-child { color: var(--text2); font-family: var(--mono); font-size: .72rem; }
-.mapping-table select { width: 100%; font-size: .78rem; }
-.preview-table { width: 100%; border-collapse: collapse; font-size: .72rem; margin-bottom: 1rem; overflow-x: auto; display: block; }
-.preview-table th { background: var(--bg3); padding: .4rem .6rem; border-bottom: 1px solid var(--border); color: var(--text3); font-size: .62rem; text-transform: uppercase; white-space: nowrap; }
-.preview-table td { padding: .35rem .6rem; border-bottom: 1px solid var(--border); color: var(--text2); white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
-.import-progress { background: var(--bg3); border-radius: var(--radius); padding: 1rem; text-align: center; font-size: .82rem; color: var(--text2); }
-.progress-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; margin: .75rem 0; }
-.progress-bar { background: var(--blue); border-radius: 4px; height: 6px; transition: width .3s; }
-.import-info { font-size: .75rem; color: var(--text3); background: var(--bg3); border-radius: var(--radius); padding: .6rem .85rem; margin-bottom: .75rem; line-height: 1.6; }
-.import-info strong { color: var(--text2); }
 
 /* ── TOAST ── */
 .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: var(--bg2); border: 1px solid var(--border2); color: var(--text); font-size: .8rem; padding: .6rem 1.1rem; border-radius: var(--radius); z-index: 2000; box-shadow: 0 4px 24px rgba(0,0,0,.5); animation: toastIn .2s ease, toastOut .3s ease 2.5s forwards; white-space: nowrap; }
@@ -238,9 +195,6 @@ tbody tr:hover td { background: var(--bg3); }
   .app { padding: .85rem .75rem; }
   .metrics { grid-template-columns: repeat(2, 1fr); }
   .divider, .legend-hint, .header-sub { display: none; }
-  .modal-overlay { align-items: flex-end; padding: 0; }
-  .modal { max-width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 1.25rem 1rem 2rem; transform: translateY(100%); max-height: 95vh; }
-  .modal-overlay.open .modal { transform: translateY(0); }
 }
 </style>
 </head>
@@ -290,14 +244,6 @@ tbody tr:hover td { background: var(--bg3); }
       <button class="btn btn-ghost" onclick="exportCSV()">
         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export CSV
-      </button>
-      <button class="btn btn-purple" id="importBtn" onclick="openImport()" disabled>
-        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Import Excel
-      </button>
-      <button class="btn btn-primary" id="addBtn" onclick="openAdd()" disabled>
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add task
       </button>
     </div>
   </div>
@@ -382,174 +328,19 @@ tbody tr:hover td { background: var(--bg3); }
             <th style="width:85px"  onclick="sortBy('project_manager')">PM</th>
             <th style="width:140px" onclick="sortBy('status')">Status</th>
             <th style="min-width:320px">Timeline</th>
-            <th style="width:34px"></th>
           </tr>
         </thead>
         <tbody id="ganttBody">
-          <tr class="loading-row"><td colspan="8">connecting to database…</td></tr>
+          <tr class="loading-row"><td colspan="7">connecting to database…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </div>
 
-<!-- ── EDIT / ADD MODAL ── -->
-<div class="modal-overlay" id="modalOverlay" onclick="overlayClick(event)">
-  <div class="modal" style="max-width:560px">
-    <div class="modal-title" id="modalTitle">Add task</div>
-
-    <div class="form-section">Project info</div>
-    <div class="form-grid-2">
-      <div class="form-row"><label>Project name</label><input type="text" id="fName" placeholder="e.g. PIMCO - 25 Baker St"></div>
-      <div class="form-row"><label>SEQF</label><input type="text" id="fSeqf" placeholder="e.g. 275941"></div>
-    </div>
-    <div class="form-grid-3">
-      <div class="form-row"><label>System / Room name</label><input type="text" id="fRoom"></div>
-      <div class="form-row"><label>Rack PA number</label><input type="text" id="fRackPa" placeholder="PA007xxx"></div>
-      <div class="form-row"><label>Rack type</label><input type="text" id="fRackType"></div>
-    </div>
-
-    <div class="form-section">People</div>
-    <div class="form-grid-3">
-      <div class="form-row"><label>Wireman</label><input type="text" id="fWireman"></div>
-      <div class="form-row"><label>Cables prepped by</label><input type="text" id="fCablesBy"></div>
-      <div class="form-row"><label>Project manager</label><input type="text" id="fPM"></div>
-    </div>
-    <div class="form-grid-2">
-      <div class="form-row"><label>Project coordinator</label><input type="text" id="fCoord"></div>
-      <div class="form-row"><label>DSP owner</label><input type="text" id="fDsp"></div>
-    </div>
-    <div class="form-grid-2">
-      <div class="form-row"><label>Test engineer</label><input type="text" id="fTestEng"></div>
-      <div class="form-row"><label>Priority / Level</label><input type="text" id="fPriority"></div>
-    </div>
-
-    <div class="form-section">Rack Build dates</div>
-    <div class="form-grid-2">
-      <div class="form-row"><label>Rack Build Start Date</label><input type="date" id="fProjStart"></div>
-      <div class="form-row"><label>Rack Build End Date</label><input type="date" id="fProjEnd"></div>
-    </div>
-
-    <div class="form-section">Test &amp; delivery dates</div>
-    <div class="form-grid-2">
-      <div class="form-row"><label>Test start</label><input type="date" id="fTestStart"></div>
-      <div class="form-row"><label>Test end</label><input type="date" id="fTestEnd"></div>
-    </div>
-    <div class="form-grid-2">
-      <div class="form-row"><label>FAT date</label><input type="date" id="fFat"></div>
-      <div class="form-row"><label>Rack to site date</label><input type="date" id="fSite"></div>
-    </div>
-
-    <div class="form-section">Status &amp; notes</div>
-    <div class="form-grid-2">
-      <div class="form-row"><label>Status</label>
-        <select id="fStatus">
-          <option value="Dates Required">Dates Required</option>
-          <option value="In Build">In Build</option>
-          <option value="Built and waiting testing">Built &amp; waiting testing</option>
-          <option value="Test Department Working On Rack">Test Department Working On Rack</option>
-          <option value="Ready To Send">Ready To Send</option>
-          <option value="Onsite build">Onsite build</option>
-          <option value="Resubmit Dates Required">Resubmit Dates Required</option>
-          <option value="Parked (work stopped on it - build/test)">Parked (work stopped on it - build/test)</option>
-          <option value="On Hold">On Hold</option>
-          <option value="DSP Only System">DSP Only System</option>
-          <option value="Loose Kit Systems">Loose Kit Systems</option>
-          <option value="Ireland Office Build">Ireland Office Build</option>
-          <option value="Canceled">Canceled</option>
-        </select>
-      </div>
-      <div class="form-row"><label>QTY</label><input type="number" id="fQty" min="1" value="1"></div>
-    </div>
-    <div class="form-row"><label>Comments / Notes</label><textarea id="fComments" rows="2"></textarea></div>
-
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-danger" id="deleteBtn" onclick="deleteTask()" style="display:none">Delete</button>
-      <button class="btn btn-primary" onclick="saveTask()">Save task</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── IMPORT MODAL ── -->
-<div class="modal-overlay" id="importOverlay" onclick="importOverlayClick(event)">
-  <div class="modal import-modal">
-    <div class="modal-title">
-      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Import from Excel
-    </div>
-
-    <!-- Step 1: Upload -->
-    <div class="import-step active" id="importStep1">
-      <div class="import-info">
-        Upload your Excel file. The importer will detect your column headers and let you map them to the right fields before anything is saved to the database.
-      </div>
-      <div class="file-drop" id="fileDrop" onclick="document.getElementById('fileInput').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onFileDrop(event)">
-        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg>
-        <p>Click to choose file or drag &amp; drop</p>
-        <span>Excel files (.xlsx, .xls)</span>
-      </div>
-      <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="onFileSelect(event)">
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeImport()">Cancel</button>
-      </div>
-    </div>
-
-    <!-- Step 2: Map columns -->
-    <div class="import-step" id="importStep2">
-      <div class="import-info" id="importInfo2"></div>
-      <p style="font-size:.8rem;color:var(--text2);margin-bottom:.6rem">Map your Excel columns to database fields. Unmapped fields will be skipped.</p>
-      <div style="overflow-x:auto">
-        <table class="mapping-table" id="mappingTable">
-          <thead><tr><th>Database field</th><th>Your Excel column</th></tr></thead>
-          <tbody id="mappingBody"></tbody>
-        </table>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeImport()">Cancel</button>
-        <button class="btn btn-ghost" onclick="goImportStep(1)">← Back</button>
-        <button class="btn btn-primary" onclick="goImportStep(3)">Preview →</button>
-      </div>
-    </div>
-
-    <!-- Step 3: Preview -->
-    <div class="import-step" id="importStep3">
-      <div class="import-info" id="importInfo3"></div>
-      <div style="overflow-x:auto;margin-bottom:.75rem">
-        <table class="preview-table" id="previewTable"></table>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeImport()">Cancel</button>
-        <button class="btn btn-ghost" onclick="goImportStep(2)">← Back</button>
-        <button class="btn btn-primary" onclick="runImport()">
-          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-          Import to Supabase
-        </button>
-      </div>
-    </div>
-
-    <!-- Step 4: Progress -->
-    <div class="import-step" id="importStep4">
-      <div class="import-progress">
-        <div id="importProgressMsg">Importing…</div>
-        <div class="progress-bar-wrap"><div class="progress-bar" id="importProgressBar" style="width:0%"></div></div>
-        <div id="importProgressCount" style="font-size:.72rem;color:var(--text3)"></div>
-      </div>
-    </div>
-
-    <!-- Step 5: Done -->
-    <div class="import-step" id="importStep5">
-      <div class="import-progress" id="importDoneMsg"></div>
-      <div class="modal-actions" style="justify-content:center;margin-top:1rem">
-        <button class="btn btn-primary" onclick="closeImport()">Done</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import * as XLSX from 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm';
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    🔑 YOUR SUPABASE CREDENTIALS — edit these two lines
@@ -576,13 +367,10 @@ applyNotifState();
 let tasks     = [];
 let teamSize  = +(localStorage.getItem(TEAM_KEY) || 9);
 let testSize  = +(localStorage.getItem(TEST_KEY)  || 3);
-let editingId = null;
 let sortCol   = 'earliestDate', sortDir = 1;
 const filterSets = { project: new Set(), pm: new Set(), wireman: new Set(), status: new Set() };
 let supabase  = null, realtimeSub = null;
 
-// import state
-let importWorkbook = null, importHeaders = [], importRows = [];
 
 document.getElementById('teamSlider').value     = teamSize;
 document.getElementById('teamLabel').textContent = teamSize;
@@ -599,7 +387,7 @@ if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
     !SUPABASE_KEY || SUPABASE_KEY === 'YOUR_SUPABASE_KEY') {
   setConn('err', 'Missing credentials — update SUPABASE_URL and SUPABASE_KEY in the file');
   document.getElementById('ganttBody').innerHTML =
-    `<tr class="empty-row"><td colspan="8">⚠ Open this file in a text editor and set your SUPABASE_URL and SUPABASE_KEY at the top of the &lt;script&gt; section.</td></tr>`;
+    `<tr class="empty-row"><td colspan="7">⚠ Open this file in a text editor and set your SUPABASE_URL and SUPABASE_KEY at the top of the &lt;script&gt; section.</td></tr>`;
 } else {
   try {
     supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -616,7 +404,7 @@ if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
 async function loadTasks() {
   setConn('loading', 'Connecting to Supabase…');
   document.getElementById('ganttBody').innerHTML =
-    `<tr class="loading-row"><td colspan="8">connecting to database…</td></tr>`;
+    `<tr class="loading-row"><td colspan="7">connecting to database…</td></tr>`;
 
   // Use raw fetch + AbortController so the timeout is enforced at the network level.
   // The Supabase JS client can silently stall when a project is paused or RLS blocks
@@ -651,8 +439,6 @@ async function loadTasks() {
     const data = await res.json();
     tasks = (data || []).map(dbToTask);
     setConn('ok', `Connected · ${tasks.length} rack${tasks.length !== 1 ? 's' : ''} loaded`);
-    document.getElementById('addBtn').disabled = false;
-    document.getElementById('importBtn').disabled = false;
     render();
     subscribeRealtime();
 
@@ -664,7 +450,7 @@ async function loadTasks() {
       : (e.message || 'Unknown error');
     setConn('err', `Connection failed: ${msg}`);
     document.getElementById('ganttBody').innerHTML = `
-      <tr class="empty-row"><td colspan="8">
+      <tr class="empty-row"><td colspan="7">
         ⚠ Could not connect to Supabase.<br>
         <span style="font-size:.72rem;color:var(--text3);font-family:var(--mono)">${msg}</span><br>
         <span style="font-size:.72rem;color:var(--text3)">
@@ -1089,7 +875,7 @@ window.render = function() {
 
   if (!visible.length) {
     const r = document.createElement('tr'); r.className='empty-row';
-    r.innerHTML = '<td colspan="8">No tasks match your filters.</td>';
+    r.innerHTML = '<td colspan="7">No tasks match your filters.</td>';
     body.appendChild(r); renderConflicts(conflicts); renderTestConflicts(testConflicts, testAdvisories); return;
   }
 
@@ -1141,11 +927,6 @@ window.render = function() {
       <td class="bar-cell">
         ${tickHtml}
         <div class="bar-track"${todayGrad?` style="background-image:${todayGrad}"`:''}>  ${projBar}${testBar}${fatMarker}${siteMarker}</div>
-      </td>
-      <td style="width:34px">
-        <button class="edit-btn" onclick="window._openEdit(${t.id})" aria-label="Edit">
-          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
       </td></tr>`;
   }
 
@@ -1297,284 +1078,8 @@ window.onTestChange = function(v) {
   localStorage.setItem(TEST_KEY,v); render();
 };
 
-// ── MODAL HELPERS ─────────────────────────────────
+// ── HELPERS (modal-free) ──────────────────────────
 function f(id) { return document.getElementById(id); }
-function fv(id) { return f(id)?.value?.trim() || ''; }
-function fs(id, v) { if(f(id)) f(id).value = v||''; }
-
-window.closeModal   = ()=>f('modalOverlay').classList.remove('open');
-window.overlayClick = e=>{ if(e.target===f('modalOverlay')) window.closeModal(); };
-
-function openModal() { f('modalOverlay').classList.add('open'); }
-
-window.openAdd = function() {
-  editingId=null;
-  f('modalTitle').textContent='Add task';
-  f('deleteBtn').style.display='none';
-  ['fName','fSeqf','fRoom','fRackPa','fRackType','fWireman','fCablesBy','fPM','fCoord','fDsp','fTestEng',
-   'fPriority','fProjStart','fProjEnd','fActStart','fActEnd','fTestStart','fTestEnd','fFat','fSite','fComments']
-    .forEach(id=>fs(id,''));
-  fs('fStatus','Dates Required'); fs('fQty','1');
-  openModal(); setTimeout(()=>f('fName').focus(),80);
-};
-
-window._openEdit = function(id) {
-  const t=tasks.find(x=>x.id===id); if(!t) return;
-  editingId=id;
-  f('modalTitle').textContent='Edit task';
-  f('deleteBtn').style.display='inline-flex';
-  fs('fName',t.name); fs('fSeqf',t.seqf); fs('fRoom',t.room);
-  fs('fRackPa',t.rack_pa); fs('fRackType',t.rack_type);
-  fs('fWireman',t.wireman); fs('fCablesBy',t.cables_by);
-  fs('fPM',t.project_manager); fs('fCoord',t.coordinator);
-  fs('fDsp',t.dsp_owner); fs('fTestEng',t.test_engineer);
-  fs('fPriority',t.priority); fs('fStatus',t.status);
-  fs('fProjStart',t.projStart); fs('fProjEnd',t.projEnd);
-  fs('fTestStart',t.testStart); fs('fTestEnd',t.testEnd);
-  fs('fFat',t.fat_date); fs('fSite',t.site_date);
-  fs('fComments',t.comments); fs('fQty',t.qty||1);
-  openModal();
-};
-
-window.saveTask = async function() {
-  const name=fv('fName'); if(!name){f('fName').focus();return;}
-  const data={
-    name, seqf:fv('fSeqf'), room:fv('fRoom'),
-    rack_pa:fv('fRackPa'), rack_type:fv('fRackType'),
-    wireman:fv('fWireman'), cables_by:fv('fCablesBy'),
-    project_manager:fv('fPM'), coordinator:fv('fCoord'),
-    dsp_owner:fv('fDsp'), test_engineer:fv('fTestEng'),
-    priority:fv('fPriority'), status:fv('fStatus'),
-    projStart:fv('fProjStart'), projEnd:fv('fProjEnd'),
-    testStart:fv('fTestStart'), testEnd:fv('fTestEnd'),
-    fat_date:fv('fFat'), site_date:fv('fSite'),
-    comments:fv('fComments'), qty:+fv('fQty')||1,
-  };
-  window.closeModal();
-  try {
-    if (editingId) {
-      await upsertTask(data,editingId);
-      const i=tasks.findIndex(x=>x.id===editingId);
-      if(i>=0) tasks[i]={...tasks[i],...data};
-      showToast('Task updated');
-    } else {
-      const newId=await upsertTask(data,null);
-      tasks.push({id:newId,...data});
-      showToast('Task added');
-    }
-    render();
-  } catch {}
-};
-
-window.deleteTask = async function() {
-  if(!editingId||!confirm('Delete this task? This cannot be undone.')) return;
-  window.closeModal();
-  try { await removeTask(editingId); tasks=tasks.filter(x=>x.id!==editingId); showToast('Deleted'); render(); } catch {}
-};
-
-// ── IMPORT ────────────────────────────────────────
-const DB_FIELDS = [
-  { key:'name',            label:'Project name *' },
-  { key:'seqf',           label:'SEQF' },
-  { key:'room',           label:'System / Room name' },
-  { key:'rack_pa',        label:'Rack PA number' },
-  { key:'rack_type',      label:'Rack type' },
-  { key:'cables_by',      label:'Cables prepped by' },
-  { key:'wireman',        label:'Wireman' },
-  { key:'project_manager',label:'Project manager' },
-  { key:'coordinator',    label:'Project coordinator' },
-  { key:'dsp_owner',      label:'DSP owner' },
-  { key:'test_engineer',  label:'Test engineer' },
-  { key:'priority',       label:'Priority / Level' },
-  { key:'rack_build_start', label:'Rack Build Start Date' },
-  { key:'rack_build_end',   label:'Rack Build End Date' },
-  { key:'test_start',     label:'Test start' },
-  { key:'test_end',       label:'Test end' },
-  { key:'fat_date',       label:'FAT date' },
-  { key:'site_date',      label:'Rack to site date' },
-  { key:'status',         label:'Project status' },
-  { key:'comments',       label:'Comments / Notes' },
-  { key:'qty',            label:'QTY' },
-];
-
-// Auto-match Excel headers to DB fields
-const AUTO_MAP = {
-  'projectname':        'name',
-  'project name':       'name',
-  'seqf':               'seqf',
-  'systemroomname':     'room',
-  'system room name':   'room',
-  'room':               'room',
-  'rack pa number':     'rack_pa',
-  'rack type':          'rack_type',
-  'cables prepped by':  'cables_by',
-  'wireman':            'wireman',
-  'projectmanager':     'project_manager',
-  'project manager':    'project_manager',
-  'projectcoordinator': 'coordinator',
-  'project coordinator':'coordinator',
-  'dsp_owner':          'dsp_owner',
-  'dsp owner':          'dsp_owner',
-  'test engineer':      'test_engineer',
-  'priority':           'priority',
-  'level (if applicable)':'priority',
-  'build start date':   'rack_build_start',
-  'build end date':     'rack_build_end',
-  'rack build start':   'rack_build_start',
-  'rack build end':     'rack_build_end',
-  'test start date':    'test_start',
-  'test end date':      'test_end',
-  'fatdate':            'fat_date',
-  'fat date':           'fat_date',
-  'rack to site date':  'site_date',
-  'projectstatus':      'status',
-  'project status':     'status',
-  'comments':           'comments',
-  'notes (dates for build)':'comments',
-  'qty':                'qty',
-};
-
-let importMapping = {}; // dbKey -> excelHeader
-
-window.openImport = function() {
-  importWorkbook=null; importHeaders=[]; importRows=[];
-  goImportStep(1);
-  f('importOverlay').classList.add('open');
-};
-window.closeImport = function() {
-  f('importOverlay').classList.remove('open');
-};
-window.importOverlayClick = e=>{ if(e.target===f('importOverlay')) window.closeImport(); };
-
-window.onDragOver  = e=>{ e.preventDefault(); f('fileDrop').classList.add('over'); };
-window.onDragLeave = ()=>f('fileDrop').classList.remove('over');
-window.onFileDrop  = e=>{ e.preventDefault(); f('fileDrop').classList.remove('over'); handleFile(e.dataTransfer.files[0]); };
-window.onFileSelect = e=>handleFile(e.target.files[0]);
-
-function handleFile(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      importWorkbook = XLSX.read(e.target.result, { type:'array', cellDates:true, dateNF:'yyyy-mm-dd' });
-      const ws = importWorkbook.Sheets[importWorkbook.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:'' });
-
-      // find header row (first row that has 'ProjectName' or similar)
-      let headerRowIdx = 0;
-      for (let i=0; i<Math.min(20,raw.length); i++) {
-        const rowStr = raw[i].join('').toLowerCase();
-        if (rowStr.includes('projectname') || rowStr.includes('project name') || rowStr.includes('wireman')) {
-          headerRowIdx=i; break;
-        }
-      }
-      importHeaders = raw[headerRowIdx].map(h=>String(h).trim()).filter(Boolean);
-      importRows    = raw.slice(headerRowIdx+1).filter(r=>r.some(c=>c!==''&&c!==null&&c!==undefined));
-
-      // auto-map
-      importMapping = {};
-      DB_FIELDS.forEach(dbf => {
-        const match = importHeaders.find(h => AUTO_MAP[h.toLowerCase()] === dbf.key);
-        if (match) importMapping[dbf.key] = match;
-      });
-
-      f('importInfo2').innerHTML = `<strong>${file.name}</strong> · ${importRows.length} data rows found · ${importHeaders.length} columns detected`;
-      buildMappingTable();
-      goImportStep(2);
-    } catch(err) {
-      showToast('Could not read file: '+err.message, 'error');
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function buildMappingTable() {
-  const body = f('mappingBody');
-  body.innerHTML = '';
-  DB_FIELDS.forEach(dbf => {
-    const mapped = importMapping[dbf.key] || '';
-    const opts   = ['', ...importHeaders].map(h=>`<option value="${h}"${h===mapped?' selected':''}>${h||'— skip —'}</option>`).join('');
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${dbf.label}</td><td><select onchange="importMapping['${dbf.key}']=this.value">${opts}</select></td>`;
-    body.appendChild(tr);
-  });
-}
-
-window.goImportStep = function(n) {
-  document.querySelectorAll('.import-step').forEach((el,i)=>{
-    el.classList.toggle('active', i===n-1);
-  });
-  if (n===3) buildPreview();
-};
-
-function buildPreview() {
-  const mappedFields = DB_FIELDS.filter(dbf => importMapping[dbf.key]);
-  const previewRows  = importRows.slice(0,5);
-  const thead = mappedFields.map(dbf=>`<th>${dbf.label}</th>`).join('');
-  const tbody = previewRows.map(row => {
-    const hIdx = importHeaders.reduce((acc,h,i)=>({...acc,[h]:i}),{});
-    const cells = mappedFields.map(dbf=>{
-      const header = importMapping[dbf.key];
-      const val = header ? (row[hIdx[header]]||'') : '';
-      return `<td title="${val}">${String(val).slice(0,30)}</td>`;
-    }).join('');
-    return `<tr>${cells}</tr>`;
-  }).join('');
-  f('previewTable').innerHTML = `<thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody>`;
-  f('importInfo3').innerHTML = `Previewing first 5 of <strong>${importRows.length}</strong> rows. Mapped <strong>${mappedFields.length}</strong> of ${DB_FIELDS.length} fields.`;
-}
-
-window.runImport = async function() {
-  goImportStep(4);
-  const hIdx = importHeaders.reduce((acc,h,i)=>({...acc,[h]:i}),{});
-  const dateFields = new Set(['rack_build_start','rack_build_end','test_start','test_end','fat_date','site_date']);
-  const total = importRows.length;
-  let done=0, errors=0;
-
-  const BATCH = 50;
-  for (let i=0; i<importRows.length; i+=BATCH) {
-    const batch = importRows.slice(i, i+BATCH);
-    const records = batch.map(row => {
-      const rec = {};
-      DB_FIELDS.forEach(dbf => {
-        const header = importMapping[dbf.key];
-        if (!header) return;
-        const rawVal = header ? (row[hIdx[header]] ?? '') : '';
-        if (rawVal === '' || rawVal === null || rawVal === undefined) return;
-        let val;
-        if (dateFields.has(dbf.key)) {
-          val = excelDateToISO(rawVal);
-        } else {
-          val = String(rawVal).trim();
-        }
-        if (val) rec[dbf.key] = dbf.key==='qty' ? (+val||1) : val;
-      });
-      if (!rec.name) return null;
-      // default status if missing
-      if (!rec.status) rec.status = 'Dates Required';
-      return rec;
-    }).filter(Boolean);
-
-    if (records.length) {
-      const { error } = await supabase.from('tasks').insert(records);
-      if (error) { errors += records.length; console.error(error); }
-      else done += records.length;
-    }
-
-    const pct = Math.round((i+batch.length)/total*100);
-    f('importProgressBar').style.width = pct+'%';
-    f('importProgressMsg').textContent = `Importing… ${pct}%`;
-    f('importProgressCount').textContent = `${done} saved · ${errors} errors`;
-    await new Promise(r=>setTimeout(r,10));
-  }
-
-  goImportStep(5);
-  f('importDoneMsg').innerHTML = `
-    <div style="font-size:1.8rem;margin-bottom:.5rem">${errors===0?'✅':'⚠️'}</div>
-    <div style="font-size:.95rem;font-weight:500;margin-bottom:.35rem">${done} rack${done!==1?'s':''} imported successfully</div>
-    ${errors?`<div style="font-size:.78rem;color:#f08080">${errors} rows failed — check console for details</div>`:''}`;
-  await loadTasks();
-};
 
 // ── EXPORT ────────────────────────────────────────
 window.exportCSV = function() {
@@ -1623,10 +1128,6 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.ms-panel.open').forEach(p => { p.classList.remove('open'); p.closest('.ms-wrap')?.querySelector('.ms-btn')?.classList.remove('active'); });
 });
 
-document.addEventListener('keydown', e=>{
-  if(e.key==='Escape'){ window.closeModal(); window.closeImport(); }
-  if(e.key==='Enter'&&f('modalOverlay').classList.contains('open')&&document.activeElement.tagName!=='BUTTON') window.saveTask();
-});
 </script>
 </body>
 </html>
