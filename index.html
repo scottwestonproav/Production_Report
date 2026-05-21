@@ -1139,8 +1139,7 @@ window.render = function() {
       <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${t.status||''}">${t.status||'—'}</span></td>
       <td class="bar-cell">
         ${tickHtml}
-        <div class="bar-track"${todayGrad?` style="background-image:${todayGrad}"`:''}>  ${projBar}</div>
-        <div class="bar-track"${todayGrad?` style="background-image:${todayGrad}"`:''}>  ${testBar}${fatMarker}${siteMarker}</div>
+        <div class="bar-track"${todayGrad?` style="background-image:${todayGrad}"`:''}>  ${projBar}${testBar}${fatMarker}${siteMarker}</div>
       </td>
       <td style="width:34px">
         <button class="edit-btn" onclick="window._openEdit(${t.id})" aria-label="Edit">
