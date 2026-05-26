@@ -303,6 +303,7 @@ tbody tr { cursor: default; }
       <span class="ctrl-label">To</span>
       <input type="date" id="dateToInput" class="date-filter-input" onchange="onDateFilterChange()">
     </div>
+    <button class="btn btn-ghost" id="clearFiltersBtn" onclick="clearAllFilters()" style="display:none;font-size:.75rem;padding:.3rem .7rem">✕ Clear filters</button>
     <span class="cap-badge" id="capBadge"></span>
     <span class="cap-badge" id="capBadgeTest"></span>
   </div>
@@ -904,6 +905,9 @@ window.render = function() {
 
   // filter
   const fp = filterSets.project, fm = filterSets.pm, fw = filterSets.wireman, fc = filterSets.commissioner, fs = filterSets.status;
+  const anyFilter = fp.size || fm.size || fw.size || fc.size || fs.size || dateFrom || dateTo;
+  const clearBtn = document.getElementById('clearFiltersBtn');
+  if (clearBtn) clearBtn.style.display = anyFilter ? '' : 'none';
   let visible = tasks.filter(t =>
     (!fp.size || fp.has(t.name)) && (!fm.size || fm.has(t.project_manager)) &&
     (!fw.size || fw.has(t.wireman)) && (!fc.size || fc.has(t.test_engineer)) &&
@@ -1116,6 +1120,17 @@ function showToast(msg, type='ok') {
   document.body.appendChild(el);
   setTimeout(()=>el.remove(),2800);
 }
+
+// ── CLEAR ALL FILTERS ────────────────────────────
+window.clearAllFilters = function() {
+  Object.values(filterSets).forEach(s => s.clear());
+  dateFrom = ''; dateTo = '';
+  const df = document.getElementById('dateFromInput');
+  const dt = document.getElementById('dateToInput');
+  if (df) df.value = '';
+  if (dt) dt.value = '';
+  render();
+};
 
 // ── DATE RANGE FILTER ────────────────────────────
 window.onDateFilterChange = function() {
