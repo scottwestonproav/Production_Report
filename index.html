@@ -660,6 +660,7 @@ const BUILT_STATUSES = new Set(['Ready To Send', 'Test Department Working On Rac
 const SENT_STATUSES  = new Set(['Ready To Send']);
 
 function getConflicts() {
+  const todayStr = new Date().toISOString().slice(0,10);
   const map = {};
   tasks.forEach(t => {
     if (!t.projStart || !t.projEnd) return;
@@ -667,6 +668,7 @@ function getConflicts() {
     let d = toDay(t.projStart), e = toDay(t.projEnd);
     while (d <= e) {
       const k = d.toISOString().slice(0,10);
+      if (k < todayStr) { d.setDate(d.getDate()+1); continue; } // past days never generate conflicts
       if (!map[k]) map[k] = new Set();
       map[k].add(t.wireman || `__u_${t.id}`);
       d.setDate(d.getDate()+1);
@@ -687,6 +689,7 @@ function taskInConflict(task, conflicts) {
 }
 
 function getTestConflicts() {
+  const todayStr = new Date().toISOString().slice(0,10);
   const map = {};           // day → Set of slot keys
   const projDateCount = {}; // "name|start|end" → system count (for advisory)
 
@@ -705,6 +708,7 @@ function getTestConflicts() {
     let d = toDay(t.testStart), e = toDay(t.testEnd);
     while (d <= e) {
       const k = d.toISOString().slice(0,10);
+      if (k < todayStr) { d.setDate(d.getDate()+1); continue; } // past days never generate conflicts
       if (!map[k]) map[k] = new Set();
       map[k].add(slotKey);
       d.setDate(d.getDate()+1);
