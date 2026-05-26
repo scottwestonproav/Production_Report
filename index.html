@@ -602,6 +602,7 @@ function taskToDb(t) {
 const toDay       = d => new Date(d + 'T00:00:00');
 const daysBetween = (a, b) => Math.round((toDay(b) - toDay(a)) / 864e5);
 const fmtShort    = d => { if (!d) return '—'; const p = d.split('-'); return `${p[2]}/${p[1]}`; };
+const fmtPerson   = e => { if (!e) return ''; const local = e.includes('@') ? e.split('@')[0] : e; return local.split('.').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join(' '); };
 const fmtLong     = d => d ? toDay(d).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—';
 const fmtMonth    = d => d.toLocaleString('en-GB', {month:'short', year:'2-digit'});
 function addDays(d, n) { const x = toDay(d); x.setDate(x.getDate() + n); return x.toISOString().slice(0,10); }
@@ -810,7 +811,7 @@ function updateFilters() {
   buildMs('ms-project',     projects,      'All projects',   'project');
   buildMs('ms-pm',          pms,           'All PMs',        'pm');
   buildMs('ms-wireman',     wiremen,       'All wiremen',    'wireman');
-  buildMs('ms-commissioner',commissioners, 'All commissioners','commissioner');
+  buildMs('ms-commissioner',commissioners, 'All commissioners','commissioner', fmtPerson);
   const statusVals = [...new Set(tasks.map(t => t.status))];
   const statusOpts = [...statusVals.filter(Boolean).sort(), ...statusVals.filter(s => !s).map(() => '')];
   buildMs('ms-status', statusOpts, 'All statuses', 'status');
@@ -818,15 +819,15 @@ function updateFilters() {
 
 function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function buildMs(id, options, placeholder, key) {
+function buildMs(id, options, placeholder, key, displayFn) {
   const wrap = document.getElementById(id); if (!wrap) return;
   const sel  = filterSets[key];
   [...sel].forEach(v => { if (!options.includes(v)) sel.delete(v); });
   const wasOpen = wrap.querySelector('.ms-panel')?.classList.contains('open');
   const count   = sel.size;
-  const displayVal = v => v === '' ? '(No status)' : v.replace('@proav.com','');
+  const formatOpt = v => v === '' ? '(No status)' : (displayFn ? displayFn(v) : v.replace('@proav.com',''));
   const label   = count === 0 ? placeholder
-                : count === 1 ? displayVal([...sel][0])
+                : count === 1 ? formatOpt([...sel][0])
                 : `${count} selected`;
   wrap.innerHTML = `
     <button class="ms-btn${wasOpen?' active':''}" onclick="toggleMs(event,'${id}')">
@@ -837,7 +838,7 @@ function buildMs(id, options, placeholder, key) {
       ${options.map(opt => `<label class="ms-item">
         <input type="checkbox" data-val="${escH(opt)}" ${sel.has(opt)?'checked':''}
           onchange="onMsChange('${key}',this.dataset.val,this.checked)">
-        <span>${opt === '' ? '<em style="color:var(--text3)">(No status)</em>' : escH(opt.replace('@proav.com',''))}</span>
+        <span>${opt === '' ? '<em style="color:var(--text3)">(No status)</em>' : escH(formatOpt(opt))}</span>
       </label>`).join('')}
       ${count ? `<div class="ms-clear" onclick="clearMs('${key}')">✕ Clear filter</div>` : ''}
     </div>`;
@@ -980,7 +981,7 @@ window.render = function() {
       <td><span class="mono-sm">${t.seqf||'—'}</span></td>
       <td><span class="mono-sm">${t.rack_pa||'—'}</span></td>
       <td><span class="muted">${t.wireman||'—'}</span></td>
-      <td><span class="muted">${t.test_engineer||'—'}</span></td>
+      <td><span class="muted">${fmtPerson(t.test_engineer)||'—'}</span></td>
       <td><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
       <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${t.status||''}">${t.status||'—'}</span></td>
       <td class="bar-cell">
@@ -1031,7 +1032,7 @@ function renderTestConflicts(conflicts, advisories) {
     });
     list.innerHTML = Object.values(grouped).map(g => {
       const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
-      const who = [...g.people, ...(g.unassigned ? [`${g.unassigned} project group${g.unassigned>1?'s':''}`] : [])].join(', ');
+      const who = [...g.people.map(fmtPerson), ...(g.unassigned ? [`${g.unassigned} project group${g.unassigned>1?'s':''}`] : [])].join(', ');
       return `<div class="conflict-item">→ ${g.count} commissioners needed (available: ${testSize}) · ${nd===1?first:`${first}–${last}`} · ${who}</div>`;
     }).join('');
   }
@@ -1162,7 +1163,7 @@ window.showTaskDetail = function(t) {
       <div class="detail-section-title">Team</div>
       <div class="detail-grid">
         ${field('Wireman', escH(t.wireman||'—'))}
-        ${field('Offsite Commissioner', escH(t.test_engineer||'—'))}
+        ${field('Offsite Commissioner', escH(fmtPerson(t.test_engineer)||'—'))}
         ${field('Project Manager', escH(pmShort||'—'))}
         ${field('Coordinator', escH(t.coordinator||'—'))}
         ${field('DSP Owner', escH(t.dsp_owner||'—'))}
