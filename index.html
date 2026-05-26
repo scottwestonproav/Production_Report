@@ -181,6 +181,29 @@ tbody tr:hover td { background: var(--bg3); }
 @keyframes toastOut { to   { opacity:0; transform: translateX(-50%) translateY(8px); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── DATE FILTER INPUT ── */
+.date-filter-input { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); font-family: var(--font); font-size: .78rem; padding: .3rem .5rem; border-radius: var(--radius); cursor: pointer; outline: none; width: 130px; }
+.date-filter-input:focus { border-color: var(--blue); }
+.date-filter-input::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+
+/* ── DETAIL MODAL ── */
+.detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.detail-box { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); width: min(700px, 100%); max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 8px 48px rgba(0,0,0,.7); }
+.detail-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 1.1rem 1.25rem .85rem; border-bottom: 1px solid var(--border); gap: 1rem; flex-shrink: 0; }
+.detail-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+.detail-sub { font-size: .75rem; color: var(--text2); margin-top: .25rem; }
+.detail-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: .15rem .4rem; border-radius: 4px; flex-shrink: 0; }
+.detail-close:hover { background: var(--bg3); color: var(--text); }
+.detail-body { overflow-y: auto; padding: 1rem 1.25rem 1.25rem; }
+.detail-section { margin-bottom: 1rem; }
+.detail-section-title { font-size: .62rem; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: .55rem; padding-bottom: .3rem; border-bottom: 1px solid var(--border); }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem .85rem; }
+.detail-field { display: flex; flex-direction: column; gap: .18rem; }
+.detail-field.full { grid-column: 1 / -1; }
+.detail-label { font-size: .62rem; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
+.detail-val { font-size: .8rem; color: var(--text); word-break: break-word; white-space: pre-wrap; }
+tbody tr { cursor: default; }
+
 /* ── RESPONSIVE ── */
 @media (max-width: 1100px) { .metrics { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 700px) {
@@ -269,7 +292,16 @@ tbody tr:hover td { background: var(--bg3); }
       <div class="ms-wrap" id="ms-project"></div>
       <div class="ms-wrap" id="ms-pm"></div>
       <div class="ms-wrap" id="ms-wireman"></div>
+      <div class="ms-wrap" id="ms-commissioner"></div>
       <div class="ms-wrap" id="ms-status"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="ctrl-group" style="gap:.4rem;flex-wrap:wrap">
+      <svg style="width:13px;height:13px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span class="ctrl-label">From</span>
+      <input type="date" id="dateFromInput" class="date-filter-input" onchange="onDateFilterChange()">
+      <span class="ctrl-label">To</span>
+      <input type="date" id="dateToInput" class="date-filter-input" onchange="onDateFilterChange()">
     </div>
     <span class="cap-badge" id="capBadge"></span>
     <span class="cap-badge" id="capBadgeTest"></span>
@@ -307,6 +339,20 @@ tbody tr:hover td { background: var(--bg3); }
     <div class="legend-item"><div class="legend-swatch" style="background:var(--red);opacity:.7"></div>Capacity conflict</div>
   </div>
 
+  <!-- ── DETAIL MODAL ── -->
+  <div id="detailModal" class="detail-overlay" style="display:none" onclick="closeDetail()">
+    <div class="detail-box" onclick="event.stopPropagation()">
+      <div class="detail-header">
+        <div>
+          <div class="detail-title" id="detailTitle"></div>
+          <div class="detail-sub" id="detailSub"></div>
+        </div>
+        <button class="detail-close" onclick="closeDetail()" title="Close (Esc)">✕</button>
+      </div>
+      <div class="detail-body" id="detailGrid"></div>
+    </div>
+  </div>
+
   <div class="table-wrap">
     <div class="table-scroll">
       <table aria-label="Production report Gantt chart">
@@ -316,13 +362,14 @@ tbody tr:hover td { background: var(--bg3); }
             <th style="width:65px"  onclick="sortBy('seqf')">SEQF</th>
             <th style="width:80px"  onclick="sortBy('rack_pa')">PA No.</th>
             <th style="width:95px"  onclick="sortBy('wireman')">Wireman</th>
-            <th style="width:85px"  onclick="sortBy('project_manager')">PM</th>
+            <th style="width:110px" onclick="sortBy('test_engineer')">Offsite Commissioner</th>
+            <th style="width:100px" onclick="sortBy('project_manager')">Project Manager</th>
             <th style="width:140px" onclick="sortBy('status')">Status</th>
             <th style="min-width:320px">Timeline</th>
           </tr>
         </thead>
         <tbody id="ganttBody">
-          <tr class="loading-row"><td colspan="7">connecting to database…</td></tr>
+          <tr class="loading-row"><td colspan="8">connecting to database…</td></tr>
         </tbody>
       </table>
     </div>
@@ -361,7 +408,8 @@ let visibleTasks = [];
 let teamSize  = +(localStorage.getItem(TEAM_KEY) || 9);
 let testSize  = +(localStorage.getItem(TEST_KEY)  || 3);
 let sortCol   = 'earliestDate', sortDir = 1;
-const filterSets = { project: new Set(), pm: new Set(), wireman: new Set(), status: new Set() };
+const filterSets = { project: new Set(), pm: new Set(), wireman: new Set(), commissioner: new Set(), status: new Set() };
+let dateFrom = '', dateTo = '';
 let supabase  = null, realtimeSub = null;
 
 
@@ -380,7 +428,7 @@ if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
     !SUPABASE_KEY || SUPABASE_KEY === 'YOUR_SUPABASE_KEY') {
   setConn('err', 'Missing credentials — update SUPABASE_URL and SUPABASE_KEY in the file');
   document.getElementById('ganttBody').innerHTML =
-    `<tr class="empty-row"><td colspan="7">⚠ Open this file in a text editor and set your SUPABASE_URL and SUPABASE_KEY at the top of the &lt;script&gt; section.</td></tr>`;
+    `<tr class="empty-row"><td colspan="8">⚠ Open this file in a text editor and set your SUPABASE_URL and SUPABASE_KEY at the top of the &lt;script&gt; section.</td></tr>`;
 } else {
   try {
     supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -397,7 +445,7 @@ if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
 async function loadTasks() {
   setConn('loading', 'Connecting to Supabase…');
   document.getElementById('ganttBody').innerHTML =
-    `<tr class="loading-row"><td colspan="7">connecting to database…</td></tr>`;
+    `<tr class="loading-row"><td colspan="8">connecting to database…</td></tr>`;
 
   // Use raw fetch + AbortController so the timeout is enforced at the network level.
   // The Supabase JS client can silently stall when a project is paused or RLS blocks
@@ -443,7 +491,7 @@ async function loadTasks() {
       : (e.message || 'Unknown error');
     setConn('err', `Connection failed: ${msg}`);
     document.getElementById('ganttBody').innerHTML = `
-      <tr class="empty-row"><td colspan="7">
+      <tr class="empty-row"><td colspan="8">
         ⚠ Could not connect to Supabase.<br>
         <span style="font-size:.72rem;color:var(--text3);font-family:var(--mono)">${msg}</span><br>
         <span style="font-size:.72rem;color:var(--text3)">
@@ -755,12 +803,14 @@ const STATUS_CLS = {
 
 // ── FILTERS ───────────────────────────────────────
 function updateFilters() {
-  const projects = [...new Set(tasks.map(t => t.name).filter(Boolean))].sort();
-  const pms      = [...new Set(tasks.map(t => t.project_manager).filter(Boolean))].sort();
-  const wiremen  = [...new Set(tasks.map(t => t.wireman).filter(Boolean))].sort();
-  buildMs('ms-project', projects,       'All projects', 'project');
-  buildMs('ms-pm',      pms,            'All PMs',      'pm');
-  buildMs('ms-wireman', wiremen,        'All wiremen',  'wireman');
+  const projects      = [...new Set(tasks.map(t => t.name).filter(Boolean))].sort();
+  const pms           = [...new Set(tasks.map(t => t.project_manager).filter(Boolean))].sort();
+  const wiremen       = [...new Set(tasks.map(t => t.wireman).filter(Boolean))].sort();
+  const commissioners = [...new Set(tasks.map(t => t.test_engineer).filter(Boolean))].sort();
+  buildMs('ms-project',     projects,      'All projects',   'project');
+  buildMs('ms-pm',          pms,           'All PMs',        'pm');
+  buildMs('ms-wireman',     wiremen,       'All wiremen',    'wireman');
+  buildMs('ms-commissioner',commissioners, 'All commissioners','commissioner');
   const statusVals = [...new Set(tasks.map(t => t.status))];
   const statusOpts = [...statusVals.filter(Boolean).sort(), ...statusVals.filter(s => !s).map(() => '')];
   buildMs('ms-status', statusOpts, 'All statuses', 'status');
@@ -852,10 +902,26 @@ window.render = function() {
   document.getElementById('notifChips').innerHTML = chips.join('');
 
   // filter
-  const fp = filterSets.project, fm = filterSets.pm, fw = filterSets.wireman, fs = filterSets.status;
+  const fp = filterSets.project, fm = filterSets.pm, fw = filterSets.wireman, fc = filterSets.commissioner, fs = filterSets.status;
   let visible = tasks.filter(t =>
     (!fp.size || fp.has(t.name)) && (!fm.size || fm.has(t.project_manager)) &&
-    (!fw.size || fw.has(t.wireman)) && (!fs.size || fs.has(t.status)));
+    (!fw.size || fw.has(t.wireman)) && (!fc.size || fc.has(t.test_engineer)) &&
+    (!fs.size || fs.has(t.status)));
+
+  // date range filter — task overlaps with [dateFrom, dateTo] on any of its date ranges
+  if (dateFrom || dateTo) {
+    visible = visible.filter(t => {
+      const spans = [
+        [t.projStart, t.projEnd], [t.testStart, t.testEnd],
+        [t.fat_date,  t.fat_date],[t.site_date, t.site_date],
+      ];
+      return spans.some(([s, e]) => {
+        if (!s && !e) return false;
+        const rs = s || e, re = e || s;
+        return (!dateFrom || re >= dateFrom) && (!dateTo || rs <= dateTo);
+      });
+    });
+  }
 
   // sort
   visible.sort((a,b) => {
@@ -873,7 +939,7 @@ window.render = function() {
 
   if (!visible.length) {
     const r = document.createElement('tr'); r.className='empty-row';
-    r.innerHTML = '<td colspan="7">No tasks match your filters.</td>';
+    r.innerHTML = '<td colspan="8">No tasks match your filters.</td>';
     body.appendChild(r); renderConflicts(conflicts); renderTestConflicts(testConflicts, testAdvisories); return;
   }
 
@@ -893,7 +959,7 @@ window.render = function() {
   const tickHtml   = `<div class="month-header">${todayTickEl}${ticks.map(t=>`<div class="month-tick" style="left:${t.left}%;width:${t.width}%">${t.label}</div>`).join('')}</div>`;
 
   // Build a row HTML string helper
-  function buildRowHtml(t) {
+  function buildRowHtml(t, idx) {
     const conflict = taskInConflict(t, conflicts);
     const proj = barPct(t.projStart, t.projEnd, range.min, total2);
     const test = barPct(t.testStart, t.testEnd, range.min, total2);
@@ -909,11 +975,12 @@ window.render = function() {
     const fatMarker  = fat  ? `<div class="bar-seg" style="left:${fat.left}%;width:max(${fat.width}%,2px);background:var(--green);opacity:.9;cursor:default" title="FAT: ${fmtShort(t.fat_date)}"></div>` : '';
     const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:#ec4899;opacity:.9;cursor:default" title="Rack to Site: ${fmtShort(t.site_date)}"></div>` : '';
     const pmShort = (t.project_manager||'').replace('@proav.com','');
-    return `<tr>
+    return `<tr data-idx="${idx}" title="Double-click for full details">
       <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
       <td><span class="mono-sm">${t.seqf||'—'}</span></td>
       <td><span class="mono-sm">${t.rack_pa||'—'}</span></td>
       <td><span class="muted">${t.wireman||'—'}</span></td>
+      <td><span class="muted">${t.test_engineer||'—'}</span></td>
       <td><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
       <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${t.status||''}">${t.status||'—'}</span></td>
       <td class="bar-cell">
@@ -923,7 +990,7 @@ window.render = function() {
   }
 
   // Insert all rows as one innerHTML batch — far faster than appendChild per row
-  body.innerHTML = visible.map(buildRowHtml).join('');
+  body.innerHTML = visible.map((t, i) => buildRowHtml(t, i)).join('');
   renderConflicts(conflicts);
   renderTestConflicts(testConflicts, testAdvisories);
   if (!hasScrolledToToday && todayInRange) {
@@ -1048,6 +1115,86 @@ function showToast(msg, type='ok') {
   document.body.appendChild(el);
   setTimeout(()=>el.remove(),2800);
 }
+
+// ── DATE RANGE FILTER ────────────────────────────
+window.onDateFilterChange = function() {
+  dateFrom = document.getElementById('dateFromInput').value;
+  dateTo   = document.getElementById('dateToInput').value;
+  render();
+};
+
+// ── ROW DOUBLE-CLICK → DETAIL POPUP ──────────────
+document.getElementById('ganttBody').addEventListener('dblclick', e => {
+  const row = e.target.closest('tr[data-idx]');
+  if (!row) return;
+  const task = visibleTasks[+row.dataset.idx];
+  if (task) showTaskDetail(task);
+});
+
+window.showTaskDetail = function(t) {
+  const pmShort = (t.project_manager||'').replace('@proav.com','');
+  document.getElementById('detailTitle').textContent = t.name || '—';
+  document.getElementById('detailSub').textContent   = t.room || '';
+
+  const field = (label, val, full) => `
+    <div class="detail-field${full?' full':''}">
+      <div class="detail-label">${label}</div>
+      <div class="detail-val">${val}</div>
+    </div>`;
+
+  const pill = t.status
+    ? `<span class="pill ${STATUS_CLS[t.status]||'pill-ns'}">${escH(t.status)}</span>`
+    : '—';
+
+  document.getElementById('detailGrid').innerHTML = `
+    <div class="detail-section">
+      <div class="detail-section-title">Overview</div>
+      <div class="detail-grid">
+        ${field('Status', pill)}
+        ${field('Quantity', t.qty||'—')}
+        ${field('SEQF', escH(t.seqf||'—'))}
+        ${field('PA Number', escH(t.rack_pa||'—'))}
+        ${field('Rack Type', escH(t.rack_type||'—'))}
+        ${field('Priority', escH(t.priority||'—'))}
+      </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Team</div>
+      <div class="detail-grid">
+        ${field('Wireman', escH(t.wireman||'—'))}
+        ${field('Offsite Commissioner', escH(t.test_engineer||'—'))}
+        ${field('Project Manager', escH(pmShort||'—'))}
+        ${field('Coordinator', escH(t.coordinator||'—'))}
+        ${field('DSP Owner', escH(t.dsp_owner||'—'))}
+        ${field('Cables By', escH(t.cables_by||'—'))}
+      </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Dates</div>
+      <div class="detail-grid">
+        ${field('Rack Build Start', escH(fmtLong(t.projStart)))}
+        ${field('Rack Build End',   escH(fmtLong(t.projEnd)))}
+        ${field('Test Start', escH(fmtLong(t.testStart)))}
+        ${field('Test End',   escH(fmtLong(t.testEnd)))}
+        ${field('FAT Date',       escH(fmtLong(t.fat_date)))}
+        ${field('Rack to Site',   escH(fmtLong(t.site_date)))}
+      </div>
+    </div>
+    ${t.comments ? `<div class="detail-section">
+      <div class="detail-section-title">Comments</div>
+      <div class="detail-grid">
+        ${field('', escH(t.comments), true)}
+      </div>
+    </div>` : ''}`;
+
+  document.getElementById('detailModal').style.display = 'flex';
+};
+
+window.closeDetail = function() {
+  document.getElementById('detailModal').style.display = 'none';
+};
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
 
 window.toggleMs = function(e, id) {
   e.stopPropagation();
