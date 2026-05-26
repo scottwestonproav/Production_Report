@@ -809,7 +809,7 @@ function updateFilters() {
   const wiremen       = [...new Set(tasks.map(t => t.wireman).filter(Boolean))].sort();
   const commissioners = [...new Set(tasks.map(t => t.test_engineer).filter(Boolean))].sort();
   buildMs('ms-project',     projects,      'All projects',   'project');
-  buildMs('ms-pm',          pms,           'All PMs',        'pm');
+  buildMs('ms-pm',          pms,           'All PMs',        'pm',           fmtPerson);
   buildMs('ms-wireman',     wiremen,       'All wiremen',    'wireman');
   buildMs('ms-commissioner',commissioners, 'All commissioners','commissioner', fmtPerson);
   const statusVals = [...new Set(tasks.map(t => t.status))];
@@ -975,7 +975,7 @@ window.render = function() {
         title="Test: ${fmtShort(t.testStart)} – ${fmtShort(t.testEnd)}"></div>` : '';
     const fatMarker  = fat  ? `<div class="bar-seg" style="left:${fat.left}%;width:max(${fat.width}%,2px);background:var(--green);opacity:.9;cursor:default" title="FAT: ${fmtShort(t.fat_date)}"></div>` : '';
     const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:#ec4899;opacity:.9;cursor:default" title="Rack to Site: ${fmtShort(t.site_date)}"></div>` : '';
-    const pmShort = (t.project_manager||'').replace('@proav.com','');
+    const pmShort = fmtPerson(t.project_manager);
     return `<tr data-idx="${idx}" title="Double-click for full details">
       <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
       <td><span class="mono-sm">${t.seqf||'—'}</span></td>
