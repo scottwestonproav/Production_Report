@@ -212,6 +212,50 @@ tbody tr { cursor: default; }
   .metrics { grid-template-columns: repeat(2, 1fr); }
   .divider, .legend-hint, .header-sub { display: none; }
 }
+
+/* ── MOBILE CARD VIEW ── */
+#mobileList { display: none; flex-direction: column; gap: .6rem; margin-bottom: .85rem; }
+
+@media (max-width: 767px) {
+  /* Hide desktop-only chrome */
+  .table-wrap, .legend, #exportBtn, .saving-indicator { display: none !important; }
+
+  /* Hide complex controls; leave status filter + clear button */
+  #sliderGroup, #dateGroup, .controls > .divider,
+  #ms-project, #ms-pm, #ms-wireman, #ms-commissioner { display: none !important; }
+
+  /* Tidy up the remaining controls bar */
+  .controls { flex-wrap: nowrap; align-items: center; padding: .5rem .75rem; gap: .5rem; }
+  .controls .ctrl-group { gap: .4rem; }
+  .controls .ctrl-group > svg { display: none; } /* hide filter funnel icon */
+  #clearFiltersBtn { flex-shrink: 0; white-space: nowrap; }
+
+  /* Metrics 2-col */
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+
+  /* Show mobile list */
+  #mobileList { display: flex !important; }
+
+  /* Mobile task cards */
+  .m-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: .85rem 1rem;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color .15s, background .15s;
+  }
+  .m-card:active { background: var(--bg3); border-color: var(--border2); }
+  .m-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem; margin-bottom: .2rem; }
+  .m-card-project { font-size: .88rem; font-weight: 600; color: var(--text); line-height: 1.35; flex: 1; min-width: 0; }
+  .m-card-room { font-size: .75rem; color: var(--text2); margin-bottom: .55rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-card-footer { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+  .m-card-dates { font-size: .7rem; color: var(--text3); font-family: var(--mono); white-space: nowrap; }
+  .m-card-pm { font-size: .7rem; color: var(--text3); }
+  .m-count { font-size: .72rem; color: var(--text3); padding: .1rem 0 .35rem; }
+  .m-empty { text-align: center; color: var(--text3); padding: 3rem 1rem; font-size: .85rem; }
+}
 </style>
 </head>
 <body>
@@ -273,7 +317,7 @@ tbody tr { cursor: default; }
   </div>
 
   <div class="controls">
-    <div style="display:flex;flex-direction:column;gap:.45rem;flex-shrink:0">
+    <div id="sliderGroup" style="display:flex;flex-direction:column;gap:.45rem;flex-shrink:0">
       <div style="display:flex;align-items:center;gap:.85rem">
         <div class="ctrl-group">
           <svg style="width:15px;height:15px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
@@ -307,7 +351,7 @@ tbody tr { cursor: default; }
       <div class="ms-wrap" id="ms-status"></div>
     </div>
     <div class="divider"></div>
-    <div class="ctrl-group" style="gap:.4rem;flex-wrap:wrap">
+    <div id="dateGroup" class="ctrl-group" style="gap:.4rem;flex-wrap:wrap">
       <svg style="width:13px;height:13px;stroke:var(--text2);fill:none;stroke-width:2;flex-shrink:0" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       <span class="ctrl-label">From</span>
       <input type="date" id="dateFromInput" class="date-filter-input" onchange="onDateFilterChange()">
@@ -373,6 +417,8 @@ tbody tr { cursor: default; }
       <div class="detail-body" id="detailGrid"></div>
     </div>
   </div>
+
+  <div id="mobileList"></div>
 
   <div class="table-wrap">
     <div class="table-scroll">
@@ -1040,7 +1086,7 @@ window.render = function() {
   if (!visible.length) {
     const r = document.createElement('tr'); r.className='empty-row';
     r.innerHTML = '<td colspan="8">No tasks match your filters.</td>';
-    body.appendChild(r); renderConflicts(conflicts); renderTestConflicts(testConflicts, testAdvisories); return;
+    body.appendChild(r); renderConflicts(conflicts); renderTestConflicts(testConflicts, testAdvisories); renderMobile(); return;
   }
 
   // Compute range once, outside chunk loop
@@ -1093,6 +1139,7 @@ window.render = function() {
   body.innerHTML = visible.map((t, i) => buildRowHtml(t, i)).join('');
   renderConflicts(conflicts);
   renderTestConflicts(testConflicts, testAdvisories);
+  renderMobile();
   if (!hasScrolledToToday && todayInRange) {
     requestAnimationFrame(scrollTodayIntoCenter);
     hasScrolledToToday = true;
@@ -1163,6 +1210,46 @@ window.onTestChange = function(v) {
 
 // ── HELPERS (modal-free) ──────────────────────────
 function f(id) { return document.getElementById(id); }
+
+// ── MOBILE CARD LIST ──────────────────────────────
+function renderMobile() {
+  const container = document.getElementById('mobileList');
+  if (!container) return;
+
+  if (!visibleTasks.length) {
+    container.innerHTML = '<div class="m-empty">No tasks match your filters.</div>';
+    return;
+  }
+
+  const n = visibleTasks.length;
+  container.innerHTML =
+    `<div class="m-count">${n} rack${n !== 1 ? 's' : ''}</div>` +
+    visibleTasks.map((t, i) => {
+      const statusCls = STATUS_CLS[t.status] || 'pill-ns';
+      const from = t.projStart ? fmtMed(t.projStart) : (t.testStart ? fmtMed(t.testStart) : '—');
+      const to   = t.projEnd   ? fmtMed(t.projEnd)   : (t.testEnd   ? fmtMed(t.testEnd)   : '—');
+      const fat  = t.fat_date  ? ` · FAT ${fmtMed(t.fat_date)}` : '';
+      const pm   = t.project_manager ? fmtPerson(t.project_manager) : '';
+      return `<div class="m-card" data-idx="${i}">
+        <div class="m-card-header">
+          <span class="m-card-project">${escH(t.name || '—')}</span>
+          <span class="pill ${statusCls}" style="flex-shrink:0;max-width:130px">${escH(t.status || '—')}</span>
+        </div>
+        ${t.room ? `<div class="m-card-room">${escH(t.room)}</div>` : ''}
+        <div class="m-card-footer">
+          <span class="m-card-dates">${from} → ${to}${escH(fat)}</span>
+          ${pm ? `<span class="m-card-pm">${escH(pm)}</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+}
+
+document.getElementById('mobileList').addEventListener('click', e => {
+  const card = e.target.closest('.m-card[data-idx]');
+  if (!card) return;
+  const task = visibleTasks[+card.dataset.idx];
+  if (task) showTaskDetail(task);
+});
 
 // ── EXPORT PNG ────────────────────────────────────
 window.exportPNG = async function() {
