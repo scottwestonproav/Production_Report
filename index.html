@@ -1187,23 +1187,17 @@ window.exportPNG = async function() {
     const connBar     = document.getElementById('connBar');
     if (!app || !tableScroll) throw new Error('Layout elements not found');
 
-    // Measure before touching any styles.
-    // Use the greater of: full table scroll width or current rendered app width.
-    // Controls bar can be wider than the table on large screens, so we must not clip it.
-    const cs = getComputedStyle(app);
-    const appPadX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-    const tableW  = tableScroll.scrollWidth + appPadX;
-    const targetW = Math.max(tableW, app.offsetWidth);
-
-    // Remove overflow clipping and lift the max-width cap
+    // Remove overflow clipping and lift all width constraints.
+    // Use max-content so the browser lays out at its true natural width before we measure.
     override(tableWrap,   { overflow: 'visible' });
     override(tableScroll, { overflow: 'visible' });
-    override(app,         { width: targetW + 'px', maxWidth: 'none' });
+    override(app,         { maxWidth: 'none', width: 'max-content' });
     if (connBar) override(connBar, { display: 'none' });
 
-    // Give the browser a tick to reflow at the new width
+    // Let the browser reflow at natural width, then read the real dimensions.
     await new Promise(r => setTimeout(r, 80));
-    const targetH = app.scrollHeight;
+    const targetW = Math.round(app.getBoundingClientRect().width);
+    const targetH = Math.round(app.scrollHeight);
 
     const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0f1117';
     const dataUrl = await htmlToImage.toPng(app, {
