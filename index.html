@@ -255,7 +255,28 @@ tbody tr { cursor: default; }
   .m-card-pm { font-size: .7rem; color: var(--text3); }
   .m-count { font-size: .72rem; color: var(--text3); padding: .1rem 0 .35rem; }
   .m-empty { text-align: center; color: var(--text3); padding: 3rem 1rem; font-size: .85rem; }
+
+  /* Mobile action bar */
+  #mobileActions { display: flex; gap: .5rem; margin-bottom: .6rem; }
+  .m-action-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: .4rem;
+    min-height: 42px; padding: .5rem .4rem; font-size: .8rem; font-family: var(--font);
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius);
+    color: var(--text2); cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .m-action-btn:active { background: var(--bg3); border-color: var(--blue); color: var(--text); }
+
+  /* Gantt mode overrides (mobile only) */
+  .app.gantt-mode #mobileActions,
+  .app.gantt-mode #mobileList { display: none !important; }
+  .app.gantt-mode .table-wrap { display: block !important; }
+  .app.gantt-mode .legend { display: flex !important; }
+  .app.gantt-mode #mobileGanttBar { display: flex !important; }
 }
+
+/* Always hidden at desktop */
+#mobileActions, #mobileGanttBar { display: none; }
 </style>
 </head>
 <body>
@@ -383,6 +404,27 @@ tbody tr { cursor: default; }
         <div id="testAdvisoryList"></div>
       </div>
     </div>
+  </div>
+
+  <!-- ── MOBILE ACTION BAR ── -->
+  <div id="mobileActions">
+    <button class="m-action-btn" onclick="openLeaveModal()">
+      <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Leave
+    </button>
+    <button class="m-action-btn" onclick="enterMobileGantt()">
+      <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Gantt View
+    </button>
+  </div>
+
+  <!-- ── MOBILE GANTT BACK BAR (shown in gantt-mode) ── -->
+  <div id="mobileGanttBar">
+    <button class="m-action-btn" onclick="exitMobileGantt()" style="flex:0 0 auto;padding:.45rem 1rem">
+      <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back
+    </button>
+    <span style="font-size:.7rem;color:var(--text3);padding-left:.25rem">Rotate to landscape for best view</span>
   </div>
 
   <div class="legend">
@@ -1250,6 +1292,15 @@ document.getElementById('mobileList').addEventListener('click', e => {
   const task = visibleTasks[+card.dataset.idx];
   if (task) showTaskDetail(task);
 });
+
+window.enterMobileGantt = function() {
+  document.querySelector('.app').classList.add('gantt-mode');
+  setTimeout(scrollTodayIntoCenter, 150);
+};
+
+window.exitMobileGantt = function() {
+  document.querySelector('.app').classList.remove('gantt-mode');
+};
 
 // ── EXPORT PNG ────────────────────────────────────
 window.exportPNG = async function() {
