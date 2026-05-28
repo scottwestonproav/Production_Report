@@ -1187,17 +1187,34 @@ window.exportPNG = async function() {
     const connBar     = document.getElementById('connBar');
     if (!app || !tableScroll) throw new Error('Layout elements not found');
 
-    // Remove overflow clipping and lift all width constraints.
-    // Use max-content so the browser lays out at its true natural width before we measure.
-    override(tableWrap,   { overflow: 'visible' });
-    override(tableScroll, { overflow: 'visible' });
-    override(app,         { maxWidth: 'none', width: 'max-content' });
-    if (connBar) override(connBar, { display: 'none' });
+    // Measure table's full scroll width before touching any styles.
+    const tableNaturalW = tableScroll.scrollWidth;
+    const cs = getComputedStyle(app);
+    const appPadX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
 
-    // Let the browser reflow at natural width, then read the real dimensions.
+    // Hide UI-only elements so they don't appear in the capture.
+    if (connBar) override(connBar, { display: 'none' });
+    if (btn)     override(btn,     { display: 'none' });
+
+    // Set body minWidth to prevent the viewport from clamping the app's natural width,
+    // then lift the app's max-width cap. Save both maxWidth + width on app in one call
+    // so restoreAll cleans both up correctly in a single pass.
+    override(document.body, { minWidth: (tableNaturalW + appPadX) + 'px' });
+    override(tableWrap,     { overflow: 'visible' });
+    override(tableScroll,   { overflow: 'visible' });
+    override(app,           { maxWidth: 'none', width: '' });
+
+    // Reflow at natural width.
     await new Promise(r => setTimeout(r, 80));
-    const targetW = Math.round(app.getBoundingClientRect().width);
-    const targetH = Math.round(app.scrollHeight);
+
+    // app.scrollWidth now reflects true content width, unaffected by viewport clamping.
+    // Add a 4px buffer so sub-pixel rounding never trims the right edge.
+    const targetW = Math.max(app.scrollWidth, tableNaturalW + appPadX) + 4;
+
+    // Lock app to that width — the existing save entry already holds the original state.
+    app.style.width = targetW + 'px';
+    await new Promise(r => setTimeout(r, 30));
+    const targetH = app.scrollHeight;
 
     const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0f1117';
     const dataUrl = await htmlToImage.toPng(app, {
