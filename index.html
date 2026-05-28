@@ -1166,24 +1166,46 @@ function f(id) { return document.getElementById(id); }
 
 // ── EXPORT PNG ────────────────────────────────────
 window.exportPNG = async function() {
-  const btn = document.getElementById('exportBtn');
+  const btn         = document.getElementById('exportBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
 
-  const app          = document.querySelector('.app');
-  const tableScroll  = document.querySelector('.table-scroll');
-  const connBar      = document.getElementById('connBar');
+  const app         = document.querySelector('.app');
+  const tableWrap   = document.querySelector('.table-wrap');
+  const tableScroll = document.querySelector('.table-scroll');
+  const connBar     = document.getElementById('connBar');
 
-  // Temporarily expand the scrollable table so the full width is captured
-  const prevOverflow = tableScroll.style.overflow;
-  tableScroll.style.overflow = 'visible';
-  // Hide the connection bar — it's a runtime status, not part of the export
-  const prevConnDisplay = connBar ? connBar.style.display : '';
-  if (connBar) connBar.style.display = 'none';
+  // Measure full content width before touching any styles
+  const targetW = tableScroll.scrollWidth;
+
+  // Save existing inline styles and apply overrides
+  const saves = [];
+  function override(el, styles) {
+    if (!el) return;
+    const prev = {};
+    for (const k of Object.keys(styles)) prev[k] = el.style[k];
+    Object.assign(el.style, styles);
+    saves.push({ el, prev });
+  }
+
+  // tableWrap has overflow:hidden for border-radius — remove it for export
+  override(tableWrap,   { overflow: 'visible' });
+  // tableScroll clips the horizontal content — expand it
+  override(tableScroll, { overflow: 'visible' });
+  // app has max-width:1600px — lift that cap and set explicit width
+  override(app,         { width: targetW + 'px', maxWidth: 'none' });
+  // connBar is a runtime status indicator, exclude from export
+  if (connBar) override(connBar, { display: 'none' });
+
+  // Wait for the browser to reflow at the new width before measuring height
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const targetH = app.scrollHeight;
 
   try {
     const dataUrl = await htmlToImage.toPng(app, {
       cacheBust: true,
       pixelRatio: 2,
+      width:  targetW,
+      height: targetH,
       backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0f1117',
     });
     const a = document.createElement('a');
@@ -1194,12 +1216,11 @@ window.exportPNG = async function() {
       : 'production-report.png';
     a.click();
     showToast('Image exported');
-  } catch(err) {
+  } catch (err) {
     showToast('Export failed: ' + err.message, 'error');
     console.error('[exportPNG]', err);
   } finally {
-    tableScroll.style.overflow = prevOverflow;
-    if (connBar) connBar.style.display = prevConnDisplay;
+    saves.forEach(({ el, prev }) => Object.assign(el.style, prev));
     if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Export PNG'; }
   }
 };
