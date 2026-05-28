@@ -423,8 +423,8 @@ const LEE_BEACON_ID   = '568';        // joins Rackbuild from 1 Jun 2026
 const LEE_BEACON_FROM = '2026-06-01';
 // Off-site Commissioning IDs (dept "Off-site Commissioning") + Alain Carver (133, listed as "On-site" in BambooHR)
 const OFFSITE_IDS = new Set(['1048','556','190','467','482','133']);
-let rackbuildLeave = {}; // { 'YYYY-MM-DD': number } — headcount on leave that day
-let offsiteLeave   = {}; // { 'YYYY-MM-DD': number }
+let rackbuildLeave = {}; // { 'YYYY-MM-DD': { count: number, names: string[] } }
+let offsiteLeave   = {}; // { 'YYYY-MM-DD': { count: number, names: string[] } }
 
 let sortCol   = 'earliestDate', sortDir = 1;
 const filterSets = { project: new Set(), pm: new Set(), wireman: new Set(), commissioner: new Set(), status: new Set() };
@@ -459,8 +459,16 @@ async function loadLeaveData() {
         const v = parseFloat(amt);
         if (v <= 0) continue;
         if (id === LEE_BEACON_ID && date < LEE_BEACON_FROM) continue;
-        if (isRb) rb[date] = (rb[date] || 0) + v;
-        if (isOs) os[date] = (os[date] || 0) + v;
+        if (isRb) {
+          if (!rb[date]) rb[date] = { count: 0, names: [] };
+          rb[date].count += v;
+          if (!rb[date].names.includes(rec.name)) rb[date].names.push(rec.name);
+        }
+        if (isOs) {
+          if (!os[date]) os[date] = { count: 0, names: [] };
+          os[date].count += v;
+          if (!os[date].names.includes(rec.name)) os[date].names.push(rec.name);
+        }
       }
     }
     rackbuildLeave = rb;
@@ -778,10 +786,10 @@ function getConflicts() {
     }
   });
   return Object.entries(map)
-    .filter(([day,s]) => s.size > Math.max(0, teamSize - (rackbuildLeave[day] || 0)))
+    .filter(([day,s]) => s.size > Math.max(0, teamSize - (rackbuildLeave[day]?.count || 0)))
     .map(([day,s]) => {
       const named   = [...s].filter(p => !p.startsWith('__u_'));
-      const onLeave = rackbuildLeave[day] || 0;
+      const onLeave = rackbuildLeave[day] || { count: 0, names: [] };
       return { day, count: s.size, people: named, unassigned: s.size - named.length, onLeave };
     })
     .sort((a,b) => a.day.localeCompare(b.day));
@@ -820,10 +828,10 @@ function getTestConflicts() {
   });
 
   const conflicts = Object.entries(map)
-    .filter(([day,s]) => s.size > Math.max(0, testSize - (offsiteLeave[day] || 0)))
+    .filter(([day,s]) => s.size > Math.max(0, testSize - (offsiteLeave[day]?.count || 0)))
     .map(([day,s]) => {
       const named   = [...s].filter(p => !p.startsWith('__proj_'));
-      const onLeave = offsiteLeave[day] || 0;
+      const onLeave = offsiteLeave[day] || { count: 0, names: [] };
       return { day, count: s.size, people: named, unassigned: s.size - named.length, onLeave };
     })
     .sort((a,b) => a.day.localeCompare(b.day));
@@ -1066,15 +1074,15 @@ function renderConflicts(conflicts) {
   panel.style.display = '';
   const grouped = {};
   conflicts.forEach(c => {
-    const k = [...c.people].sort().join('|') + ':' + c.unassigned + ':' + c.onLeave;
+    const k = [...c.people].sort().join('|') + ':' + c.unassigned + ':' + c.onLeave.names.sort().join(',');
     if (!grouped[k]) grouped[k] = { people: c.people, unassigned: c.unassigned, days: [], count: c.count, onLeave: c.onLeave };
     grouped[k].days.push(c.day);
   });
   list.innerHTML = Object.values(grouped).map(g => {
     const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
     const who    = [...g.people, ...(g.unassigned ? [`${g.unassigned} unassigned`] : [])].join(', ');
-    const avail  = Math.max(0, teamSize - g.onLeave);
-    const lvNote = g.onLeave ? `, ${g.onLeave} on leave` : '';
+    const avail  = Math.max(0, teamSize - g.onLeave.count);
+    const lvNote = g.onLeave.count ? ` · on leave: ${g.onLeave.names.join(', ')}` : '';
     return `<div class="conflict-item">→ ${g.count} rack builders needed (available: ${avail}${lvNote}) · ${nd===1?first:`${first}–${last}`} · ${who}</div>`;
   }).join('');
 }
@@ -1087,15 +1095,15 @@ function renderTestConflicts(conflicts, advisories) {
     panel.style.display = '';
     const grouped = {};
     conflicts.forEach(c => {
-      const k = [...c.people].sort().join('|') + ':' + c.unassigned + ':' + c.onLeave;
+      const k = [...c.people].sort().join('|') + ':' + c.unassigned + ':' + c.onLeave.names.sort().join(',');
       if (!grouped[k]) grouped[k] = { people: c.people, unassigned: c.unassigned, days: [], count: c.count, onLeave: c.onLeave };
       grouped[k].days.push(c.day);
     });
     list.innerHTML = Object.values(grouped).map(g => {
       const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
       const who    = [...g.people.map(fmtPerson), ...(g.unassigned ? [`${g.unassigned} project group${g.unassigned>1?'s':''}`] : [])].join(', ');
-      const avail  = Math.max(0, testSize - g.onLeave);
-      const lvNote = g.onLeave ? `, ${g.onLeave} on leave` : '';
+      const avail  = Math.max(0, testSize - g.onLeave.count);
+      const lvNote = g.onLeave.count ? ` · on leave: ${g.onLeave.names.map(fmtPerson).join(', ')}` : '';
       return `<div class="conflict-item">→ ${g.count} commissioners needed (available: ${avail}${lvNote}) · ${nd===1?first:`${first}–${last}`} · ${who}</div>`;
     }).join('');
   }
