@@ -216,19 +216,25 @@ tbody tr { cursor: default; }
 /* ── MOBILE CARD VIEW ── */
 #mobileList { display: none; flex-direction: column; gap: .6rem; margin-bottom: .85rem; }
 
+/* Mobile-only buttons: hidden by default so desktop never sees them */
+#mLeaveBtn, #mGanttBtn, #mBackBtn { display: none; }
+
 @media (max-width: 767px) {
   /* Hide desktop-only chrome */
   .table-wrap, .legend, #exportBtn, .saving-indicator { display: none !important; }
 
-  /* Hide complex controls; leave status filter + clear button */
+  /* Hide complex controls; leave status filter + clear + mobile buttons */
   #sliderGroup, #dateGroup, .controls > .divider,
   #ms-project, #ms-pm, #ms-wireman, #ms-commissioner { display: none !important; }
 
   /* Tidy up the remaining controls bar */
   .controls { flex-wrap: nowrap; align-items: center; padding: .5rem .75rem; gap: .5rem; }
   .controls .ctrl-group { gap: .4rem; }
-  .controls .ctrl-group > svg { display: none; } /* hide filter funnel icon */
+  .controls .ctrl-group > svg { display: none; }
   #clearFiltersBtn { flex-shrink: 0; white-space: nowrap; }
+
+  /* Show mobile-only buttons in the controls bar */
+  #mLeaveBtn, #mGanttBtn { display: inline-flex; align-items: center; gap: .3rem; flex-shrink: 0; }
 
   /* Metrics 2-col */
   .metrics { grid-template-columns: repeat(2, 1fr); }
@@ -256,28 +262,13 @@ tbody tr { cursor: default; }
   .m-count { font-size: .72rem; color: var(--text3); padding: .1rem 0 .35rem; }
   .m-empty { text-align: center; color: var(--text3); padding: 3rem 1rem; font-size: .85rem; }
 
-  /* Mobile action bar */
-  #mobileActions { display: flex; gap: .5rem; margin-bottom: .6rem; }
-  .m-action-btn {
-    flex: 1; display: flex; align-items: center; justify-content: center; gap: .4rem;
-    min-height: 42px; padding: .5rem .4rem; font-size: .8rem; font-family: var(--font);
-    background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius);
-    color: var(--text2); cursor: pointer; -webkit-tap-highlight-color: transparent;
-    transition: background .15s, border-color .15s, color .15s;
-  }
-  .m-action-btn:active { background: var(--bg3); border-color: var(--blue); color: var(--text); }
-
   /* Gantt mode overrides (mobile only) */
-  .app.gantt-mode #mobileActions,
   .app.gantt-mode #mobileList { display: none !important; }
   .app.gantt-mode .table-wrap { display: block !important; }
   .app.gantt-mode .legend { display: flex !important; }
-  .app.gantt-mode #mobileGanttBar { display: flex !important; }
-}
-
-/* Hidden on desktop */
-@media (min-width: 768px) {
-  #mobileActions, #mobileGanttBar { display: none; }
+  .app.gantt-mode #mLeaveBtn,
+  .app.gantt-mode #mGanttBtn { display: none !important; }
+  .app.gantt-mode #mBackBtn { display: inline-flex !important; align-items: center; gap: .3rem; flex-shrink: 0; }
 }
 </style>
 </head>
@@ -382,6 +373,18 @@ tbody tr { cursor: default; }
       <input type="date" id="dateToInput" class="date-filter-input" onchange="onDateFilterChange()">
     </div>
     <button class="btn btn-ghost" id="clearFiltersBtn" onclick="clearAllFilters()" style="display:none;font-size:.75rem;padding:.3rem .7rem">✕ Clear filters</button>
+    <button id="mLeaveBtn" class="btn btn-ghost" onclick="openLeaveModal()" style="font-size:.75rem;padding:.3rem .7rem;white-space:nowrap">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Leave
+    </button>
+    <button id="mGanttBtn" class="btn btn-ghost" onclick="enterMobileGantt()" style="font-size:.75rem;padding:.3rem .7rem;white-space:nowrap">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Gantt
+    </button>
+    <button id="mBackBtn" class="btn btn-ghost" onclick="exitMobileGantt()" style="font-size:.75rem;padding:.3rem .7rem;white-space:nowrap">
+      <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Back
+    </button>
   </div>
 
   <div class="notif-section" id="notifSection">
@@ -406,27 +409,6 @@ tbody tr { cursor: default; }
         <div id="testAdvisoryList"></div>
       </div>
     </div>
-  </div>
-
-  <!-- ── MOBILE ACTION BAR ── -->
-  <div id="mobileActions">
-    <button class="m-action-btn" onclick="openLeaveModal()">
-      <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Leave
-    </button>
-    <button class="m-action-btn" onclick="enterMobileGantt()">
-      <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      Gantt View
-    </button>
-  </div>
-
-  <!-- ── MOBILE GANTT BACK BAR (shown in gantt-mode) ── -->
-  <div id="mobileGanttBar">
-    <button class="m-action-btn" onclick="exitMobileGantt()" style="flex:0 0 auto;padding:.45rem 1rem">
-      <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      Back
-    </button>
-    <span style="font-size:.7rem;color:var(--text3);padding-left:.25rem">Rotate to landscape for best view</span>
   </div>
 
   <div class="legend">
@@ -518,6 +500,7 @@ let tasks     = [];
 let visibleTasks = [];
 let teamSize  = +(localStorage.getItem(TEAM_KEY) || 9);
 let testSize  = +(localStorage.getItem(TEST_KEY)  || 3);
+let mobileGanttMode = false;
 
 // ── BAMBOOHR TEAM CONFIG ───────────────────────────
 // Rackbuild IDs (BambooHR dept "Rackbuild"), excluding Derek Jarvis (757) who does lighting enclosures only
@@ -1130,7 +1113,7 @@ window.render = function() {
   if (!visible.length) {
     const r = document.createElement('tr'); r.className='empty-row';
     r.innerHTML = '<td colspan="8">No tasks match your filters.</td>';
-    body.appendChild(r); renderConflicts(conflicts); renderTestConflicts(testConflicts, testAdvisories); renderMobile(); return;
+    renderTableHeader(); body.appendChild(r); renderConflicts(conflicts); renderTestConflicts(testConflicts, testAdvisories); renderMobile(); return;
   }
 
   // Compute range once, outside chunk loop
@@ -1165,6 +1148,18 @@ window.render = function() {
     const fatMarker  = fat  ? `<div class="bar-seg" style="left:${fat.left}%;width:max(${fat.width}%,2px);background:var(--green);opacity:.9;cursor:default" title="FAT: ${fmtShort(t.fat_date)}"></div>` : '';
     const siteMarker = site ? `<div class="bar-seg" style="left:${site.left}%;width:max(${site.width}%,2px);background:#ec4899;opacity:.9;cursor:default" title="Rack to Site: ${fmtShort(t.site_date)}"></div>` : '';
     const pmShort = fmtPerson(t.project_manager);
+    const barCell = `<td class="bar-cell">${tickHtml}<div class="bar-track"${todayGrad?` style="background-image:${todayGrad}"`:''}>  ${projBar}${testBar}${fatMarker}${siteMarker}</div></td>`;
+    if (mobileGanttMode) {
+      return `<tr data-idx="${idx}" title="Double-click for full details">
+        <td><span class="mono-sm">${t.seqf||'—'}</span></td>
+        <td><span class="muted">${t.wireman||'—'}</span></td>
+        <td><span class="muted">${fmtPerson(t.test_engineer)||'—'}</span></td>
+        <td><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
+        <td><span class="mono-sm">${t.rack_pa||'—'}</span></td>
+        <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
+        <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${t.status||''}">${t.status||'—'}</span></td>
+        ${barCell}</tr>`;
+    }
     return `<tr data-idx="${idx}" title="Double-click for full details">
       <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
       <td><span class="mono-sm">${t.seqf||'—'}</span></td>
@@ -1173,13 +1168,11 @@ window.render = function() {
       <td><span class="muted">${fmtPerson(t.test_engineer)||'—'}</span></td>
       <td><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
       <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${t.status||''}">${t.status||'—'}</span></td>
-      <td class="bar-cell">
-        ${tickHtml}
-        <div class="bar-track"${todayGrad?` style="background-image:${todayGrad}"`:''}>  ${projBar}${testBar}${fatMarker}${siteMarker}</div>
-      </td></tr>`;
+      ${barCell}</tr>`;
   }
 
   // Insert all rows as one innerHTML batch — far faster than appendChild per row
+  renderTableHeader();
   body.innerHTML = visible.map((t, i) => buildRowHtml(t, i)).join('');
   renderConflicts(conflicts);
   renderTestConflicts(testConflicts, testAdvisories);
@@ -1295,13 +1288,43 @@ document.getElementById('mobileList').addEventListener('click', e => {
   if (task) showTaskDetail(task);
 });
 
+function renderTableHeader() {
+  const tr = document.querySelector('table thead tr');
+  if (!tr) return;
+  if (mobileGanttMode) {
+    tr.innerHTML =
+      `<th style="width:65px"  onclick="sortBy('seqf')">SEQF</th>` +
+      `<th style="width:95px"  onclick="sortBy('wireman')">Wireman</th>` +
+      `<th style="width:110px" onclick="sortBy('test_engineer')">Offsite Comm.</th>` +
+      `<th style="width:100px" onclick="sortBy('project_manager')">PM</th>` +
+      `<th style="width:80px"  onclick="sortBy('rack_pa')">PA No.</th>` +
+      `<th style="width:200px" onclick="sortBy('name')">Project / Room</th>` +
+      `<th style="width:140px" onclick="sortBy('status')">Status</th>` +
+      `<th style="min-width:320px">Timeline</th>`;
+  } else {
+    tr.innerHTML =
+      `<th style="width:200px" onclick="sortBy('name')">Project / Room</th>` +
+      `<th style="width:65px"  onclick="sortBy('seqf')">SEQF</th>` +
+      `<th style="width:80px"  onclick="sortBy('rack_pa')">PA No.</th>` +
+      `<th style="width:95px"  onclick="sortBy('wireman')">Wireman</th>` +
+      `<th style="width:110px" onclick="sortBy('test_engineer')">Offsite Commissioner</th>` +
+      `<th style="width:100px" onclick="sortBy('project_manager')">Project Manager</th>` +
+      `<th style="width:140px" onclick="sortBy('status')">Status</th>` +
+      `<th style="min-width:320px">Timeline</th>`;
+  }
+}
+
 window.enterMobileGantt = function() {
+  mobileGanttMode = true;
   document.querySelector('.app').classList.add('gantt-mode');
+  render();
   setTimeout(scrollTodayIntoCenter, 150);
 };
 
 window.exitMobileGantt = function() {
+  mobileGanttMode = false;
   document.querySelector('.app').classList.remove('gantt-mode');
+  render();
 };
 
 // ── EXPORT PNG ────────────────────────────────────
