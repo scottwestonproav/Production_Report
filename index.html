@@ -288,6 +288,8 @@ tbody tr { cursor: default; }
           <input type="range" min="1" max="20" step="1" id="testSlider" value="3" oninput="onTestChange(this.value)">
           <span class="val-badge" id="testLabel">3</span>
         </div>
+        <div class="divider"></div>
+        <button class="btn btn-ghost" onclick="openLeaveModal()" style="font-size:.75rem;padding:.3rem .75rem;white-space:nowrap;flex-shrink:0">Leave ↗</button>
       </div>
       <script>(function(){var t=localStorage.getItem('gantt_team_v1'),s=localStorage.getItem('gantt_test_v1');if(t){document.getElementById('teamSlider').value=t;document.getElementById('teamLabel').textContent=t;}if(s){document.getElementById('testSlider').value=s;document.getElementById('testLabel').textContent=s;}}());</script>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
@@ -345,6 +347,17 @@ tbody tr { cursor: default; }
     <div class="legend-item"><div class="legend-swatch" style="background:var(--green);opacity:.8"></div>FAT date</div>
     <div class="legend-item"><div class="legend-swatch" style="background:#ec4899;opacity:.8"></div>Rack to Site</div>
     <div class="legend-item"><div class="legend-swatch" style="background:var(--red);opacity:.7"></div>Capacity conflict</div>
+  </div>
+
+  <!-- ── LEAVE MODAL ── -->
+  <div id="leaveModal" class="detail-overlay" style="display:none" onclick="if(event.target===this)closeLeaveModal()">
+    <div class="detail-box" onclick="event.stopPropagation()" style="width:min(420px,100%);max-height:80vh">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem .75rem;border-bottom:1px solid var(--border2)">
+        <span style="font-weight:600;font-size:.9rem">Upcoming Leave — next 14 days</span>
+        <button onclick="closeLeaveModal()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1rem;padding:.2rem .4rem;border-radius:4px;line-height:1">✕</button>
+      </div>
+      <div id="leaveModalContent" style="padding:1rem 1.25rem;overflow-y:auto"></div>
+    </div>
   </div>
 
   <!-- ── DETAIL MODAL ── -->
@@ -425,6 +438,8 @@ const LEE_BEACON_FROM = '2026-06-01';
 const OFFSITE_IDS = new Set(['1048','556','190','467','482','133']);
 let rackbuildLeave = {}; // { 'YYYY-MM-DD': { count: number, names: string[] } }
 let offsiteLeave   = {}; // { 'YYYY-MM-DD': { count: number, names: string[] } }
+let upcomingLeaveRecords = []; // [{ name, dates: string[], team: 'rackbuild'|'offsite' }]
+let leaveDataLoaded = false;
 
 let sortCol   = 'earliestDate', sortDir = 1;
 const filterSets = { project: new Set(), pm: new Set(), wireman: new Set(), commissioner: new Set(), status: new Set() };
@@ -471,6 +486,23 @@ async function loadLeaveData() {
         }
       }
     }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const end14    = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+    const upcoming = [];
+    for (const rec of records) {
+      const id   = String(rec.employeeId);
+      const isRb = RACKBUILD_IDS.has(id) || id === LEE_BEACON_ID;
+      const isOs = OFFSITE_IDS.has(id);
+      if (!isRb && !isOs) continue;
+      const workDates = Object.entries(rec.dates)
+        .filter(([d, a]) => parseFloat(a) > 0 && d >= todayStr && d <= end14)
+        .filter(([d]) => !(id === LEE_BEACON_ID && d < LEE_BEACON_FROM))
+        .map(([d]) => d).sort();
+      if (!workDates.length) continue;
+      upcoming.push({ name: rec.name, dates: workDates, team: isRb ? 'rackbuild' : 'offsite' });
+    }
+    upcomingLeaveRecords = upcoming.sort((a, b) => a.dates[0].localeCompare(b.dates[0]));
+    leaveDataLoaded = true;
     rackbuildLeave = rb;
     offsiteLeave   = os;
     render();
@@ -1187,6 +1219,47 @@ function showToast(msg, type='ok') {
   document.body.appendChild(el);
   setTimeout(()=>el.remove(),2800);
 }
+
+// ── LEAVE MODAL ───────────────────────────────────
+function fmtMed(d) { return d ? new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—'; }
+
+function renderLeaveModal() {
+  const el = document.getElementById('leaveModalContent');
+  if (!leaveDataLoaded) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:.83rem">Leave data not yet loaded — try again shortly.</div>';
+    return;
+  }
+  const rb = upcomingLeaveRecords.filter(r => r.team === 'rackbuild');
+  const os = upcomingLeaveRecords.filter(r => r.team === 'offsite');
+
+  function section(records, label) {
+    let h = `<div style="font-size:.68rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text2);margin-bottom:.4rem">${label}</div>`;
+    if (!records.length) {
+      h += `<div style="font-size:.82rem;color:var(--text3);padding:.15rem .5rem;margin-bottom:.9rem">None scheduled</div>`;
+    } else {
+      records.forEach(r => {
+        const first = fmtMed(r.dates[0]), last = fmtMed(r.dates[r.dates.length - 1]);
+        const range = first === last ? first : `${first} – ${last}`;
+        h += `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.83rem;padding:.22rem .5rem;border-radius:5px;gap:1.5rem">
+          <span>${escH(r.name)}</span>
+          <span style="color:var(--text2);white-space:nowrap;font-family:var(--mono);font-size:.78rem">${range}</span>
+        </div>`;
+      });
+      h += '<div style="height:.7rem"></div>';
+    }
+    return h;
+  }
+
+  el.innerHTML = section(rb, 'Rack Builders') + section(os, 'Commissioners');
+}
+
+window.openLeaveModal = function() {
+  renderLeaveModal();
+  document.getElementById('leaveModal').style.display = 'flex';
+};
+window.closeLeaveModal = function() {
+  document.getElementById('leaveModal').style.display = 'none';
+};
 
 // ── CLEAR ALL FILTERS ────────────────────────────
 window.clearAllFilters = function() {
