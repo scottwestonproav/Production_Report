@@ -275,8 +275,10 @@ tbody tr { cursor: default; }
   .app.gantt-mode #mobileGanttBar { display: flex !important; }
 }
 
-/* Always hidden at desktop */
-#mobileActions, #mobileGanttBar { display: none; }
+/* Hidden on desktop */
+@media (min-width: 768px) {
+  #mobileActions, #mobileGanttBar { display: none; }
+}
 </style>
 </head>
 <body>
