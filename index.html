@@ -231,14 +231,19 @@ tbody tr { cursor: default; }
   .table-wrap, .legend, #exportBtn, .saving-indicator { display: none !important; }
 
   /* Hide complex controls; leave status filter + clear + mobile buttons */
-  #sliderGroup, #dateGroup, #searchGroup, .controls > .divider,
+  #sliderGroup, #dateGroup, .controls > .divider,
   #ms-project, #ms-pm, #ms-wireman, #ms-commissioner { display: none !important; }
 
   /* Tidy up the remaining controls bar */
-  .controls { flex-wrap: nowrap; align-items: center; padding: .5rem .75rem; gap: .5rem; }
+  .controls { flex-wrap: wrap; align-items: center; padding: .5rem .75rem; gap: .5rem; }
   .controls .ctrl-group { gap: .4rem; }
   .controls .ctrl-group > svg { display: none; }
   #clearFiltersBtn { flex-shrink: 0; white-space: nowrap; }
+
+  /* Search takes its own full-width row on mobile */
+  #searchGroup { width: 100%; order: -1; }
+  #searchGroup .search-wrap { width: 100%; }
+  #searchGroup .text-search-input { width: 100%; box-sizing: border-box; }
 
   /* Show mobile-only buttons in the controls bar */
   #mLeaveBtn, #mGanttBtn { display: inline-flex; align-items: center; gap: .3rem; flex-shrink: 0; }
