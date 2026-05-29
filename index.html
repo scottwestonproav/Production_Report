@@ -1114,7 +1114,7 @@ window.render = function() {
   if (searchText) {
     const q = searchText.toLowerCase();
     visible = visible.filter(t =>
-      [t.name, t.project_manager, t.wireman, t.test_engineer, t.status, t.comments, t.room, t.rack_pa, t.coordinator]
+      [t.name, t.seqf, t.project_manager, t.wireman, t.test_engineer, t.status, t.comments, t.room, t.rack_pa, t.coordinator]
         .some(v => v && v.toLowerCase().includes(q))
     );
   }
