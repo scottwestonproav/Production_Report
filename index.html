@@ -884,10 +884,8 @@ function excelDateToISO(v) {
 
 function getRange() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  start.setDate(start.getDate() - 7);                            // 1 week lookback
-  const end = new Date(now.getFullYear(), now.getMonth() + 3, 0); // last day of 3rd month ahead
-  end.setDate(end.getDate() + 7);                               // 1 week padding
+  const start = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+  const end   = new Date(now.getFullYear(), now.getMonth() + 2, now.getDate());
   return { min: start.toISOString().slice(0,10), max: end.toISOString().slice(0,10) };
 }
 
@@ -1069,13 +1067,16 @@ let currentRange = null, currentTotal = null;
 let hasScrolledToToday = false;
 
 function scrollTodayIntoCenter() {
-  const scroller = document.querySelector('.table-scroll');
-  const todayEl  = document.querySelector('.today-tick');
-  if (!scroller || !todayEl) return;
-  const scrRect = scroller.getBoundingClientRect();
-  const todRect = todayEl.getBoundingClientRect();
-  const todAbsLeft = (todRect.left - scrRect.left) + scroller.scrollLeft;
-  scroller.scrollLeft = Math.max(0, todAbsLeft - scroller.clientWidth / 2);
+  // Double-rAF ensures layout is fully settled before measuring.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const scroller = document.querySelector('.table-scroll');
+    const todayEl  = document.querySelector('.today-tick');
+    if (!scroller || !todayEl) return;
+    const scrRect = scroller.getBoundingClientRect();
+    const todRect = todayEl.getBoundingClientRect();
+    const todAbsLeft = (todRect.left - scrRect.left) + scroller.scrollLeft;
+    scroller.scrollLeft = Math.max(0, todAbsLeft - scroller.clientWidth / 2);
+  }));
 }
 
 window.render = function() {
@@ -1252,7 +1253,7 @@ window.render = function() {
   renderTestConflicts(testConflicts, testAdvisories);
   renderMobile();
   if (!hasScrolledToToday && todayInRange) {
-    requestAnimationFrame(scrollTodayIntoCenter);
+    scrollTodayIntoCenter();
     hasScrolledToToday = true;
   }
 };
@@ -1392,7 +1393,7 @@ window.enterMobileGantt = function() {
   mobileGanttMode = true;
   document.querySelector('.app').classList.add('gantt-mode');
   render();
-  setTimeout(scrollTodayIntoCenter, 150);
+  scrollTodayIntoCenter();
 };
 
 window.exitMobileGantt = function() {
