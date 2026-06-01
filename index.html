@@ -1092,8 +1092,10 @@ window.render = function() {
   const inBuild = tasks.filter(t => t.status === 'In Build').length;
   const testing = tasks.filter(t => t.status === 'Test Department Working On Rack').length;
   const noDate  = tasks.filter(t => !t.projStart && !t.projEnd).length;
-  const peak    = conflicts.length ? Math.max(...conflicts.map(c => c.count)) : 0;
-  const peakCls = !conflicts.length ? 'ok' : peak > teamSize*1.5 ? 'bad' : 'warn';
+  const peakBuild = conflicts.length     ? Math.max(...conflicts.map(c => c.count))     : 0;
+  const peakTest  = testConflicts.length ? Math.max(...testConflicts.map(c => c.count)) : 0;
+  const buildCls  = !conflicts.length     ? 'ok' : peakBuild > teamSize*1.5 ? 'bad' : 'warn';
+  const testCls   = !testConflicts.length ? 'ok' : peakTest  > testSize*1.5  ? 'bad' : 'warn';
   const mfa = (type, val) => metricFilter && metricFilter.type === type && metricFilter.value === val ? ' metric-active' : '';
   document.getElementById('metricsRow').innerHTML = `
     <div class="metric${mfa('all','')}" data-mtype="all" title="Click to clear metric filter · Double-click for full list">
@@ -1106,8 +1108,19 @@ window.render = function() {
       <div class="metric-label">Testing</div><div class="metric-val neutral">${testing}</div></div>
     <div class="metric${mfa('noDates','')}" data-mtype="noDates" title="Click to filter Gantt · Double-click for list">
       <div class="metric-label">No dates</div><div class="metric-val ${noDate?'warn':'ok'}">${noDate}</div></div>
-    <div class="metric${mfa('conflicts','')}" data-mtype="conflicts" title="Click to show conflicted tasks · Double-click for list">
-      <div class="metric-label">Peak demand</div><div class="metric-val ${peakCls}">${peak||'—'}</div></div>`;
+    <div class="metric${mfa('conflicts','')}" data-mtype="conflicts" title="Click to show tasks on peak demand day · Double-click for list">
+      <div class="metric-label">Peak demand</div>
+      <div style="display:flex;gap:.5rem;align-items:flex-end">
+        <div>
+          <div style="font-size:.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.15rem">Build</div>
+          <div class="metric-val ${buildCls}">${peakBuild||'—'}</div>
+        </div>
+        <div style="width:1px;height:1.5rem;background:var(--border);margin-bottom:.1rem"></div>
+        <div>
+          <div style="font-size:.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.15rem">Test</div>
+          <div class="metric-val ${testCls}">${peakTest||'—'}</div>
+        </div>
+      </div></div>`;
 
   const badge = document.getElementById('capBadge');
   if (!conflicts.length) { badge.className='cap-badge cap-ok'; badge.textContent='Builders: within capacity'; }
@@ -1167,7 +1180,20 @@ window.render = function() {
     } else if (metricFilter.type === 'noDates') {
       visible = visible.filter(t => !t.projStart && !t.projEnd);
     } else if (metricFilter.type === 'conflicts') {
-      visible = visible.filter(t => taskInConflict(t, conflicts) || taskInTestConflict(t, testConflicts));
+      // Show only tasks active on the single peak day per department so the
+      // filtered row count reflects the peak demand numbers shown in the metric.
+      const peakBuildDay = conflicts.length
+        ? conflicts.reduce((m,c) => c.count > m.count ? c : m).day : null;
+      const peakTestDay = testConflicts.length
+        ? testConflicts.reduce((m,c) => c.count > m.count ? c : m).day : null;
+      visible = visible.filter(t =>
+        (peakBuildDay && t.projStart && t.projEnd &&
+         !BUILT_STATUSES.has(t.status) &&
+         peakBuildDay >= t.projStart && peakBuildDay <= t.projEnd) ||
+        (peakTestDay && t.testStart && t.testEnd &&
+         !SENT_STATUSES.has(t.status) &&
+         peakTestDay >= t.testStart && peakTestDay <= t.testEnd)
+      );
     }
   }
 
