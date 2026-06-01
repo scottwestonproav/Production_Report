@@ -61,7 +61,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
 /* ── METRICS ── */
 .metrics { display: grid; grid-template-columns: repeat(6, 1fr); gap: .6rem; margin-bottom: .85rem; }
-.metric { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .75rem 1rem; }
+.metric { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .75rem 1rem; cursor: pointer; transition: border-color .15s, background .15s; user-select: none; }
+.metric:hover { border-color: var(--border2); background: var(--bg3); }
+.metric.metric-active { border-color: var(--blue); background: var(--blue-dim); }
 .metric-label { font-size: .65rem; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .3rem; }
 .metric-val { font-size: 1.4rem; font-weight: 600; font-family: var(--mono); line-height: 1; }
 .ok { color: var(--green); } .warn { color: var(--amber); } .bad { color: var(--red); } .neutral { color: var(--text); }
@@ -192,6 +194,14 @@ tbody tr:hover td { background: var(--bg3); }
 .text-search-input { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); font-family: var(--font); font-size: .78rem; padding: .3rem .5rem .3rem 1.65rem; border-radius: var(--radius); outline: none; width: 170px; }
 .text-search-input:focus { border-color: var(--blue); }
 .text-search-input::placeholder { color: var(--text3); }
+
+/* ── STATUS LIST MODAL ── */
+.sl-table { width: 100%; border-collapse: collapse; }
+.sl-table th { font-size: .62rem; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; padding: .5rem .75rem; background: var(--bg3); border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+.sl-table td { padding: .45rem .75rem; border-bottom: 1px solid var(--border); font-size: .78rem; vertical-align: middle; }
+.sl-table tbody tr:last-child td { border-bottom: none; }
+.sl-table tbody tr:hover td { background: var(--bg3); }
+.sl-empty { padding: 2.5rem 1rem; text-align: center; color: var(--text3); font-size: .85rem; }
 
 /* ── DETAIL MODAL ── */
 .detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem; }
@@ -449,6 +459,20 @@ tbody tr { cursor: default; }
     </div>
   </div>
 
+  <!-- ── STATUS LIST MODAL ── -->
+  <div id="statusListModal" class="detail-overlay" style="display:none" onclick="if(event.target===this)closeStatusListModal()">
+    <div class="detail-box" onclick="event.stopPropagation()" style="width:min(720px,100%);max-height:85vh">
+      <div class="detail-header">
+        <div>
+          <div class="detail-title" id="slTitle"></div>
+          <div class="detail-sub" id="slSub"></div>
+        </div>
+        <button class="detail-close" onclick="closeStatusListModal()" title="Close (Esc)">✕</button>
+      </div>
+      <div class="detail-body" style="padding:0;overflow-x:auto" id="slBody"></div>
+    </div>
+  </div>
+
   <!-- ── DETAIL MODAL ── -->
   <div id="detailModal" class="detail-overlay" style="display:none" onclick="closeDetail()">
     <div class="detail-box" onclick="event.stopPropagation()">
@@ -536,6 +560,8 @@ let leaveDataLoaded = false;
 let sortCol   = 'earliestDate', sortDir = 1;
 const filterSets = { project: new Set(), pm: new Set(), wireman: new Set(), commissioner: new Set(), status: new Set() };
 let dateFrom = '', dateTo = '', searchText = '';
+let metricFilter = null; // { type: 'status'|'noDates'|'conflicts', value: string }
+let lastConflicts = [], lastTestConflicts = [];
 let supabase  = null, realtimeSub = null;
 
 
@@ -1057,6 +1083,8 @@ window.render = function() {
   const conflicts                         = getConflicts();
   const { conflicts: testConflicts, advisories: testAdvisories } = getTestConflicts();
 
+  lastConflicts = conflicts; lastTestConflicts = testConflicts;
+
   // metrics
   const total   = tasks.length;
   const rts     = tasks.filter(t => t.status === 'Ready To Send').length;
@@ -1065,13 +1093,20 @@ window.render = function() {
   const noDate  = tasks.filter(t => !t.projStart && !t.projEnd).length;
   const peak    = conflicts.length ? Math.max(...conflicts.map(c => c.count)) : 0;
   const peakCls = !conflicts.length ? 'ok' : peak > teamSize*1.5 ? 'bad' : 'warn';
+  const mfa = (type, val) => metricFilter && metricFilter.type === type && metricFilter.value === val ? ' metric-active' : '';
   document.getElementById('metricsRow').innerHTML = `
-    <div class="metric"><div class="metric-label">Total racks</div><div class="metric-val neutral">${total}</div></div>
-    <div class="metric"><div class="metric-label">Ready to send</div><div class="metric-val ok">${rts}</div></div>
-    <div class="metric"><div class="metric-label">In build</div><div class="metric-val warn">${inBuild}</div></div>
-    <div class="metric"><div class="metric-label">Testing</div><div class="metric-val neutral">${testing}</div></div>
-    <div class="metric"><div class="metric-label">No dates</div><div class="metric-val ${noDate?'warn':'ok'}">${noDate}</div></div>
-    <div class="metric"><div class="metric-label">Peak demand</div><div class="metric-val ${peakCls}">${peak||'—'}</div></div>`;
+    <div class="metric${mfa('all','')}" data-mtype="all" title="Click to clear metric filter · Double-click for full list">
+      <div class="metric-label">Total racks</div><div class="metric-val neutral">${total}</div></div>
+    <div class="metric${mfa('status','Ready To Send')}" data-mtype="status" data-mval="Ready To Send" title="Click to filter Gantt · Double-click for list">
+      <div class="metric-label">Ready to send</div><div class="metric-val ok">${rts}</div></div>
+    <div class="metric${mfa('status','In Build')}" data-mtype="status" data-mval="In Build" title="Click to filter Gantt · Double-click for list">
+      <div class="metric-label">In build</div><div class="metric-val warn">${inBuild}</div></div>
+    <div class="metric${mfa('status','Test Department Working On Rack')}" data-mtype="status" data-mval="Test Department Working On Rack" title="Click to filter Gantt · Double-click for list">
+      <div class="metric-label">Testing</div><div class="metric-val neutral">${testing}</div></div>
+    <div class="metric${mfa('noDates','')}" data-mtype="noDates" title="Click to filter Gantt · Double-click for list">
+      <div class="metric-label">No dates</div><div class="metric-val ${noDate?'warn':'ok'}">${noDate}</div></div>
+    <div class="metric${mfa('conflicts','')}" data-mtype="conflicts" title="Click to show conflicted tasks · Double-click for list">
+      <div class="metric-label">Peak demand</div><div class="metric-val ${peakCls}">${peak||'—'}</div></div>`;
 
   const badge = document.getElementById('capBadge');
   if (!conflicts.length) { badge.className='cap-badge cap-ok'; badge.textContent='Builders: within capacity'; }
@@ -1092,7 +1127,7 @@ window.render = function() {
 
   // filter
   const fp = filterSets.project, fm = filterSets.pm, fw = filterSets.wireman, fc = filterSets.commissioner, fs = filterSets.status;
-  const anyFilter = fp.size || fm.size || fw.size || fc.size || fs.size || dateFrom || dateTo || searchText;
+  const anyFilter = fp.size || fm.size || fw.size || fc.size || fs.size || dateFrom || dateTo || searchText || metricFilter;
   const clearBtn = document.getElementById('clearFiltersBtn');
   if (clearBtn) clearBtn.style.display = anyFilter ? '' : 'none';
   let visible = tasks.filter(t =>
@@ -1122,6 +1157,17 @@ window.render = function() {
       [t.name, t.seqf, t.project_manager, t.wireman, t.test_engineer, t.status, t.comments, t.room, t.rack_pa, t.coordinator]
         .some(v => v && v.toLowerCase().includes(q))
     );
+  }
+
+  // metric filter
+  if (metricFilter) {
+    if (metricFilter.type === 'status') {
+      visible = visible.filter(t => t.status === metricFilter.value);
+    } else if (metricFilter.type === 'noDates') {
+      visible = visible.filter(t => !t.projStart && !t.projEnd);
+    } else if (metricFilter.type === 'conflicts') {
+      visible = visible.filter(t => taskInConflict(t, conflicts) || taskInTestConflict(t, testConflicts));
+    }
   }
 
   // sort
@@ -1500,7 +1546,7 @@ window.closeLeaveModal = function() {
 // ── CLEAR ALL FILTERS ────────────────────────────
 window.clearAllFilters = function() {
   Object.values(filterSets).forEach(s => s.clear());
-  dateFrom = ''; dateTo = ''; searchText = '';
+  dateFrom = ''; dateTo = ''; searchText = ''; metricFilter = null;
   const df = document.getElementById('dateFromInput');
   const dt = document.getElementById('dateToInput');
   const si = document.getElementById('searchInput');
@@ -1594,7 +1640,79 @@ window.closeDetail = function() {
   document.getElementById('detailModal').style.display = 'none';
 };
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDetail(); closeStatusListModal(); } });
+
+// ── METRIC BUBBLE CLICK / DBLCLICK ───────────────
+(function() {
+  let clickTimer = null;
+  document.getElementById('metricsRow').addEventListener('click', e => {
+    const m = e.target.closest('.metric[data-mtype]');
+    if (!m) return;
+    if (clickTimer) {
+      clearTimeout(clickTimer);
+      clickTimer = null;
+      // Double-click: show list modal
+      showMetricModal(m.dataset.mtype, m.dataset.mval || '');
+      return;
+    }
+    clickTimer = setTimeout(() => {
+      clickTimer = null;
+      // Single click: toggle metric filter
+      const type = m.dataset.mtype, value = m.dataset.mval || '';
+      if (type === 'all') {
+        metricFilter = null;
+      } else {
+        const already = metricFilter && metricFilter.type === type && metricFilter.value === value;
+        metricFilter = already ? null : { type, value };
+      }
+      render();
+    }, 220);
+  });
+  document.getElementById('metricsRow').addEventListener('dblclick', e => { e.preventDefault(); });
+}());
+
+function showMetricModal(type, value) {
+  let list, title;
+  if (type === 'all') {
+    list  = tasks.slice();
+    title = `All Racks`;
+  } else if (type === 'status') {
+    list  = tasks.filter(t => t.status === value);
+    title = value || '(No status)';
+  } else if (type === 'noDates') {
+    list  = tasks.filter(t => !t.projStart && !t.projEnd);
+    title = 'No Dates';
+  } else if (type === 'conflicts') {
+    list  = tasks.filter(t => taskInConflict(t, lastConflicts) || taskInTestConflict(t, lastTestConflicts));
+    title = 'Capacity Conflicts';
+  } else {
+    return;
+  }
+  list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  document.getElementById('slTitle').textContent = `${title}`;
+  document.getElementById('slSub').textContent   = `${list.length} rack${list.length !== 1 ? 's' : ''}`;
+  const rows = list.map(t => `<tr>
+    <td class="td-name"><div class="task-name">${escH(t.name || '—')}</div>${t.room ? `<div class="muted" style="font-size:.68rem">${escH(t.room)}</div>` : ''}</td>
+    <td><span class="mono-sm">${escH(t.seqf || '—')}</span></td>
+    <td><span class="mono-sm">${escH(t.rack_pa || '—')}</span></td>
+    <td><span class="muted">${escH(fmtPerson(t.project_manager) || '—')}</span></td>
+  </tr>`).join('');
+  document.getElementById('slBody').innerHTML = list.length ? `
+    <table class="sl-table">
+      <thead><tr>
+        <th style="width:240px">Project / Room</th>
+        <th style="width:80px">SEQF</th>
+        <th style="width:100px">Rack PA</th>
+        <th>Project Manager</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>` : `<div class="sl-empty">No tasks to show.</div>`;
+  document.getElementById('statusListModal').style.display = 'flex';
+}
+
+window.closeStatusListModal = function() {
+  document.getElementById('statusListModal').style.display = 'none';
+};
 
 window.toggleMs = function(e, id) {
   e.stopPropagation();
