@@ -1697,6 +1697,64 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDetai
 }());
 
 function showMetricModal(type, value) {
+  if (type === 'conflicts') {
+    const pbe = lastConflicts.length     ? lastConflicts.reduce((m,c)     => c.count > m.count ? c : m) : null;
+    const pte = lastTestConflicts.length ? lastTestConflicts.reduce((m,c) => c.count > m.count ? c : m) : null;
+    const pbd = pbe ? pbe.day : null;
+    const ptd = pte ? pte.day : null;
+
+    const buildList = pbd ? tasks.filter(t =>
+      t.projStart && t.projEnd && !BUILT_STATUSES.has(t.status) &&
+      pbd >= t.projStart && pbd <= t.projEnd
+    ).sort((a,b) => (a.wireman||'zzz').localeCompare(b.wireman||'zzz')) : [];
+
+    const testList = ptd ? tasks.filter(t =>
+      t.testStart && t.testEnd && !SENT_STATUSES.has(t.status) &&
+      ptd >= t.testStart && ptd <= t.testEnd
+    ).sort((a,b) => (a.test_engineer||'zzz').localeCompare(b.test_engineer||'zzz')) : [];
+
+    document.getElementById('slTitle').textContent = 'Peak Demand';
+    const subParts = [];
+    if (pbe) subParts.push(`Build peak: ${pbe.count} on ${fmtShort(pbd)}`);
+    if (pte) subParts.push(`Test peak: ${pte.count} on ${fmtShort(ptd)}`);
+    document.getElementById('slSub').textContent = subParts.join(' · ') || 'No peak demand data';
+
+    const sectionHdr = (label, count, date, color) =>
+      `<div style="padding:.45rem .75rem;font-size:.7rem;font-weight:600;color:${color};background:var(--bg3);border-bottom:1px solid var(--border)">${label} — ${count} needed · ${fmtShort(date)}</div>`;
+
+    const buildRows = buildList.map(t => `<tr>
+      <td class="td-name"><div class="task-name">${escH(t.name||'—')}</div>${t.room?`<div class="muted" style="font-size:.68rem">${escH(t.room)}</div>`:''}</td>
+      <td><span class="mono-sm">${escH(t.seqf||'—')}</span></td>
+      <td><span class="muted">${escH(fmtPerson(t.wireman)||'—')}</span></td>
+      <td><span class="muted">${escH(fmtPerson(t.project_manager)||'—')}</span></td>
+    </tr>`).join('');
+
+    const testRows = testList.map(t => `<tr>
+      <td class="td-name"><div class="task-name">${escH(t.name||'—')}</div>${t.room?`<div class="muted" style="font-size:.68rem">${escH(t.room)}</div>`:''}</td>
+      <td><span class="mono-sm">${escH(t.seqf||'—')}</span></td>
+      <td><span class="muted">${escH(fmtPerson(t.test_engineer)||'—')}</span></td>
+      <td><span class="muted">${escH(fmtPerson(t.project_manager)||'—')}</span></td>
+    </tr>`).join('');
+
+    const buildSection = pbd ? sectionHdr('Rack Build', pbe.count, pbd, 'var(--amber)') + (buildList.length ? `
+      <table class="sl-table"><thead><tr>
+        <th style="width:240px">Project / Room</th><th style="width:80px">SEQF</th>
+        <th style="width:130px">Wireman</th><th>Project Manager</th>
+      </tr></thead><tbody>${buildRows}</tbody></table>` : `<div class="sl-empty">No rack build tasks on this day.</div>`) : '';
+
+    const testSection = ptd ? `<div style="border-top:2px solid var(--border)"></div>` + sectionHdr('Offsite Commissioning', pte.count, ptd, 'var(--purple)') + (testList.length ? `
+      <table class="sl-table"><thead><tr>
+        <th style="width:240px">Project / Room</th><th style="width:80px">SEQF</th>
+        <th style="width:130px">Test Engineer</th><th>Project Manager</th>
+      </tr></thead><tbody>${testRows}</tbody></table>` : `<div class="sl-empty">No test tasks on this day.</div>`) : '';
+
+    document.getElementById('slBody').innerHTML = (buildSection || testSection)
+      ? buildSection + testSection
+      : `<div class="sl-empty">No peak demand data.</div>`;
+    document.getElementById('statusListModal').style.display = 'flex';
+    return;
+  }
+
   let list, title;
   if (type === 'all') {
     list  = tasks.slice();
@@ -1707,9 +1765,6 @@ function showMetricModal(type, value) {
   } else if (type === 'noDates') {
     list  = tasks.filter(t => !t.projStart && !t.projEnd);
     title = 'No Dates';
-  } else if (type === 'conflicts') {
-    list  = tasks.filter(t => taskInConflict(t, lastConflicts) || taskInTestConflict(t, lastTestConflicts));
-    title = 'Capacity Conflicts';
   } else {
     return;
   }
