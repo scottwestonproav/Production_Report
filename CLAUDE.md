@@ -82,14 +82,16 @@ Columns: `id`, `created_at`, `seqf`, `project_name`, `client_name`, `project_man
 
 `request_status` values: `Pending` · `Approved` · `Rejected` · `On Hold` · `Scheduled`.
 
-### `request_systems` (child, one row per system)
-Columns: `id`, `request_id` (FK → requests.id), `system_room_name`, `rack_type`, `num_racks` (int), `requested_start` (date), `requested_end` (date), `notes`.
+### `request_systems` (child, one row per system / rack)
+Columns: `id`, `request_id` (FK → requests.id), `system_room_name`, `rack_type`, `requested_start` (date), `requested_end` (date), `notes`, `system_status` (text: `Pending` / `Approved` / `Rejected`), `reviewed_by` (text), `reviewed_at` (timestamptz).
 
 **How it works:**
 - PMs submit via `request.html` (public page). One parent `requests` row is inserted with `request_status = 'Pending'`; `requested_start`/`requested_end` are the min/max across all systems. Then one `request_systems` row per system is inserted with `request_id` = parent id.
 - Calendar counts **one slot per request** (parent span). Pending = amber tentative; Approved/Scheduled = confirmed. Capacity uses `onsiteSettings.engineerCapacity`.
-- In `index.html`, clicking a request block opens the review modal which fetches `request_systems` and lists the child systems. The build team can **Approve** or **Reject** (requires Supabase Auth sign-in). Approve/reject acts at the job level — `tasks` is never written from the front end.
-- On Approve: `request_status = 'Approved'` + reviewer + timestamp. Power Automate reads `request_systems` and expands the approved job into one `tasks` row per system once it enters the Excel master.
+- In `index.html`, clicking a request block opens the review modal. The team (must be signed in) reviews each system individually: each `request_systems` row has its own **Approve** / **Reject** button that sets `system_status`, `reviewed_by`, and `reviewed_at` on that row.
+- Once every system has a decision, **Process decisions** becomes enabled. Clicking it sets the parent `request_status` to `Approved` if any system was approved, or `Rejected` if all were rejected — `tasks` is never written from the front end.
+- **Reject whole request** at the bottom of the modal immediately sets `request_status = 'Rejected'` without requiring per-system decisions (covers the case where the team wants to decline the entire job at once).
+- On Approved: Power Automate reads the `request_systems` rows where `system_status = 'Approved'` and expands them into `tasks` rows once the job enters the Excel master.
 - When an Approved request's `seqf` + date range matches a `tasks` row with `status = 'Onsite build'`, the request auto-flips to `Scheduled` and stops drawing on the calendar (de-dup).
 - Realtime channels `requests-rt` and `requests-rt` (in `request.html`) keep both calendars live.
 

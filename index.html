@@ -361,6 +361,11 @@ tbody tr { cursor: default; }
 .req-review-notes { background:var(--bg3); border:1px solid var(--border2); color:var(--text); font-family:var(--font); font-size:.8rem; padding:.35rem .55rem; border-radius:var(--radius); outline:none; width:100%; resize:vertical; min-height:52px; margin-bottom:.65rem; }
 .req-review-notes:focus { border-color:var(--blue); }
 .req-review-actions { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+.sys-review-row { background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:.6rem .75rem; margin-bottom:.4rem; }
+.sys-status-pill { display:inline-flex; align-items:center; font-size:.6rem; font-weight:600; padding:.12rem .45rem; border-radius:10px; text-transform:uppercase; letter-spacing:.05em; flex-shrink:0; }
+.sys-status-pending  { background:rgba(245,158,11,.2);  color:var(--amber); }
+.sys-status-approved { background:rgba(16,185,129,.18); color:var(--green); }
+.sys-status-rejected { background:rgba(239,68,68,.15);  color:var(--red);   }
 
 /* ── AUTH ── */
 .auth-user { font-size:.72rem; color:var(--green); font-family:var(--mono); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2427,29 +2432,68 @@ window.openRequestReview = async function(id) {
     ${label?`<div class="detail-label">${label}</div>`:''}
     <div class="detail-val">${escH(String(val))}</div></div>` : '';
 
-  const isActionable = (req.request_status === 'Pending' || req.request_status === 'Approved') && !!currentUser;
-  const needsSignIn  = (req.request_status === 'Pending' || req.request_status === 'Approved') && !currentUser;
+  const isPending   = req.request_status === 'Pending';
+  const canReview   = isPending && !!currentUser;
+  const needsSignIn = isPending && !currentUser;
 
-  // Systems section — use child rows if present, fall back to legacy job-level fields
+  // ── Systems section ───────────────────────────────
   let systemsHtml = '';
   if (childSystems.length) {
-    const rows = childSystems.map(s => `
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .75rem;margin-bottom:.35rem">
-        <div style="font-weight:500;font-size:.8rem;color:var(--text)">${escH(s.system_room_name||'—')}</div>
-        <div style="display:flex;gap:1rem;margin-top:.25rem;color:var(--text2);font-size:.72rem;flex-wrap:wrap;font-family:var(--mono)">
-          ${s.rack_type?`<span>${escH(s.rack_type)}</span>`:''}
-          <span>qty ${s.num_racks||1}</span>
-          <span>${fmtShort(s.requested_start)}–${fmtShort(s.requested_end)}</span>
-          ${s.notes?`<span style="color:var(--text3);font-family:var(--font)">${escH(s.notes)}</span>`:''}
-        </div>
-      </div>`).join('');
-    systemsHtml = `<div class="detail-section"><div class="detail-section-title">Systems (${childSystems.length})</div>${rows}</div>`;
+    const allDecided = childSystems.every(s => s.system_status && s.system_status !== 'Pending');
+    const nApproved  = childSystems.filter(s => s.system_status === 'Approved').length;
+    const nRejected  = childSystems.filter(s => s.system_status === 'Rejected').length;
+
+    const sysRows = childSystems.map(s => {
+      const st     = s.system_status || 'Pending';
+      const stCls  = st === 'Approved' ? 'sys-status-approved' : st === 'Rejected' ? 'sys-status-rejected' : 'sys-status-pending';
+      const appSty = st === 'Approved' ? 'border-color:var(--green);color:var(--green);background:var(--green-dim)' : '';
+      const rejSty = st === 'Rejected' ? 'border-color:var(--red);color:var(--red);background:var(--red-dim)' : '';
+      const btns   = canReview ? `
+        <div style="display:flex;gap:.4rem;margin-top:.45rem;flex-wrap:wrap">
+          <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${appSty}" onclick="approveSystem('${s.id}','${id}')">✓ Approve</button>
+          <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${rejSty}" onclick="rejectSystem('${s.id}','${id}')">✕ Reject</button>
+        </div>` : '';
+      return `
+        <div class="sys-review-row">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;flex-wrap:wrap">
+            <div>
+              <span style="font-weight:500;font-size:.8rem;color:var(--text)">${escH(s.system_room_name||'—')}</span>
+              ${s.rack_type?`<span style="font-size:.72rem;color:var(--text3);margin-left:.5rem">${escH(s.rack_type)}</span>`:''}
+            </div>
+            <span class="sys-status-pill ${stCls}">${st}</span>
+          </div>
+          <div style="font-size:.72rem;color:var(--text2);font-family:var(--mono);margin-top:.25rem">
+            ${fmtShort(s.requested_start)}–${fmtShort(s.requested_end)}
+            ${s.notes?`<span style="font-family:var(--font);color:var(--text3);margin-left:.6rem">${escH(s.notes)}</span>`:''}
+          </div>
+          ${s.reviewed_by?`<div style="font-size:.65rem;color:var(--text3);margin-top:.2rem">reviewed by ${escH(s.reviewed_by)}</div>`:''}
+          ${btns}
+        </div>`;
+    }).join('');
+
+    const processBtn = canReview ? `
+      <div style="margin-top:.7rem;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap">
+        <button class="btn btn-primary" id="processBtn" ${allDecided?'':'disabled'} onclick="processDecisions('${id}')">Process decisions</button>
+        <span style="font-size:.7rem;color:var(--text3)">
+          ${allDecided ? `${nApproved} approved · ${nRejected} rejected — ready to process.` : 'All systems need a decision first.'}
+        </span>
+      </div>` : '';
+
+    systemsHtml = `<div class="detail-section">
+      <div class="detail-section-title">Systems (${childSystems.length})</div>
+      ${sysRows}${processBtn}
+    </div>`;
   } else if (req.system_room_name || req.num_racks) {
+    // Legacy: request created before per-system rows existed
     systemsHtml = `<div class="detail-section"><div class="detail-section-title">System</div><div class="detail-grid">${fld('System / Room',req.system_room_name)}${fld('Racks',String(req.num_racks||''))}</div></div>`;
   }
 
+  // Bottom action strip — request-level reject (always) + legacy approve (no child systems)
+  const legacyApprove = (!childSystems.length && canReview)
+    ? `<button class="btn btn-primary" id="approveBtn" onclick="approveRequest('${id}')">✓ Approve</button>` : '';
+
   document.getElementById('reviewBody').innerHTML = `
-    ${req.request_status === 'Approved' ? `<div class="req-review-reminder">✓ Approved — remember to add this build to the production master. Power Automate will expand the systems into <span style="font-family:var(--mono);font-size:.85em">tasks</span> rows once in the master.</div>` : ''}
+    ${req.request_status === 'Approved' ? `<div class="req-review-reminder">✓ Approved — add to production master. Power Automate expands approved systems into <span style="font-family:var(--mono);font-size:.85em">tasks</span> rows once synced.</div>` : ''}
     <div class="detail-section"><div class="detail-section-title">Job Details</div>
     <div class="detail-grid">
       ${fld('SEQF', req.seqf)}${fld('Client', req.client_name)}
@@ -2462,15 +2506,16 @@ window.openRequestReview = async function(id) {
     ${req.scope ? `<div class="detail-section"><div class="detail-section-title">Scope</div><div class="detail-grid">${fld('',req.scope,true)}</div></div>` : ''}
     ${req.notes ? `<div class="detail-section"><div class="detail-section-title">Notes</div><div class="detail-grid">${fld('',req.notes,true)}</div></div>` : ''}
     ${req.reviewed_by||req.review_notes ? `<div class="detail-section"><div class="detail-section-title">Review</div><div class="detail-grid">${fld('Reviewed by',req.reviewed_by)}${fld('Review notes',req.review_notes,true)}</div></div>` : ''}
-    ${isActionable ? `<div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.5rem">
-      <div style="font-size:.8rem;font-weight:500;color:var(--text2);margin-bottom:.55rem">Review</div>
-      <textarea class="req-review-notes" id="reviewNotesInput" placeholder="Optional notes…"></textarea>
+    ${canReview ? `<div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.5rem">
+      <div style="font-size:.75rem;font-weight:500;color:var(--text2);margin-bottom:.4rem">${legacyApprove ? 'Request decision' : 'Reject entire request'}</div>
+      <textarea class="req-review-notes" id="reviewNotesInput" placeholder="Notes / reason for rejection (optional)…"></textarea>
       <div class="req-review-actions">
-        ${req.request_status==='Pending'?`<button class="btn btn-primary" id="approveBtn" onclick="approveRequest('${id}')">✓ Approve</button>`:''}
-        <button class="btn btn-danger" id="rejectBtn" onclick="rejectRequest('${id}')">✕ Reject</button>
-        <span style="font-size:.68rem;color:var(--text3);line-height:1.5">${req.request_status==='Pending'?'Approve = confirmed in calendar, no write to tasks.':'Reject = removes from calendar.'}</span>
-      </div></div>` : ''}
-    ${needsSignIn ? `<div style="border-top:1px solid var(--border);padding-top:.85rem;margin-top:.5rem"><button class="btn btn-ghost" style="font-size:.75rem;padding:.3rem .7rem" onclick="closeRequestReview();openSignIn()">Sign in to approve or reject</button></div>` : ''}`;
+        ${legacyApprove}
+        <button class="btn btn-danger" id="rejectBtn" onclick="rejectRequest('${id}')">✕ Reject${childSystems.length?' whole request':''}</button>
+        <span style="font-size:.68rem;color:var(--text3);line-height:1.5">${childSystems.length?'Immediately rejects all systems and closes the request.':'Reject = removes from calendar.'}</span>
+      </div>
+    </div>` : ''}
+    ${needsSignIn ? `<div style="border-top:1px solid var(--border);padding-top:.85rem;margin-top:.5rem"><button class="btn btn-ghost" style="font-size:.75rem;padding:.3rem .7rem" onclick="closeRequestReview();openSignIn()">Sign in to review</button></div>` : ''}`;
 };
 window.closeRequestReview = function() { document.getElementById('requestReviewModal').style.display = 'none'; };
 
@@ -2478,7 +2523,6 @@ window.approveRequest = async function(id) { await doReview(id, 'Approved'); };
 window.rejectRequest  = async function(id) { await doReview(id, 'Rejected'); };
 
 async function doReview(id, status) {
-  // Note: reviewed_by left null in v1 (no auth). Add Supabase Auth when access needs restricting.
   const notes = document.getElementById('reviewNotesInput')?.value?.trim() || null;
   const btnId  = status === 'Approved' ? 'approveBtn' : 'rejectBtn';
   const btn    = document.getElementById(btnId);
@@ -2538,6 +2582,59 @@ window.submitSignIn = async function() {
   } catch(e) {
     errEl.textContent = e.message || 'Sign-in failed.'; errEl.style.display='';
     btn.disabled=false; btn.textContent='Sign in';
+  }
+};
+
+// ── PER-SYSTEM REVIEW ─────────────────────────────
+window.approveSystem = async function(sysId, reqId) { await doSystemReview(sysId, reqId, 'Approved'); };
+window.rejectSystem  = async function(sysId, reqId) { await doSystemReview(sysId, reqId, 'Rejected'); };
+
+async function doSystemReview(sysId, reqId, status) {
+  try {
+    const { error } = await supabase.from('request_systems').update({
+      system_status: status,
+      reviewed_by:   currentUser?.email || null,
+      reviewed_at:   new Date().toISOString(),
+    }).eq('id', sysId);
+    if (error) throw error;
+    await openRequestReview(reqId); // re-render modal with updated statuses
+  } catch(e) {
+    showToast(`Update failed: ${e.message}`, 'error');
+  }
+}
+
+window.processDecisions = async function(reqId) {
+  const btn = document.getElementById('processBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; }
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/request_systems?request_id=eq.${reqId}&select=system_status`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const sysList = await res.json() || [];
+    if (sysList.some(s => !s.system_status || s.system_status === 'Pending')) {
+      showToast('All systems need a decision before processing.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Process decisions'; }
+      return;
+    }
+    const finalStatus = sysList.some(s => s.system_status === 'Approved') ? 'Approved' : 'Rejected';
+    const { error } = await supabase.from('requests').update({
+      request_status: finalStatus,
+      reviewed_by:    currentUser?.email || null,
+      reviewed_at:    new Date().toISOString(),
+    }).eq('id', reqId);
+    if (error) throw error;
+    closeRequestReview();
+    showToast(
+      finalStatus === 'Approved'
+        ? 'Approved — add to production master to trigger build.'
+        : 'All systems rejected — request closed.',
+      'ok'
+    );
+  } catch(e) {
+    showToast(`Failed: ${e.message}`, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Process decisions'; }
   }
 };
 
