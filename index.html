@@ -316,6 +316,17 @@ tbody tr { cursor: default; }
 .onsite-block-label { font-size: .7rem; font-weight: 500; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 6px; }
 .onsite-empty { padding: 2.5rem 1rem; text-align: center; color: var(--text3); font-size: .85rem; }
 .onsite-clash-note { font-size: .6rem; color: var(--red); margin-left: .3rem; }
+.onsite-settings { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .85rem 1rem; margin-bottom: .7rem; }
+.onsite-settings-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:.7rem; }
+.onsite-settings-title { font-size:.82rem; font-weight:600; color:var(--text); }
+.onsite-settings-section { font-size:.62rem; font-weight:500; color:var(--text3); text-transform:uppercase; letter-spacing:.07em; padding:.5rem 0 .25rem; border-top:1px solid var(--border); margin-top:.25rem; }
+.onsite-settings-field { display:flex; align-items:center; gap:.6rem; padding:.2rem 0; }
+.onsite-settings-label { font-size:.78rem; color:var(--text2); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.onsite-settings-num { background:var(--bg2); border:1px solid var(--border2); color:var(--text); font-family:var(--mono); font-size:.82rem; padding:.25rem .45rem; border-radius:var(--radius); outline:none; width:64px; text-align:right; }
+.onsite-settings-num:focus { border-color:var(--blue); }
+.onsite-settings-unit { font-size:.72rem; color:var(--text3); white-space:nowrap; }
+.onsite-dur-est { font-size:.63rem; color:var(--text3); margin-top:.1rem; }
+.onsite-dur-tight { color:var(--amber); }
 </style>
 </head>
 <body>
@@ -359,6 +370,7 @@ tbody tr { cursor: default; }
       <div class="view-tabs">
         <button class="view-tab active" id="tabGantt" onclick="switchView('gantt')">Gantt</button>
         <button class="view-tab" id="tabOnsite" onclick="switchView('onsite')">Onsite Availability</button>
+        <button class="view-tab" id="tabOnsiteSettings" onclick="toggleOnsiteSettings()" style="display:none" title="Capacity settings">⚙</button>
       </div>
       <div class="saving-indicator" id="savingIndicator">
         <svg style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;animation:spin 1s linear infinite" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-opacity=".25"/><path d="M21 12a9 9 0 00-9-9"/></svg>
@@ -517,6 +529,7 @@ tbody tr { cursor: default; }
 
   <div id="mobileList"></div>
 
+  <div id="onsiteSettingsPanel" style="display:none"></div>
   <div id="onsiteView" style="display:none"></div>
 
   <div class="table-wrap">
@@ -555,8 +568,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 // ── ONSITE CAPACITY ───────────────────────────────
-const CONCURRENT_ONSITE_CAPACITY = 3; // max simultaneous onsite rack builds — change here to adjust
-const ONSITE_STATUS = 'Onsite build'; // must match tasks.status value in DB
+const ONSITE_STATUS  = 'Onsite build'; // must match tasks.status value in DB
+const ONSITE_CAP_KEY = 'onsite_cap_v1'; // localStorage key for capacity settings
 
 // ── STATE ─────────────────────────────────────────
 const TEAM_KEY  = 'gantt_team_v1';
@@ -575,7 +588,9 @@ window.toggleNotif = function() {
 applyNotifState();
 let tasks     = [];
 let visibleTasks = [];
-let currentView = 'gantt'; // 'gantt' | 'onsite'
+let currentView        = 'gantt'; // 'gantt' | 'onsite'
+let onsiteSettings     = loadOnsiteSettings(); // { engineerCapacity, defaultDays, daysPerType }
+let onsiteSettingsOpen = false;
 let teamSize  = +(localStorage.getItem(TEAM_KEY) || 9);
 let testSize  = +(localStorage.getItem(TEST_KEY)  || 3);
 let mobileGanttMode = false;
@@ -1884,11 +1899,12 @@ function renderOnsiteView() {
     return;
   }
 
-  const weeks   = getOnsiteWeeks();
-  const today   = new Date().toISOString().slice(0,10);
-  const WCOL    = 80;   // px per week column
-  const LCOL    = 220;  // px for label column
-  const totalW  = LCOL + weeks.length * WCOL;
+  const cap    = Math.max(1, onsiteSettings.engineerCapacity || 1);
+  const weeks  = getOnsiteWeeks();
+  const today  = new Date().toISOString().slice(0,10);
+  const WCOL   = 80;
+  const LCOL   = 240;
+  const totalW = LCOL + weeks.length * WCOL;
 
   // Per-week overlap counts
   const weekCounts = weeks.map(w =>
@@ -1896,7 +1912,7 @@ function renderOnsiteView() {
   );
 
   // Same-engineer double-booking detection
-  const engClashSet = new Set(); // "eng|weekStart"
+  const engClashSet = new Set();
   weeks.forEach(w => {
     const ec = {};
     onsiteTasks.forEach(t => {
@@ -1906,7 +1922,13 @@ function renderOnsiteView() {
     Object.entries(ec).forEach(([eng, n]) => { if (n > 1) engClashSet.add(`${eng}|${w.start}`); });
   });
 
-  // Week header row
+  // Effort estimate for a task: qty × days-per-rack (from settings)
+  function estDays(t) {
+    const dpu = onsiteSettings.daysPerType[t.rack_type] || onsiteSettings.defaultDays || 5;
+    return Math.max(1, (t.qty || 1) * dpu);
+  }
+
+  // Week header
   const weekHdrHtml = weeks.map(w => {
     const isNow = w.start <= today && w.end >= today;
     return `<div class="onsite-week-hdr${isNow?' is-today':''}" style="width:${WCOL}px">${fmtShort(w.start)}</div>`;
@@ -1915,17 +1937,20 @@ function renderOnsiteView() {
   // Capacity row
   const capRowHtml = weeks.map((w, i) => {
     const used = weekCounts[i];
-    const cls  = used === 0 ? 'cap-cell-ok' : used < CONCURRENT_ONSITE_CAPACITY ? 'cap-cell-ok' : used === CONCURRENT_ONSITE_CAPACITY ? 'cap-cell-warn' : 'cap-cell-bad';
-    return `<div class="onsite-cap-cell" style="width:${WCOL}px"><span class="onsite-cap-pill ${cls}">${used}/${CONCURRENT_ONSITE_CAPACITY}${used>CONCURRENT_ONSITE_CAPACITY?' ⚠':''}</span></div>`;
+    const cls  = used === 0 ? 'cap-cell-ok' : used < cap ? 'cap-cell-ok' : used === cap ? 'cap-cell-warn' : 'cap-cell-bad';
+    return `<div class="onsite-cap-cell" style="width:${WCOL}px"><span class="onsite-cap-pill ${cls}">${used}/${cap}${used>cap?' ⚠':''}</span></div>`;
   }).join('');
 
   // Task rows
   const taskRowsHtml = onsiteTasks.map(t => {
-    const eng   = t.wireman || '';
-    const style = onsiteEngStyle(eng || null);
+    const eng      = t.wireman || '';
+    const style    = onsiteEngStyle(eng || null);
+    const est      = estDays(t);
+    const schDays  = Math.max(1, daysBetween(t.projStart, t.projEnd) + 1);
+    const isTight  = est > schDays; // window shorter than estimate
 
     const isCapClash = weeks.some((w, i) =>
-      t.projStart <= w.end && t.projEnd >= w.start && weekCounts[i] > CONCURRENT_ONSITE_CAPACITY
+      t.projStart <= w.end && t.projEnd >= w.start && weekCounts[i] > cap
     );
     const isEngClash = eng && weeks.some(w =>
       t.projStart <= w.end && t.projEnd >= w.start && engClashSet.has(`${eng}|${w.start}`)
@@ -1943,27 +1968,32 @@ function renderOnsiteView() {
       const bRadius = `${rL} ${rR} ${rR} ${rL}`;
       const pL = isFirst ? '4px' : '0';
       const pR = isLast  ? '4px' : '0';
-      const clashShadow = hasClash ? 'box-shadow:0 0 0 2px var(--red);' : '';
+      const clashShadow = hasClash ? 'box-shadow:0 0 0 2px var(--red);' : isTight ? 'box-shadow:0 0 0 2px var(--amber);' : '';
       const label = isFirst
-        ? `<span class="onsite-block-label" style="color:${style.text}">${escH(t.name||'')}${t.seqf?' · '+escH(t.seqf):''}</span>`
+        ? `<span class="onsite-block-label" style="color:${style.text}">${escH(t.name||'')}${t.seqf?' · '+escH(t.seqf):''}${est?' · ~'+est+'d':''}</span>`
         : '';
+      const titleExtra = `~${est}d est · ${schDays}d scheduled${isTight?' ⚠ window may be tight':''}${hasClash?' · ⚠ clash':''}`;
 
       return `<div class="onsite-task-cell" style="width:${WCOL}px;padding-left:${pL};padding-right:${pR}">
         <div class="onsite-block" onclick="showOnsiteDetail(${JSON.stringify(t.id)})"
           style="background:${style.bg};border-radius:${bRadius};${clashShadow}"
-          title="${escH(t.name)} · ${fmtShort(t.projStart)}–${fmtShort(t.projEnd)}${eng?' · '+escH(eng):''}${hasClash?' ⚠ clash':''}">
+          title="${escH(t.name)} · ${fmtShort(t.projStart)}–${fmtShort(t.projEnd)}${eng?' · '+escH(eng):''} · ${titleExtra}">
           ${label}
         </div>
       </div>`;
     }).join('');
 
-    const clashBadge = hasClash ? `<span class="onsite-clash-note">⚠ clash</span>` : '';
+    const flags = [
+      hasClash ? `<span class="onsite-clash-note">⚠ clash</span>` : '',
+      isTight  ? `<span class="onsite-clash-note" style="color:var(--amber)">⚠ tight</span>` : '',
+    ].filter(Boolean).join('');
 
     return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border)">
       <div class="onsite-row-label" style="width:${LCOL}px">
-        <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(t.name||'')}">${escH(t.name||'—')}${clashBadge}</div>
+        <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(t.name||'')}">${escH(t.name||'—')}${flags}</div>
         ${t.seqf ? `<div style="font-size:.68rem;color:var(--text3);font-family:var(--mono)">${escH(t.seqf)}</div>` : ''}
         ${eng    ? `<div style="font-size:.68rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(eng)}</div>` : ''}
+        <div class="onsite-dur-est${isTight?' onsite-dur-tight':''}">~${est}d est · ${schDays}d scheduled</div>
       </div>
       <div style="display:flex;align-items:center">${cellsHtml}</div>
     </div>`;
@@ -1975,7 +2005,7 @@ function renderOnsiteView() {
       <div style="display:flex">${weekHdrHtml}</div>
     </div>
     <div style="display:flex;min-width:${totalW}px;background:var(--bg3);border-bottom:1px solid var(--border)">
-      <div style="width:${LCOL}px;min-width:${LCOL}px;padding:.4rem .75rem;font-size:.68rem;color:var(--text2);border-right:1px solid var(--border2)">Capacity (max ${CONCURRENT_ONSITE_CAPACITY})</div>
+      <div style="width:${LCOL}px;min-width:${LCOL}px;padding:.4rem .75rem;font-size:.68rem;color:var(--text2);border-right:1px solid var(--border2)">Capacity (max ${cap} concurrent)</div>
       <div style="display:flex">${capRowHtml}</div>
     </div>
     <div style="min-width:${totalW}px">${taskRowsHtml}</div>
@@ -1987,17 +2017,101 @@ window.switchView = function(view) {
   document.getElementById('tabGantt').classList.toggle('active',  view === 'gantt');
   document.getElementById('tabOnsite').classList.toggle('active', view === 'onsite');
   const isGantt = view === 'gantt';
-  document.querySelector('.table-wrap').style.display    = isGantt ? '' : 'none';
-  document.querySelector('.legend').style.display        = isGantt ? '' : 'none';
-  document.querySelector('.controls').style.display      = isGantt ? '' : 'none';
-  document.getElementById('notifSection').style.display  = isGantt ? '' : 'none';
-  document.getElementById('onsiteView').style.display    = isGantt ? 'none' : '';
-  if (!isGantt) renderOnsiteView();
+  document.querySelector('.table-wrap').style.display        = isGantt ? '' : 'none';
+  document.querySelector('.legend').style.display            = isGantt ? '' : 'none';
+  document.querySelector('.controls').style.display          = isGantt ? '' : 'none';
+  document.getElementById('notifSection').style.display        = isGantt ? '' : 'none';
+  document.getElementById('onsiteSettingsPanel').style.display  = isGantt ? 'none' : (onsiteSettingsOpen ? '' : 'none');
+  document.getElementById('onsiteView').style.display           = isGantt ? 'none' : '';
+  const gearBtn = document.getElementById('tabOnsiteSettings');
+  if (gearBtn) gearBtn.style.display = isGantt ? 'none' : '';
+  if (isGantt) { onsiteSettingsOpen = false; if (gearBtn) gearBtn.classList.remove('active'); }
+  else renderOnsiteView();
 };
 
 window.showOnsiteDetail = function(id) {
   const t = tasks.find(x => String(x.id) === String(id));
   if (t) showTaskDetail(t);
+};
+
+// ── ONSITE SETTINGS PANEL ────────────────────────
+function loadOnsiteSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(ONSITE_CAP_KEY) || 'null');
+    if (s && typeof s === 'object') return { engineerCapacity:1, defaultDays:5, daysPerType:{}, ...s };
+  } catch {}
+  return { engineerCapacity:1, defaultDays:5, daysPerType:{} };
+}
+function saveOnsiteSettings() {
+  localStorage.setItem(ONSITE_CAP_KEY, JSON.stringify(onsiteSettings));
+}
+
+function renderOnsiteSettingsPanel() {
+  const panel = document.getElementById('onsiteSettingsPanel');
+  if (!panel) return;
+  const rackTypes = [...new Set(
+    tasks.filter(t => t.status === ONSITE_STATUS && t.rack_type).map(t => t.rack_type)
+  )].sort();
+
+  const typeRows = rackTypes.map(rt => `
+    <div class="onsite-settings-field">
+      <span class="onsite-settings-label" title="${escH(rt)}">${escH(rt)}</span>
+      <input class="onsite-settings-num" type="number" min="1" max="999"
+        value="${onsiteSettings.daysPerType[rt] != null ? onsiteSettings.daysPerType[rt] : ''}"
+        placeholder="${onsiteSettings.defaultDays}"
+        oninput="onsiteSettingChange('type:${escH(rt)}', this.value)">
+      <span class="onsite-settings-unit">d / rack</span>
+    </div>`).join('');
+
+  panel.innerHTML = `<div class="onsite-settings">
+    <div class="onsite-settings-hdr">
+      <span class="onsite-settings-title">Capacity &amp; Duration Settings</span>
+      <button class="btn btn-ghost" style="font-size:.72rem;padding:.2rem .55rem" onclick="toggleOnsiteSettings()">✕ Close</button>
+    </div>
+    <div class="onsite-settings-field">
+      <span class="onsite-settings-label">Max concurrent projects (engineers available)</span>
+      <input class="onsite-settings-num" type="number" min="1" max="20"
+        value="${onsiteSettings.engineerCapacity}"
+        oninput="onsiteSettingChange('cap', this.value)">
+      <span class="onsite-settings-unit">engineer${onsiteSettings.engineerCapacity > 1 ? 's' : ''}</span>
+    </div>
+    <div class="onsite-settings-section">Duration estimates — engineer days per rack unit</div>
+    <div class="onsite-settings-field">
+      <span class="onsite-settings-label">Default (all rack types not listed below)</span>
+      <input class="onsite-settings-num" type="number" min="1" max="999"
+        value="${onsiteSettings.defaultDays}"
+        oninput="onsiteSettingChange('default', this.value)">
+      <span class="onsite-settings-unit">d / rack</span>
+    </div>
+    ${typeRows || '<div style="font-size:.75rem;color:var(--text3);padding:.3rem 0">No rack types detected in onsite tasks yet — only the default above applies.</div>'}
+    <div style="font-size:.68rem;color:var(--text3);margin-top:.65rem;border-top:1px solid var(--border);padding-top:.5rem;line-height:1.55">
+      Estimated total = rack qty × days per rack type. Tasks where the scheduled window is shorter than the estimate are flagged <span style="color:var(--amber)">⚠ tight</span>.
+      Tasks overlapping another project (or beyond concurrent capacity) are flagged <span style="color:var(--red)">⚠ clash</span>.
+    </div>
+  </div>`;
+}
+
+window.toggleOnsiteSettings = function() {
+  onsiteSettingsOpen = !onsiteSettingsOpen;
+  const panel  = document.getElementById('onsiteSettingsPanel');
+  const gearBtn = document.getElementById('tabOnsiteSettings');
+  if (!panel) return;
+  if (onsiteSettingsOpen) { renderOnsiteSettingsPanel(); panel.style.display = ''; }
+  else panel.style.display = 'none';
+  if (gearBtn) gearBtn.classList.toggle('active', onsiteSettingsOpen);
+};
+
+window.onsiteSettingChange = function(key, rawVal) {
+  const val = parseFloat(rawVal);
+  if (key === 'cap')          onsiteSettings.engineerCapacity = Math.max(1, isNaN(val) ? 1 : Math.round(val));
+  else if (key === 'default') onsiteSettings.defaultDays      = Math.max(1, isNaN(val) ? 5 : Math.round(val));
+  else if (key.startsWith('type:')) {
+    const type = key.slice(5);
+    if (!rawVal || isNaN(val) || val <= 0) delete onsiteSettings.daysPerType[type];
+    else onsiteSettings.daysPerType[type] = Math.round(val);
+  }
+  saveOnsiteSettings();
+  renderOnsiteView();
 };
 
 window.toggleMs = function(e, id) {
