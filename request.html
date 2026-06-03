@@ -16,7 +16,6 @@
   --green:     #10b981; --green-dim: #0a3d28;
   --red:       #ef4444; --red-dim: #3d1212;
   --amber:     #f59e0b; --amber-dim: #3d2a06;
-  --purple:    #8b5cf6;
   --radius:    8px; --radius-lg: 12px;
   --font: 'DM Sans', sans-serif; --mono: 'DM Mono', monospace;
 }
@@ -49,6 +48,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .btn-ghost { background:transparent; border-color:var(--border2); color:var(--text2); }
 .btn-ghost:hover { background:var(--bg3); color:var(--text); }
 .btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn-sm { font-size:.72rem; padding:.25rem .6rem; }
 
 /* ── LEGEND ── */
 .legend-bar { display:flex; align-items:center; gap:1.25rem; margin-bottom:1.25rem; flex-wrap:wrap; }
@@ -62,8 +62,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .cal-dow-row { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:3px; }
 .cal-dow-row div { text-align:center; font-size:.58rem; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; padding:.2rem 0; }
 .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
-.cal-day { text-align:center; font-size:.78rem; padding:.35rem 0; border-radius:5px; cursor:default; font-family:var(--mono); min-height:30px; display:flex; align-items:center; justify-content:center; position:relative; transition:filter .1s; }
-.cal-blank { }
+.cal-day { text-align:center; font-size:.78rem; padding:.35rem 0; border-radius:5px; cursor:default; font-family:var(--mono); min-height:30px; display:flex; align-items:center; justify-content:center; transition:filter .1s; }
 .cal-past { color:var(--text3); opacity:.45; }
 .cal-available { background:var(--blue-dim); color:var(--blue); cursor:pointer; border:1px solid rgba(122,184,0,.2); }
 .cal-available:hover { filter:brightness(1.4); }
@@ -73,12 +72,12 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .cal-sel-edge { background:var(--blue) !important; color:#fff !important; border-color:var(--blue) !important; font-weight:600; }
 .cal-sel-in { background:rgba(122,184,0,.18) !important; color:var(--blue) !important; border:1px solid rgba(122,184,0,.15) !important; }
 
-/* ── SECTION TITLE ── */
+/* ── FORM ── */
 .section-title { font-size:.88rem; font-weight:600; color:var(--text); margin-bottom:.2rem; }
 .section-sub { font-size:.78rem; color:var(--text2); margin-bottom:1rem; line-height:1.55; }
-
-/* ── FORM ── */
 .form-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1.25rem 1.5rem 1.5rem; }
+.form-section-hdr { font-size:.65rem; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.08em; margin-bottom:.7rem; padding-bottom:.45rem; border-bottom:1px solid var(--border); }
+.form-divider { height:1px; background:var(--border); margin:1.25rem 0; }
 .req-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.6rem .85rem; }
 .req-form-field { display:flex; flex-direction:column; gap:.28rem; }
 .req-form-field.full { grid-column:1/-1; }
@@ -86,10 +85,25 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .req-form-input { background:var(--bg3); border:1px solid var(--border2); color:var(--text); font-family:var(--font); font-size:.82rem; padding:.38rem .55rem; border-radius:var(--radius); outline:none; }
 .req-form-input:focus { border-color:var(--blue); }
 .req-form-input.err { border-color:var(--red); }
-.req-form-textarea { resize:vertical; min-height:58px; }
+.req-form-textarea { resize:vertical; min-height:54px; }
 .req-form-input::-webkit-calendar-picker-indicator { filter:invert(0.6); cursor:pointer; }
 .req-form-actions { display:flex; align-items:center; gap:.6rem; padding:.9rem 0 0; border-top:1px solid var(--border); margin-top:.85rem; flex-wrap:wrap; }
-.hint { font-size:.7rem; color:var(--text3); line-height:1.5; }
+
+/* ── SYSTEMS ── */
+.systems-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:.65rem; }
+.systems-label { font-size:.82rem; font-weight:600; color:var(--text); }
+.same-dates-bar { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:.5rem .75rem; margin-bottom:.75rem; }
+.same-dates-bar label { display:flex; align-items:center; gap:.4rem; cursor:pointer; flex-shrink:0; font-size:.78rem; color:var(--text2); }
+.same-dates-bar input[type=checkbox] { accent-color:var(--blue); width:13px; height:13px; }
+.same-dates-pickers { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+.same-dates-pickers input { width:130px; }
+.same-dates-hint { font-size:.68rem; color:var(--text3); }
+.sys-row { position:relative; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:.8rem 2.6rem .8rem .85rem; margin-bottom:.5rem; }
+.sys-row-num { font-size:.6rem; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.07em; margin-bottom:.45rem; }
+.sys-grid-top { display:grid; grid-template-columns:2fr 1fr 80px; gap:.5rem .65rem; margin-bottom:.5rem; }
+.sys-grid-bot { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.5rem .65rem; }
+.sys-remove-btn { position:absolute; top:.55rem; right:.55rem; background:none; border:none; color:var(--text3); cursor:pointer; font-size:.85rem; width:22px; height:22px; border-radius:4px; display:flex; align-items:center; justify-content:center; line-height:1; }
+.sys-remove-btn:hover { background:var(--red-dim); color:var(--red); }
 
 /* ── SUCCESS ── */
 .success-panel { background:var(--green-dim); border:1px solid rgba(16,185,129,.4); border-radius:var(--radius-lg); padding:1.5rem 1.75rem; text-align:center; }
@@ -108,6 +122,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   .req-form-grid { grid-template-columns:1fr; }
   .req-form-field.full { grid-column:1; }
   .cal-wrap { flex-direction:column; }
+  .sys-grid-top { grid-template-columns:1fr 1fr; }
+  .sys-grid-top .req-form-field:last-child { grid-column:1/-1; }
+  .sys-grid-bot { grid-template-columns:1fr 1fr; }
+  .sys-grid-bot .req-form-field:last-child { grid-column:1/-1; }
 }
 </style>
 </head>
@@ -148,7 +166,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   </div>
 
   <div style="font-size:.83rem;color:var(--text2);line-height:1.65;margin-bottom:1.25rem">
-    Select available dates on the calendar below, then fill in the form and submit. The build team will review your request and confirm or reject it.
+    Select available dates on the calendar, add your systems below, then submit. The build team will review and confirm or reject the request.
   </div>
 
   <div class="legend-bar">
@@ -165,7 +183,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   <div id="successPanel" class="success-panel" style="display:none">
     <div class="success-icon">✓</div>
     <div class="success-title">Request Submitted</div>
-    <div class="success-sub">Your request has been sent to the build team for review.<br>You'll see it appear on the calendar as a pending block.</div>
+    <div class="success-sub">Your request has been sent to the build team for review.<br>You'll see it appear on the calendar as a pending block shortly.</div>
     <div style="margin-top:1.1rem;display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-ghost" onclick="resetForm()">Submit another request</button>
     </div>
@@ -173,13 +191,15 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
   <div id="formWrap">
     <div class="section-title" style="margin-bottom:.25rem">Build Request Details</div>
-    <div class="section-sub">Fields marked * are required. You can also type dates directly in the Start / End fields.</div>
+    <div class="section-sub">Fields marked * are required. Add one row per system — each can have its own dates, or use the "same dates" shortcut to fill them all at once.</div>
 
     <div class="form-card">
+      <!-- ── Job details ── -->
+      <div class="form-section-hdr">Job Details</div>
       <div class="req-form-grid">
         <div class="req-form-field">
           <label class="req-form-label">Project Name *</label>
-          <input class="req-form-input" id="rf_name" type="text" placeholder="e.g. Acme HQ Boardroom">
+          <input class="req-form-input" id="rf_name" type="text" placeholder="e.g. Acme HQ">
         </div>
         <div class="req-form-field">
           <label class="req-form-label">SEQF</label>
@@ -188,10 +208,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
         <div class="req-form-field">
           <label class="req-form-label">Client Name</label>
           <input class="req-form-input" id="rf_client" type="text">
-        </div>
-        <div class="req-form-field">
-          <label class="req-form-label">System / Room Name</label>
-          <input class="req-form-input" id="rf_room" type="text" placeholder="e.g. Main Boardroom AV">
         </div>
         <div class="req-form-field">
           <label class="req-form-label">Project Manager</label>
@@ -204,19 +220,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
         <div class="req-form-field">
           <label class="req-form-label">Site Contact</label>
           <input class="req-form-input" id="rf_contact" type="text" placeholder="Name / phone">
-        </div>
-        <div class="req-form-field">
-          <label class="req-form-label">Number of Racks *</label>
-          <input class="req-form-input" id="rf_racks" type="number" min="1" value="1">
-        </div>
-        <div class="req-form-field"></div>
-        <div class="req-form-field">
-          <label class="req-form-label">Requested Start *</label>
-          <input class="req-form-input" id="rf_start" type="date" oninput="onDateInput()">
-        </div>
-        <div class="req-form-field">
-          <label class="req-form-label">Requested End *</label>
-          <input class="req-form-input" id="rf_end" type="date" oninput="onDateInput()">
         </div>
         <div class="req-form-field full">
           <label class="req-form-label">Scope / Work Description</label>
@@ -233,6 +236,30 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
           </label>
         </div>
       </div>
+
+      <div class="form-divider"></div>
+
+      <!-- ── Systems ── -->
+      <div class="systems-hdr">
+        <div class="systems-label">Systems <span style="color:var(--red);font-weight:400">*</span></div>
+        <button class="btn btn-ghost btn-sm" onclick="addSystem()">+ Add System</button>
+      </div>
+
+      <div class="same-dates-bar">
+        <label>
+          <input type="checkbox" id="sd_check" onchange="toggleSameDates(this.checked)">
+          Use same dates for all systems
+        </label>
+        <div class="same-dates-pickers">
+          <input class="req-form-input" id="sd_start" type="date" oninput="onSameDateInput()" placeholder="Start">
+          <span style="font-size:.75rem;color:var(--text3)">→</span>
+          <input class="req-form-input" id="sd_end" type="date" oninput="onSameDateInput()" placeholder="End">
+        </div>
+        <span class="same-dates-hint">← or click available days on the calendar above</span>
+      </div>
+
+      <div id="sys-list"></div>
+
       <div class="req-form-actions">
         <button class="btn btn-primary" id="submitBtn" onclick="submitForm()">Submit Request</button>
         <span id="rf_err" style="font-size:.78rem;color:var(--red);display:none;line-height:1.4"></span>
@@ -259,23 +286,20 @@ let selEnd   = '';
 let supabase = null;
 let rtTasks  = null, rtReqs = null;
 
-// ── HELPERS ──────────────────────────────────────
-const toDay       = d => new Date(d + 'T00:00:00');
-const fmtPerson   = e => { if (!e) return ''; const local = e.includes('@') ? e.split('@')[0] : e; return local.split('.').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join(' '); };
-function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// ── Systems state ─────────────────────────────────
+let systems   = [];
+let nextSysId = 1;
+let sameDates = false;
 
-function showToast(msg, type='ok') {
-  const el = document.createElement('div');
-  el.className = `toast toast-${type}`; el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2800);
-}
+// ── HELPERS ──────────────────────────────────────
+const toDay = d => new Date(d + 'T00:00:00');
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const fmtMed = d => d ? toDay(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—';
 
 function setConn(state, msg) {
   const bar = document.getElementById('connBar');
-  const msgEl = document.getElementById('connMsg');
   bar.className = `conn-bar conn-${state}`;
-  msgEl.textContent = msg;
+  document.getElementById('connMsg').textContent = msg;
 }
 
 // ── CAPACITY ─────────────────────────────────────
@@ -288,15 +312,14 @@ function loadCapacity() {
   if (lbl) lbl.textContent = `capacity: ${capacity} concurrent`;
 }
 
-// ── DAY STATE ────────────────────────────────────
+// ── DAY STATE ─────────────────────────────────────
+// Counts one slot per request (parent span), not per system.
 function dayState(dateStr) {
   let confirmed = 0, pending = 0;
   tasks.forEach(t => {
-    if (t.status === ONSITE_STATUS && t.projStart && t.projEnd &&
-        t.projStart <= dateStr && t.projEnd >= dateStr) confirmed++;
+    if (t.projStart <= dateStr && t.projEnd >= dateStr) confirmed++;
   });
   requests.forEach(r => {
-    if (!r.requested_start || !r.requested_end) return;
     if (r.requested_start > dateStr || r.requested_end < dateStr) return;
     if (r.request_status === 'Approved' || r.request_status === 'Scheduled') confirmed++;
     else if (r.request_status === 'Pending') pending++;
@@ -306,123 +329,171 @@ function dayState(dateStr) {
   return 'available';
 }
 
-// ── CALENDAR RENDER ───────────────────────────────
+// ── CALENDAR ─────────────────────────────────────
 function renderCalendar() {
   const cal = document.getElementById('calendar');
   if (!cal) return;
   const today = new Date();
-  const months = [0, 1, 2].map(offset => {
-    return new Date(today.getFullYear(), today.getMonth() + offset, 1);
-  });
-  cal.innerHTML = months.map(m => renderMonth(m)).join('');
+  cal.innerHTML = [0,1,2].map(o => renderMonth(new Date(today.getFullYear(), today.getMonth()+o, 1))).join('');
 }
 
 function renderMonth(monthDate) {
   const year  = monthDate.getFullYear();
   const month = monthDate.getMonth();
-  const monthName = monthDate.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDow    = new Date(year, month, 1).getDay(); // 0=Sun
-  const startOffset = firstDow === 0 ? 6 : firstDow - 1; // Mon-based offset
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const name  = monthDate.toLocaleString('en-GB', { month:'long', year:'numeric' });
+  const days  = new Date(year, month+1, 0).getDate();
+  const firstDow = new Date(year, month, 1).getDay();
+  const offset   = firstDow === 0 ? 6 : firstDow - 1;
+  const todayStr = new Date().toISOString().slice(0,10);
 
-  let cells = '';
-  for (let i = 0; i < startOffset; i++) cells += `<div class="cal-day cal-blank"></div>`;
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isPast  = dateStr < todayStr;
-    const state   = isPast ? 'past' : dayState(dateStr);
-    const isSelS  = dateStr === selStart;
-    const isSelE  = selEnd && dateStr === selEnd;
-    const isInRng = selStart && selEnd && dateStr > selStart && dateStr < selEnd;
-    const isToday = dateStr === todayStr;
-
+  let cells = '<div class="cal-day" style="opacity:0"></div>'.repeat(offset);
+  for (let d = 1; d <= days; d++) {
+    const ds    = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isPast = ds < todayStr;
+    const state  = isPast ? 'past' : dayState(ds);
+    const isSE   = ds === selStart || ds === selEnd;
+    const isIn   = selStart && selEnd && ds > selStart && ds < selEnd;
+    const isToday = ds === todayStr;
     let cls = `cal-day cal-${state}`;
-    if (isSelS || isSelE) cls += ' cal-sel-edge';
-    else if (isInRng) cls += ' cal-sel-in';
+    if (isSE) cls += ' cal-sel-edge';
+    else if (isIn) cls += ' cal-sel-in';
     if (isToday) cls += ' cal-today';
-
-    const title = state === 'booked'    ? 'Fully booked — unavailable' :
-                  state === 'tentative' ? 'Request pending — may not be free' :
-                  isPast                ? '' : 'Click to select this date';
-
-    const clickable = state === 'available' && !isPast;
-    cells += `<div class="${cls}"${clickable ? ` onclick="selectDay('${dateStr}')"` : ''}${title ? ` title="${escH(title)}"` : ''}>${d}</div>`;
+    const title = state==='booked' ? 'Fully booked' : state==='tentative' ? 'Request pending' : isPast ? '' : 'Click to select';
+    const click = (!isPast && state==='available') ? ` onclick="selectDay('${ds}')"` : '';
+    cells += `<div class="${cls}"${click}${title?` title="${escH(title)}"`:''} >${d}</div>`;
   }
-
   return `<div class="cal-month">
-    <div class="cal-month-title">${escH(monthName)}</div>
+    <div class="cal-month-title">${escH(name)}</div>
     <div class="cal-dow-row"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div>
     <div class="cal-grid">${cells}</div>
   </div>`;
 }
 
-// ── DATE SELECTION ────────────────────────────────
-window.selectDay = function(dateStr) {
-  if (!selStart || (selStart && selEnd)) {
-    selStart = dateStr; selEnd = '';
-  } else {
-    if (dateStr < selStart) { selEnd = selStart; selStart = dateStr; }
-    else { selEnd = dateStr; }
-  }
-  syncFormDates();
+window.selectDay = function(ds) {
+  if (!selStart || (selStart && selEnd)) { selStart = ds; selEnd = ''; }
+  else { if (ds < selStart) { selEnd = selStart; selStart = ds; } else { selEnd = ds; } }
+  syncSameDatePickers();
+  if (sameDates) propagateDates();
   renderCalendar();
 };
 
-function syncFormDates() {
-  const s = document.getElementById('rf_start');
-  const e = document.getElementById('rf_end');
+function syncSameDatePickers() {
+  const s = document.getElementById('sd_start');
+  const e = document.getElementById('sd_end');
   if (s) s.value = selStart;
   if (e) e.value = selEnd;
 }
 
-window.onDateInput = function() {
-  const s = document.getElementById('rf_start').value;
-  const e = document.getElementById('rf_end').value;
-  selStart = s || '';
-  selEnd   = e && s && e >= s ? e : '';
+window.onSameDateInput = function() {
+  selStart = document.getElementById('sd_start').value || '';
+  selEnd   = document.getElementById('sd_end').value || '';
+  if (sameDates) propagateDates();
   renderCalendar();
 };
 
+window.toggleSameDates = function(checked) {
+  sameDates = checked;
+  if (sameDates && (selStart || selEnd)) propagateDates();
+};
+
+function propagateDates() {
+  systems.forEach(s => { s.start = selStart; s.end = selEnd; });
+  renderSystems();
+}
+
+// ── SYSTEMS ──────────────────────────────────────
+function makeSys() {
+  return { id: nextSysId++, name:'', rackType:'', numRacks:1, start:'', end:'', notes:'' };
+}
+
+window.addSystem = function() {
+  const s = makeSys();
+  if (sameDates) { s.start = selStart; s.end = selEnd; }
+  systems.push(s);
+  renderSystems();
+};
+
+window.removeSystem = function(id) {
+  if (systems.length <= 1) return;
+  systems = systems.filter(s => s.id !== id);
+  renderSystems();
+};
+
+window.onSysField = function(id, field, val) {
+  const s = systems.find(s => s.id === id);
+  if (s) s[field] = field === 'numRacks' ? (parseInt(val) || 1) : val;
+};
+
+function renderSystems() {
+  const el = document.getElementById('sys-list');
+  if (!el) return;
+  el.innerHTML = systems.map((s, i) => `
+    <div class="sys-row">
+      ${systems.length > 1 ? `<button class="sys-remove-btn" onclick="removeSystem(${s.id})" title="Remove system">✕</button>` : ''}
+      <div class="sys-row-num">System ${i+1}</div>
+      <div class="sys-grid-top">
+        <div class="req-form-field">
+          <label class="req-form-label">System / Room Name *</label>
+          <input class="req-form-input sys-name" type="text" value="${escH(s.name)}" placeholder="e.g. Boardroom AV"
+            oninput="onSysField(${s.id},'name',this.value)">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">Rack Type</label>
+          <input class="req-form-input" type="text" value="${escH(s.rackType)}" placeholder="e.g. AV Rack"
+            oninput="onSysField(${s.id},'rackType',this.value)">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">No. Racks</label>
+          <input class="req-form-input" type="number" min="1" value="${s.numRacks}"
+            oninput="onSysField(${s.id},'numRacks',this.value)">
+        </div>
+      </div>
+      <div class="sys-grid-bot">
+        <div class="req-form-field">
+          <label class="req-form-label">Start Date *</label>
+          <input class="req-form-input sys-start" type="date" value="${s.start}"
+            oninput="onSysField(${s.id},'start',this.value)">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">End Date *</label>
+          <input class="req-form-input sys-end" type="date" value="${s.end}"
+            oninput="onSysField(${s.id},'end',this.value)">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">Notes</label>
+          <input class="req-form-input" type="text" value="${escH(s.notes)}" placeholder="Optional"
+            oninput="onSysField(${s.id},'notes',this.value)">
+        </div>
+      </div>
+    </div>`).join('');
+}
+
 // ── DATA MAPPERS ─────────────────────────────────
 function dbToTask(r) {
-  return {
-    id: r.id, name: r.name || '', seqf: r.seqf || '',
-    status: r.status || '',
-    projStart: r.rack_build_start || '', projEnd: r.rack_build_end || '',
-    wireman: r.wireman || '', qty: r.qty || 1,
-  };
+  return { id:r.id, status:r.status||'', projStart:r.rack_build_start||'', projEnd:r.rack_build_end||'' };
 }
 function dbToRequest(r) {
-  return {
-    id: r.id, seqf: r.seqf || '', project_name: r.project_name || '',
-    project_manager: r.project_manager || '',
-    requested_start: r.requested_start || '', requested_end: r.requested_end || '',
-    request_status: r.request_status || 'Pending',
-  };
+  return { id:r.id, requested_start:r.requested_start||'', requested_end:r.requested_end||'', request_status:r.request_status||'Pending' };
 }
 
 // ── LOAD DATA ────────────────────────────────────
 async function loadData() {
   setConn('loading', 'Loading availability…');
   try {
-    const headers = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
-    const [taskRes, reqRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/tasks?select=id,name,seqf,status,rack_build_start,rack_build_end,wireman,qty`, { headers }),
-      fetch(`${SUPABASE_URL}/rest/v1/requests?select=id,seqf,project_name,project_manager,requested_start,requested_end,request_status`, { headers }),
+    const h = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
+    const [tr, rr] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/tasks?select=id,status,rack_build_start,rack_build_end`, { headers:h }),
+      fetch(`${SUPABASE_URL}/rest/v1/requests?select=id,requested_start,requested_end,request_status`, { headers:h }),
     ]);
-    if (!taskRes.ok) throw new Error(`Tasks HTTP ${taskRes.status}`);
-    if (!reqRes.ok)  throw new Error(`Requests HTTP ${reqRes.status}`);
-    tasks = (await taskRes.json() || []).map(dbToTask)
-      .filter(t => t.status === ONSITE_STATUS && t.projStart && t.projEnd);
-    requests = (await reqRes.json() || []).map(dbToRequest)
-      .filter(r => ['Pending','Approved','Scheduled'].includes(r.request_status) && r.requested_start && r.requested_end);
-    setConn('ok', `Connected · ${tasks.length} onsite build${tasks.length !== 1 ? 's' : ''} loaded`);
+    if (!tr.ok) throw new Error(`Tasks HTTP ${tr.status}`);
+    if (!rr.ok) throw new Error(`Requests HTTP ${rr.status}`);
+    tasks    = (await tr.json()||[]).map(dbToTask).filter(t => t.status===ONSITE_STATUS && t.projStart && t.projEnd);
+    requests = (await rr.json()||[]).map(dbToRequest).filter(r => ['Pending','Approved','Scheduled'].includes(r.request_status) && r.requested_start && r.requested_end);
+    setConn('ok', `Connected · ${tasks.length} onsite build${tasks.length!==1?'s':''} loaded`);
     renderCalendar();
     subscribeRealtime();
   } catch(e) {
-    setConn('err', `Could not load availability: ${e.message}`);
+    setConn('err', `Could not load: ${e.message}`);
     const cal = document.getElementById('calendar');
     if (cal) cal.innerHTML = `<div style="color:var(--red);font-size:.83rem;padding:1rem">⚠ ${escH(e.message)}</div>`;
   }
@@ -431,94 +502,115 @@ async function loadData() {
 function subscribeRealtime() {
   if (!supabase) return;
   rtTasks = supabase.channel('req-tasks-rt')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadData())
+    .on('postgres_changes', {event:'*',schema:'public',table:'tasks'}, () => loadData())
     .subscribe();
   rtReqs = supabase.channel('req-requests-rt')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, payload => {
+    .on('postgres_changes', {event:'*',schema:'public',table:'requests'}, payload => {
       try {
         if (payload.eventType === 'INSERT') {
           const r = dbToRequest(payload.new);
-          if (['Pending','Approved','Scheduled'].includes(r.request_status) && !requests.find(x => x.id === r.id)) {
+          if (['Pending','Approved','Scheduled'].includes(r.request_status) && r.requested_start && r.requested_end && !requests.find(x=>x.id===r.id)) {
             requests.push(r); renderCalendar();
           }
         } else if (payload.eventType === 'UPDATE') {
           const r = dbToRequest(payload.new);
-          const i = requests.findIndex(x => x.id === r.id);
-          if (['Pending','Approved','Scheduled'].includes(r.request_status)) {
-            if (i >= 0) requests[i] = r; else requests.push(r);
-          } else {
-            if (i >= 0) requests.splice(i, 1);
-          }
+          const i = requests.findIndex(x=>x.id===r.id);
+          if (['Pending','Approved','Scheduled'].includes(r.request_status) && r.requested_start && r.requested_end) {
+            if (i>=0) requests[i]=r; else requests.push(r);
+          } else if (i>=0) requests.splice(i,1);
           renderCalendar();
         } else if (payload.eventType === 'DELETE') {
-          requests = requests.filter(x => x.id !== payload.old.id);
-          renderCalendar();
+          requests = requests.filter(x=>x.id!==payload.old.id); renderCalendar();
         }
       } catch {}
     })
     .subscribe();
 }
 
-// ── SUBMIT FORM ───────────────────────────────────
+// ── SUBMIT ───────────────────────────────────────
 window.submitForm = async function() {
   const g    = id => document.getElementById(id);
+  const errEl = g('rf_err');
+  errEl.style.display = 'none';
+
   const name = g('rf_name').value.trim();
   const site = g('rf_site').value.trim();
-  const start = g('rf_start').value;
-  const end   = g('rf_end').value;
-  const racks = Math.max(1, parseInt(g('rf_racks').value) || 1);
-  const errEl = g('rf_err');
+  ['rf_name','rf_site'].forEach(id => g(id).classList.toggle('err', !g(id).value.trim()));
 
-  ['rf_name','rf_site','rf_start','rf_end'].forEach(id => g(id).classList.toggle('err', !g(id).value.trim()));
   const errs = [];
-  if (!name)  errs.push('Project name is required.');
-  if (!site)  errs.push('Site location is required.');
-  if (!start) errs.push('Start date is required.');
-  if (!end)   errs.push('End date is required.');
-  if (start && end && end < start) errs.push('End date must be on or after start date.');
-  if (!errs.length && start && end) {
-    // Check for booked days in selected range
-    let cur = toDay(start);
-    const endD = toDay(end);
-    while (cur <= endD) {
-      const ds = cur.toISOString().slice(0, 10);
-      if (dayState(ds) === 'booked') {
-        errs.push(`${cur.toLocaleDateString('en-GB', {day:'numeric',month:'short'})} is fully booked — please choose different dates.`);
-        break;
-      }
-      cur.setDate(cur.getDate() + 1);
-    }
-  }
+  if (!name) errs.push('Project name is required.');
+  if (!site) errs.push('Site location is required.');
+
+  // Validate systems
+  systems.forEach((s, i) => {
+    const n = i + 1;
+    if (!s.name.trim()) errs.push(`System ${n}: name is required.`);
+    if (!s.start)       errs.push(`System ${n}: start date is required.`);
+    if (!s.end)         errs.push(`System ${n}: end date is required.`);
+    if (s.start && s.end && s.end < s.start) errs.push(`System ${n}: end must be on or after start.`);
+  });
 
   if (errs.length) { errEl.textContent = errs[0]; errEl.style.display = ''; return; }
-  errEl.style.display = 'none';
+
+  // Compute job span (min start / max end across all systems)
+  const jobStart = systems.reduce((m,s) => (!m||s.start<m) ? s.start : m, '');
+  const jobEnd   = systems.reduce((m,s) => (!m||s.end>m)   ? s.end   : m, '');
+
+  // Check for booked days in the job span
+  if (jobStart && jobEnd) {
+    let cur = toDay(jobStart), endD = toDay(jobEnd);
+    while (cur <= endD) {
+      const ds = cur.toISOString().slice(0,10);
+      if (dayState(ds) === 'booked') {
+        errEl.textContent = `${fmtMed(ds)} is fully booked — please choose different dates.`;
+        errEl.style.display = ''; return;
+      }
+      cur.setDate(cur.getDate()+1);
+    }
+  }
 
   const btn = g('submitBtn');
   btn.disabled = true; btn.textContent = 'Submitting…';
 
   try {
-    const { error } = await supabase.from('requests').insert({
-      project_name:    name,
-      seqf:            g('rf_seqf').value.trim() || null,
-      client_name:      g('rf_client').value.trim() || null,
-      system_room_name: g('rf_room').value.trim() || null,
-      project_manager:  g('rf_pm').value.trim() || null,
-      site_location:   site,
-      site_contact:    g('rf_contact').value.trim() || null,
-      num_racks:       racks,
-      requested_start: start,
-      requested_end:   end,
-      scope:           g('rf_scope').value.trim() || null,
-      notes:           g('rf_notes').value.trim() || null,
-      urgent:          g('rf_urgent').checked,
-      request_status:  'Pending',
-    });
-    if (error) throw error;
+    // Insert parent request, get id back
+    const { data: parentRows, error: parentErr } = await supabase
+      .from('requests')
+      .insert({
+        project_name:    name,
+        seqf:            g('rf_seqf').value.trim() || null,
+        client_name:     g('rf_client').value.trim() || null,
+        project_manager: g('rf_pm').value.trim() || null,
+        site_location:   site,
+        site_contact:    g('rf_contact').value.trim() || null,
+        scope:           g('rf_scope').value.trim() || null,
+        notes:           g('rf_notes').value.trim() || null,
+        urgent:          g('rf_urgent').checked,
+        request_status:  'Pending',
+        requested_start: jobStart,
+        requested_end:   jobEnd,
+      })
+      .select('id');
+    if (parentErr) throw parentErr;
 
-    // Show success
+    const parentId = parentRows[0].id;
+
+    // Insert child systems
+    const { error: sysErr } = await supabase
+      .from('request_systems')
+      .insert(systems.map(s => ({
+        request_id:       parentId,
+        system_room_name: s.name.trim() || null,
+        rack_type:        s.rackType.trim() || null,
+        num_racks:        s.numRacks || 1,
+        requested_start:  s.start || null,
+        requested_end:    s.end   || null,
+        notes:            s.notes.trim() || null,
+      })));
+    if (sysErr) throw sysErr;
+
     g('formWrap').style.display = 'none';
     g('successPanel').style.display = '';
-    // The new row will arrive via realtime and update the calendar
   } catch(e) {
     errEl.textContent = `Submit failed: ${e.message}`; errEl.style.display = '';
     console.error('[request.html] submit error:', e);
@@ -530,18 +622,24 @@ window.submitForm = async function() {
 window.resetForm = function() {
   document.getElementById('formWrap').style.display = '';
   document.getElementById('successPanel').style.display = 'none';
-  ['rf_name','rf_seqf','rf_client','rf_room','rf_pm','rf_site','rf_contact','rf_scope','rf_notes'].forEach(id => {
+  ['rf_name','rf_seqf','rf_client','rf_pm','rf_site','rf_contact','rf_scope','rf_notes'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  const racks = document.getElementById('rf_racks'); if (racks) racks.value = '1';
-  const urg   = document.getElementById('rf_urgent'); if (urg) urg.checked = false;
+  const urg = document.getElementById('rf_urgent'); if (urg) urg.checked = false;
+  const sdc = document.getElementById('sd_check');  if (sdc) sdc.checked = false;
+  sameDates = false;
   selStart = ''; selEnd = '';
-  syncFormDates();
+  syncSameDatePickers();
+  nextSysId = 1; systems = [makeSys()];
+  renderSystems();
   renderCalendar();
 };
 
 // ── INIT ─────────────────────────────────────────
 loadCapacity();
+systems = [makeSys()];
+renderSystems();
+
 try {
   supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: false },

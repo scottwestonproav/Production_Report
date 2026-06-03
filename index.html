@@ -2404,12 +2404,24 @@ window.submitRequestForm = async function() {
 };
 
 // ── REQUEST REVIEW ────────────────────────────────
-window.openRequestReview = function(id) {
+window.openRequestReview = async function(id) {
   const req = requests.find(r => String(r.id) === String(id));
   if (!req) return;
   document.getElementById('reviewTitle').textContent = req.project_name || 'Build Request';
   document.getElementById('reviewSub').textContent   =
     `${req.request_status} · ${req.urgent?'URGENT · ':''}submitted ${fmtMed(req.created_at.slice(0,10))}`;
+  document.getElementById('reviewBody').innerHTML = '<div style="padding:1.5rem 0;text-align:center;color:var(--text3);font-size:.8rem">Loading…</div>';
+  document.getElementById('requestReviewModal').style.display = 'flex';
+
+  // Fetch child systems
+  let childSystems = [];
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/request_systems?request_id=eq.${req.id}&order=id.asc`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    if (res.ok) childSystems = await res.json() || [];
+  } catch {}
 
   const fld = (label, val, full) => val ? `<div class="detail-field${full?' full':''}">
     ${label?`<div class="detail-label">${label}</div>`:''}
@@ -2418,18 +2430,35 @@ window.openRequestReview = function(id) {
   const isActionable = (req.request_status === 'Pending' || req.request_status === 'Approved') && !!currentUser;
   const needsSignIn  = (req.request_status === 'Pending' || req.request_status === 'Approved') && !currentUser;
 
+  // Systems section — use child rows if present, fall back to legacy job-level fields
+  let systemsHtml = '';
+  if (childSystems.length) {
+    const rows = childSystems.map(s => `
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .75rem;margin-bottom:.35rem">
+        <div style="font-weight:500;font-size:.8rem;color:var(--text)">${escH(s.system_room_name||'—')}</div>
+        <div style="display:flex;gap:1rem;margin-top:.25rem;color:var(--text2);font-size:.72rem;flex-wrap:wrap;font-family:var(--mono)">
+          ${s.rack_type?`<span>${escH(s.rack_type)}</span>`:''}
+          <span>qty ${s.num_racks||1}</span>
+          <span>${fmtShort(s.requested_start)}–${fmtShort(s.requested_end)}</span>
+          ${s.notes?`<span style="color:var(--text3);font-family:var(--font)">${escH(s.notes)}</span>`:''}
+        </div>
+      </div>`).join('');
+    systemsHtml = `<div class="detail-section"><div class="detail-section-title">Systems (${childSystems.length})</div>${rows}</div>`;
+  } else if (req.system_room_name || req.num_racks) {
+    systemsHtml = `<div class="detail-section"><div class="detail-section-title">System</div><div class="detail-grid">${fld('System / Room',req.system_room_name)}${fld('Racks',String(req.num_racks||''))}</div></div>`;
+  }
+
   document.getElementById('reviewBody').innerHTML = `
-    ${req.request_status === 'Approved' ? `<div class="req-review-reminder">✓ Approved — remember to add this build to the production master spreadsheet via the normal route. The <span style="font-family:var(--mono);font-size:.85em">tasks</span> table is not automatically updated.</div>` : ''}
-    <div class="detail-section"><div class="detail-section-title">Request Details</div>
+    ${req.request_status === 'Approved' ? `<div class="req-review-reminder">✓ Approved — remember to add this build to the production master. Power Automate will expand the systems into <span style="font-family:var(--mono);font-size:.85em">tasks</span> rows once in the master.</div>` : ''}
+    <div class="detail-section"><div class="detail-section-title">Job Details</div>
     <div class="detail-grid">
       ${fld('SEQF', req.seqf)}${fld('Client', req.client_name)}
-      ${fld('System / Room', req.system_room_name)}
       ${fld('Project Manager', fmtPerson(req.project_manager)||req.project_manager)}
       ${fld('Site Location', req.site_location)}${fld('Site Contact', req.site_contact)}
-      ${fld('Racks', String(req.num_racks))}
-      ${fld('Requested Start', fmtLong(req.requested_start))}${fld('Requested End', fmtLong(req.requested_end))}
+      ${fld('Job Start', fmtLong(req.requested_start))}${fld('Job End', fmtLong(req.requested_end))}
       ${fld('Urgent', req.urgent ? 'Yes' : null)}
     </div></div>
+    ${systemsHtml}
     ${req.scope ? `<div class="detail-section"><div class="detail-section-title">Scope</div><div class="detail-grid">${fld('',req.scope,true)}</div></div>` : ''}
     ${req.notes ? `<div class="detail-section"><div class="detail-section-title">Notes</div><div class="detail-grid">${fld('',req.notes,true)}</div></div>` : ''}
     ${req.reviewed_by||req.review_notes ? `<div class="detail-section"><div class="detail-section-title">Review</div><div class="detail-grid">${fld('Reviewed by',req.reviewed_by)}${fld('Review notes',req.review_notes,true)}</div></div>` : ''}
@@ -2442,7 +2471,6 @@ window.openRequestReview = function(id) {
         <span style="font-size:.68rem;color:var(--text3);line-height:1.5">${req.request_status==='Pending'?'Approve = confirmed in calendar, no write to tasks.':'Reject = removes from calendar.'}</span>
       </div></div>` : ''}
     ${needsSignIn ? `<div style="border-top:1px solid var(--border);padding-top:.85rem;margin-top:.5rem"><button class="btn btn-ghost" style="font-size:.75rem;padding:.3rem .7rem" onclick="closeRequestReview();openSignIn()">Sign in to approve or reject</button></div>` : ''}`;
-  document.getElementById('requestReviewModal').style.display = 'flex';
 };
 window.closeRequestReview = function() { document.getElementById('requestReviewModal').style.display = 'none'; };
 

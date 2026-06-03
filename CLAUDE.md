@@ -73,19 +73,25 @@ Table with Gantt bars per task. Bars: rack build (yellow), test window (purple),
 ### Onsite Availability
 Filtered to `status = 'Onsite build'` rows that have both `rack_build_start` and `rack_build_end`. Shows a week-by-week calendar. Per-week capacity pills (green/amber/red) driven by `onsiteSettings.engineerCapacity` (default 1). Duration estimates (`qty × days-per-rack-type`) are configurable via the ⚙ settings panel and persisted to `localStorage` under key `onsite_cap_v1`. Amber "tight" flag when scheduled window < estimate; red "clash" flag when concurrent count exceeds capacity or an engineer is double-booked.
 
-## `requests` table — PM onsite build request flow
+## `requests` + `request_systems` — PM onsite build request flow
 
-A separate Supabase table (never writes to `tasks`). Columns: `id`, `created_at`, `seqf`, `project_name`, `client_name`, `project_manager`, `site_location`, `site_contact`, `num_racks` (int), `requested_start` (date), `requested_end` (date), `scope`, `urgent` (bool), `notes`, `request_status`, `review_notes`, `reviewed_by`, `reviewed_at`, `linked_task_id`.
+A parent/child model. The **job** lives in `requests`; each system within that job is a row in `request_systems`.
+
+### `requests` (parent / job)
+Columns: `id`, `created_at`, `seqf`, `project_name`, `client_name`, `project_manager`, `site_location`, `site_contact`, `scope`, `urgent` (bool), `notes`, `request_status`, `requested_start` (date — MIN of systems' starts), `requested_end` (date — MAX of systems' ends), `review_notes`, `reviewed_by`, `reviewed_at`, `linked_task_id`.
 
 `request_status` values: `Pending` · `Approved` · `Rejected` · `On Hold` · `Scheduled`.
 
+### `request_systems` (child, one row per system)
+Columns: `id`, `request_id` (FK → requests.id), `system_room_name`, `rack_type`, `num_racks` (int), `requested_start` (date), `requested_end` (date), `notes`.
+
 **How it works:**
-- PMs click **+ Request Build** (filter bar on the Onsite Availability view) to open a form; submission inserts a `Pending` row.
-- Pending and Approved requests appear as tentative blocks on the Onsite calendar (amber dashed = Pending, green solid = Approved), counted toward weekly capacity alongside confirmed tasks.
-- Clicking a block opens a review modal; the build team can **Approve** or **Reject**. Approve shows a reminder to add to the production master — `tasks` is **not** written automatically.
-- When an Approved request's `seqf` + date range matches a `tasks` row with `status = 'Onsite build'`, the request auto-flips to `Scheduled` and stops drawing on the calendar.
-- Realtime channel `requests-rt` keeps the calendar live alongside `tasks-rt`.
-- `reviewed_by` is null in v1 (no auth). Add Supabase Auth when restricting approve/reject to logged-in users.
+- PMs submit via `request.html` (public page). One parent `requests` row is inserted with `request_status = 'Pending'`; `requested_start`/`requested_end` are the min/max across all systems. Then one `request_systems` row per system is inserted with `request_id` = parent id.
+- Calendar counts **one slot per request** (parent span). Pending = amber tentative; Approved/Scheduled = confirmed. Capacity uses `onsiteSettings.engineerCapacity`.
+- In `index.html`, clicking a request block opens the review modal which fetches `request_systems` and lists the child systems. The build team can **Approve** or **Reject** (requires Supabase Auth sign-in). Approve/reject acts at the job level — `tasks` is never written from the front end.
+- On Approve: `request_status = 'Approved'` + reviewer + timestamp. Power Automate reads `request_systems` and expands the approved job into one `tasks` row per system once it enters the Excel master.
+- When an Approved request's `seqf` + date range matches a `tasks` row with `status = 'Onsite build'`, the request auto-flips to `Scheduled` and stops drawing on the calendar (de-dup).
+- Realtime channels `requests-rt` and `requests-rt` (in `request.html`) keep both calendars live.
 
 ## Key code patterns
 
