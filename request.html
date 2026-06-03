@@ -190,6 +190,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
           <input class="req-form-input" id="rf_client" type="text">
         </div>
         <div class="req-form-field">
+          <label class="req-form-label">System / Room Name</label>
+          <input class="req-form-input" id="rf_room" type="text" placeholder="e.g. Main Boardroom AV">
+        </div>
+        <div class="req-form-field">
           <label class="req-form-label">Project Manager</label>
           <input class="req-form-input" id="rf_pm" type="text" placeholder="first.last@proav.com">
         </div>
@@ -496,8 +500,9 @@ window.submitForm = async function() {
     const { error } = await supabase.from('requests').insert({
       project_name:    name,
       seqf:            g('rf_seqf').value.trim() || null,
-      client_name:     g('rf_client').value.trim() || null,
-      project_manager: g('rf_pm').value.trim() || null,
+      client_name:      g('rf_client').value.trim() || null,
+      system_room_name: g('rf_room').value.trim() || null,
+      project_manager:  g('rf_pm').value.trim() || null,
       site_location:   site,
       site_contact:    g('rf_contact').value.trim() || null,
       num_racks:       racks,
@@ -525,7 +530,7 @@ window.submitForm = async function() {
 window.resetForm = function() {
   document.getElementById('formWrap').style.display = '';
   document.getElementById('successPanel').style.display = 'none';
-  ['rf_name','rf_seqf','rf_client','rf_pm','rf_site','rf_contact','rf_scope','rf_notes'].forEach(id => {
+  ['rf_name','rf_seqf','rf_client','rf_room','rf_pm','rf_site','rf_contact','rf_scope','rf_notes'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   const racks = document.getElementById('rf_racks'); if (racks) racks.value = '1';

@@ -1002,7 +1002,8 @@ function dbToRequest(r) {
   return {
     id: r.id, created_at: r.created_at || '',
     seqf: r.seqf || '', project_name: r.project_name || '',
-    client_name: r.client_name || '', project_manager: r.project_manager || '',
+    client_name: r.client_name || '', system_room_name: r.system_room_name || '',
+    project_manager: r.project_manager || '',
     site_location: r.site_location || '', site_contact: r.site_contact || '',
     num_racks: r.num_racks || 1,
     requested_start: r.requested_start || '', requested_end: r.requested_end || '',
@@ -2422,6 +2423,7 @@ window.openRequestReview = function(id) {
     <div class="detail-section"><div class="detail-section-title">Request Details</div>
     <div class="detail-grid">
       ${fld('SEQF', req.seqf)}${fld('Client', req.client_name)}
+      ${fld('System / Room', req.system_room_name)}
       ${fld('Project Manager', fmtPerson(req.project_manager)||req.project_manager)}
       ${fld('Site Location', req.site_location)}${fld('Site Contact', req.site_contact)}
       ${fld('Racks', String(req.num_racks))}
