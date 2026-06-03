@@ -363,9 +363,11 @@ tbody tr { cursor: default; }
 .req-review-actions { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
 .sys-review-row { background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:.6rem .75rem; margin-bottom:.4rem; }
 .sys-status-pill { display:inline-flex; align-items:center; font-size:.6rem; font-weight:600; padding:.12rem .45rem; border-radius:10px; text-transform:uppercase; letter-spacing:.05em; flex-shrink:0; }
-.sys-status-pending  { background:rgba(245,158,11,.2);  color:var(--amber); }
-.sys-status-approved { background:rgba(16,185,129,.18); color:var(--green); }
-.sys-status-rejected { background:rgba(239,68,68,.15);  color:var(--red);   }
+.sys-status-pending   { background:rgba(245,158,11,.2);  color:var(--amber); }
+.sys-status-approved  { background:rgba(16,185,129,.18); color:var(--green); }
+.sys-status-rejected  { background:rgba(239,68,68,.15);  color:var(--red);   }
+.sys-status-completed { background:rgba(59,130,246,.15); color:#60a5fa; }
+.sys-status-removed   { background:rgba(156,163,175,.15);color:#9ca3af; }
 
 /* ── AUTH ── */
 .auth-user { font-size:.72rem; color:var(--green); font-family:var(--mono); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -665,6 +667,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // ── ONSITE CAPACITY ───────────────────────────────
 const ONSITE_STATUS  = 'Onsite build'; // must match tasks.status value in DB
 const ONSITE_CAP_KEY = 'onsite_cap_v1'; // localStorage key for capacity settings
+// system_status values that occupy calendar capacity
+const ACTIVE_SYS_STATUSES = new Set(['Pending', 'Approved', 'Scheduled']);
 
 // ── STATE ─────────────────────────────────────────
 const TEAM_KEY  = 'gantt_team_v1';
@@ -688,8 +692,12 @@ let onsiteSettings     = loadOnsiteSettings(); // { engineerCapacity, defaultDay
 let onsiteSettingsOpen = false;
 let requests           = [];
 let requestsRealtimeSub = null;
+let reqSysRealtimeSub   = null;
 let reqStatusFilter    = new Set(['Pending', 'Approved']);
 let currentUser        = null;
+// effective calendar spans per request, derived from active request_systems rows
+let reqSysSpans      = {}; // { [requestId]: { start, end } }
+let reqsWithChildren = new Set(); // request IDs that have any request_systems rows
 let teamSize  = +(localStorage.getItem(TEAM_KEY) || 9);
 let testSize  = +(localStorage.getItem(TEST_KEY)  || 3);
 let mobileGanttMode = false;
@@ -909,8 +917,8 @@ async function loadRequests() {
     if (!res.ok) { console.warn('[Requests] load failed HTTP', res.status); return; }
     const data = await res.json();
     requests = (data || []).map(dbToRequest);
-    if (currentView === 'onsite') renderOnsiteView();
     subscribeRequestsRealtime();
+    await loadReqSysSpans(); // computes effective spans then re-renders if needed
   } catch(e) { console.warn('[Requests] load error:', e); }
 }
 
@@ -938,6 +946,48 @@ function subscribeRequestsRealtime() {
         if (status === 'CHANNEL_ERROR') console.warn('[Requests realtime] channel error');
       });
   } catch(e) { console.warn('[Requests realtime] subscribe failed:', e); }
+}
+
+async function loadReqSysSpans() {
+  if (!supabase) return;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/request_systems?select=request_id,system_status,requested_start,requested_end`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    if (!res.ok) return;
+    const rows = await res.json() || [];
+    const spans = {}, withChildren = new Set();
+    for (const s of rows) {
+      const rid = String(s.request_id);
+      withChildren.add(rid);
+      const st = s.system_status || 'Pending';
+      if (!ACTIVE_SYS_STATUSES.has(st) || !s.requested_start || !s.requested_end) continue;
+      if (!spans[rid]) spans[rid] = { start: s.requested_start, end: s.requested_end };
+      else {
+        if (s.requested_start < spans[rid].start) spans[rid].start = s.requested_start;
+        if (s.requested_end   > spans[rid].end)   spans[rid].end   = s.requested_end;
+      }
+    }
+    reqSysSpans      = spans;
+    reqsWithChildren = withChildren;
+    if (currentView === 'onsite') renderOnsiteView();
+    subscribeReqSysRealtime();
+  } catch(e) { console.warn('[ReqSys spans] load error:', e); }
+}
+
+function subscribeReqSysRealtime() {
+  if (!supabase) return;
+  if (reqSysRealtimeSub) { try { supabase.removeChannel(reqSysRealtimeSub); } catch {} }
+  try {
+    reqSysRealtimeSub = supabase.channel('req-sys-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'request_systems' }, () => {
+        loadReqSysSpans();
+      })
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR') console.warn('[ReqSys realtime] channel error');
+      });
+  } catch(e) { console.warn('[ReqSys realtime] subscribe failed:', e); }
 }
 
 async function upsertTask(data, id) {
@@ -2059,9 +2109,23 @@ function renderOnsiteView() {
     .filter(t => t.status === ONSITE_STATUS && t.projStart && t.projEnd)
     .sort((a,b) => a.projStart.localeCompare(b.projStart));
 
+  // Compute each request's effective span from active request_systems rows.
+  // Legacy requests (no child rows) fall back to the parent span.
+  // Requests whose every system is inactive (Rejected/Completed/Removed) are excluded.
   const activeRequests = requests
-    .filter(r => reqStatusFilter.has(r.request_status) && r.requested_start && r.requested_end)
-    .sort((a,b) => a.requested_start.localeCompare(b.requested_start));
+    .filter(r => reqStatusFilter.has(r.request_status))
+    .map(r => {
+      const rid = String(r.id);
+      if (reqsWithChildren.has(rid)) {
+        const span = reqSysSpans[rid];
+        return span ? { ...r, effectiveStart: span.start, effectiveEnd: span.end } : null;
+      }
+      // Legacy: no child rows → use parent span
+      return (r.requested_start && r.requested_end)
+        ? { ...r, effectiveStart: r.requested_start, effectiveEnd: r.requested_end } : null;
+    })
+    .filter(Boolean)
+    .sort((a,b) => a.effectiveStart.localeCompare(b.effectiveStart));
 
   const filterBar = reqFilterBarHtml();
 
@@ -2071,7 +2135,7 @@ function renderOnsiteView() {
   }
 
   const cap    = Math.max(1, onsiteSettings.engineerCapacity || 1);
-  const weeks  = getOnsiteWeeks(activeRequests.map(r => ({ start: r.requested_start, end: r.requested_end })));
+  const weeks  = getOnsiteWeeks(activeRequests.map(r => ({ start: r.effectiveStart, end: r.effectiveEnd })));
   const today  = new Date().toISOString().slice(0,10);
   const WCOL   = 80;
   const LCOL   = 240;
@@ -2080,7 +2144,7 @@ function renderOnsiteView() {
   // Capacity counts: confirmed tasks + active requests combined
   const allCapItems = [
     ...onsiteTasks.map(t => ({ start: t.projStart, end: t.projEnd })),
-    ...activeRequests.map(r => ({ start: r.requested_start, end: r.requested_end })),
+    ...activeRequests.map(r => ({ start: r.effectiveStart, end: r.effectiveEnd })),
   ];
   const weekCounts = weeks.map(w =>
     allCapItems.filter(item => item.start <= w.end && item.end >= w.start).length
@@ -2160,15 +2224,15 @@ function renderOnsiteView() {
     const pm = req.project_manager ? fmtPerson(req.project_manager) : '';
 
     const cellsHtml = weeks.map((w, i) => {
-      const inSpan = req.requested_start <= w.end && req.requested_end >= w.start;
+      const inSpan = req.effectiveStart <= w.end && req.effectiveEnd >= w.start;
       if (!inSpan) return `<div class="onsite-task-cell" style="width:${WCOL}px"></div>`;
-      const isFirst = req.requested_start >= w.start, isLast = req.requested_end <= w.end;
+      const isFirst = req.effectiveStart >= w.start, isLast = req.effectiveEnd <= w.end;
       const rL = isFirst ? '5px' : '0', rR = isLast ? '5px' : '0';
       const label = isFirst ? `<span class="req-block-label" style="color:${isApproved?'#fff':'var(--amber)'}">${escH(req.project_name||'')}${req.seqf?' · '+escH(req.seqf):''}</span>` : '';
       return `<div class="onsite-task-cell" style="width:${WCOL}px;padding-left:${isFirst?'4px':'0'};padding-right:${isLast?'4px':'0'}">
         <div class="${blockCls}" onclick="openRequestReview('${escH(String(req.id))}')"
           style="border-radius:${rL} ${rR} ${rR} ${rL}"
-          title="${escH(req.project_name)} · ${fmtShort(req.requested_start)}–${fmtShort(req.requested_end)} · ${req.num_racks} rack${req.num_racks>1?'s':''} · ${req.request_status}${req.urgent?' · URGENT':''}">
+          title="${escH(req.project_name)} · ${fmtShort(req.effectiveStart)}–${fmtShort(req.effectiveEnd)} · ${req.request_status}${req.urgent?' · URGENT':''}">
           ${label}</div></div>`;
     }).join('');
 
@@ -2177,7 +2241,7 @@ function renderOnsiteView() {
         <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(req.project_name||'—')}<span class="req-badge ${badgeCls}">${req.request_status}</span>${req.urgent?'<span style="font-size:.6rem;color:var(--red);margin-left:.3rem">urgent</span>':''}</div>
         ${req.seqf?`<div style="font-size:.68rem;color:var(--text3);font-family:var(--mono)">${escH(req.seqf)}</div>`:''}
         ${pm?`<div style="font-size:.68rem;color:var(--text2)">${escH(pm)}</div>`:''}
-        <div class="onsite-dur-est">${req.num_racks} rack${req.num_racks>1?'s':''} · ${fmtShort(req.requested_start)}–${fmtShort(req.requested_end)}</div>
+        <div class="onsite-dur-est">${fmtShort(req.effectiveStart)}–${fmtShort(req.effectiveEnd)}</div>
       </div>
       <div style="display:flex;align-items:center">${cellsHtml}</div></div>`;
   }).join('');
@@ -2445,10 +2509,15 @@ window.openRequestReview = async function(id) {
 
     const sysRows = childSystems.map(s => {
       const st     = s.system_status || 'Pending';
-      const stCls  = st === 'Approved' ? 'sys-status-approved' : st === 'Rejected' ? 'sys-status-rejected' : 'sys-status-pending';
+      const stCls  = st === 'Approved'  ? 'sys-status-approved'
+                   : st === 'Rejected'  ? 'sys-status-rejected'
+                   : st === 'Completed' ? 'sys-status-completed'
+                   : st === 'Removed'   ? 'sys-status-removed'
+                   : 'sys-status-pending';
       const appSty = st === 'Approved' ? 'border-color:var(--green);color:var(--green);background:var(--green-dim)' : '';
       const rejSty = st === 'Rejected' ? 'border-color:var(--red);color:var(--red);background:var(--red-dim)' : '';
-      const btns   = canReview ? `
+      const canActOnSys = canReview && st !== 'Completed' && st !== 'Removed';
+      const btns   = canActOnSys ? `
         <div style="display:flex;gap:.4rem;margin-top:.45rem;flex-wrap:wrap">
           <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${appSty}" onclick="approveSystem('${s.id}','${id}')">✓ Approve</button>
           <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${rejSty}" onclick="rejectSystem('${s.id}','${id}')">✕ Reject</button>

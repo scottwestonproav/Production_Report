@@ -83,7 +83,9 @@ Columns: `id`, `created_at`, `seqf`, `project_name`, `client_name`, `project_man
 `request_status` values: `Pending` · `Approved` · `Rejected` · `On Hold` · `Scheduled`.
 
 ### `request_systems` (child, one row per system / rack)
-Columns: `id`, `request_id` (FK → requests.id), `system_room_name`, `rack_type`, `requested_start` (date), `requested_end` (date), `notes`, `system_status` (text: `Pending` / `Approved` / `Rejected`), `reviewed_by` (text), `reviewed_at` (timestamptz).
+Columns: `id`, `request_id` (FK → requests.id), `system_room_name`, `rack_type`, `requested_start` (date), `requested_end` (date), `notes`, `system_status` (text: `Pending` / `Approved` / `Rejected` / `Completed` / `Removed`), `reviewed_by` (text), `reviewed_at` (timestamptz).
+
+**Calendar occupancy** is computed from `request_systems`, not the parent `requests` span. A system is **active** if its `system_status` is `Pending`, `Approved`, or `Scheduled` (null treated as `Pending` for legacy rows). Active statuses count toward capacity; `Completed`, `Removed`, and `Rejected` do not. The calendar slot for a request spans `MIN(active systems' start)` to `MAX(active systems' end)`. If a request has no active systems it is excluded from the calendar entirely. Legacy requests with no `request_systems` rows fall back to the parent `requested_start`/`requested_end`. Both `index.html` (Onsite Availability view) and `request.html` follow this logic.
 
 **How it works:**
 - PMs submit via `request.html` (public page). One parent `requests` row is inserted with `request_status = 'Pending'`; `requested_start`/`requested_end` are the min/max across all systems. Then one `request_systems` row per system is inserted with `request_id` = parent id.

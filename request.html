@@ -277,16 +277,18 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = 'https://ykttrpmdytpvkpfuqvza.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrdHRycG1keXRwdmtwZnVxdnphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTAyNTAsImV4cCI6MjA5NDc2NjI1MH0.moNeSzhjYHGf9DBb3pWwQ_AxiIp0xxeOkV1jaXmAKjg';
 
-const ONSITE_STATUS  = 'Onsite build';
-const ONSITE_CAP_KEY = 'onsite_cap_v1';
+const ONSITE_STATUS      = 'Onsite build';
+const ONSITE_CAP_KEY     = 'onsite_cap_v1';
+const ACTIVE_SYS_STATUSES = new Set(['Pending', 'Approved', 'Scheduled']);
 
-let tasks    = [];
-let requests = [];
-let capacity = 1;
-let selStart = '';
-let selEnd   = '';
-let supabase = null;
-let rtTasks  = null, rtReqs = null;
+let tasks      = [];
+let requests   = [];
+let reqSysData = []; // all request_systems rows (request_id, system_status, requested_start, requested_end)
+let capacity   = 1;
+let selStart   = '';
+let selEnd     = '';
+let supabase   = null;
+let rtTasks    = null, rtReqs = null, rtReqSys = null;
 
 // ── Systems state ─────────────────────────────────
 let systems   = [];
@@ -315,14 +317,37 @@ function loadCapacity() {
 }
 
 // ── DAY STATE ─────────────────────────────────────
-// Counts one slot per request (parent span), not per system.
+// Counts one slot per request using the span of its ACTIVE systems only.
+// A system is active if system_status is Pending/Approved/Scheduled (or null = legacy Pending).
+// Requests whose every system is inactive (Rejected/Completed/Removed) don't count.
+// Legacy requests with no request_systems rows fall back to the parent span.
+function effectiveSpan(r) {
+  const rid = String(r.id);
+  const hasSysRows = reqSysData.some(s => String(s.request_id) === rid);
+  if (!hasSysRows) {
+    // Legacy: use parent span
+    return (r.requested_start && r.requested_end)
+      ? { start: r.requested_start, end: r.requested_end } : null;
+  }
+  const active = reqSysData.filter(s =>
+    String(s.request_id) === rid &&
+    ACTIVE_SYS_STATUSES.has(s.system_status || 'Pending') &&
+    s.requested_start && s.requested_end
+  );
+  if (!active.length) return null; // all systems inactive
+  const start = active.reduce((m, s) => (!m || s.requested_start < m) ? s.requested_start : m, '');
+  const end   = active.reduce((m, s) => (!m || s.requested_end   > m) ? s.requested_end   : m, '');
+  return { start, end };
+}
+
 function dayState(dateStr) {
   let confirmed = 0, pending = 0;
   tasks.forEach(t => {
     if (t.projStart <= dateStr && t.projEnd >= dateStr) confirmed++;
   });
   requests.forEach(r => {
-    if (r.requested_start > dateStr || r.requested_end < dateStr) return;
+    const span = effectiveSpan(r);
+    if (!span || span.start > dateStr || span.end < dateStr) return;
     if (r.request_status === 'Approved' || r.request_status === 'Scheduled') confirmed++;
     else if (r.request_status === 'Pending') pending++;
   });
@@ -478,14 +503,16 @@ async function loadData() {
   setConn('loading', 'Loading availability…');
   try {
     const h = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
-    const [tr, rr] = await Promise.all([
+    const [tr, rr, sr] = await Promise.all([
       fetch(`${SUPABASE_URL}/rest/v1/tasks?select=id,status,rack_build_start,rack_build_end`, { headers:h }),
       fetch(`${SUPABASE_URL}/rest/v1/requests?select=id,requested_start,requested_end,request_status`, { headers:h }),
+      fetch(`${SUPABASE_URL}/rest/v1/request_systems?select=request_id,system_status,requested_start,requested_end`, { headers:h }),
     ]);
     if (!tr.ok) throw new Error(`Tasks HTTP ${tr.status}`);
     if (!rr.ok) throw new Error(`Requests HTTP ${rr.status}`);
-    tasks    = (await tr.json()||[]).map(dbToTask).filter(t => t.status===ONSITE_STATUS && t.projStart && t.projEnd);
-    requests = (await rr.json()||[]).map(dbToRequest).filter(r => ['Pending','Approved','Scheduled'].includes(r.request_status) && r.requested_start && r.requested_end);
+    tasks      = (await tr.json()||[]).map(dbToTask).filter(t => t.status===ONSITE_STATUS && t.projStart && t.projEnd);
+    requests   = (await rr.json()||[]).map(dbToRequest).filter(r => ['Pending','Approved','Scheduled'].includes(r.request_status));
+    reqSysData = sr.ok ? (await sr.json()||[]) : [];
     setConn('ok', `Connected · ${tasks.length} onsite build${tasks.length!==1?'s':''} loaded`);
     renderCalendar();
     subscribeRealtime();
@@ -500,6 +527,9 @@ function subscribeRealtime() {
   if (!supabase) return;
   rtTasks = supabase.channel('req-tasks-rt')
     .on('postgres_changes', {event:'*',schema:'public',table:'tasks'}, () => loadData())
+    .subscribe();
+  rtReqSys = supabase.channel('req-reqsys-rt')
+    .on('postgres_changes', {event:'*',schema:'public',table:'request_systems'}, () => loadData())
     .subscribe();
   rtReqs = supabase.channel('req-requests-rt')
     .on('postgres_changes', {event:'*',schema:'public',table:'requests'}, payload => {
