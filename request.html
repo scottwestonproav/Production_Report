@@ -100,7 +100,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .same-dates-hint { font-size:.68rem; color:var(--text3); }
 .sys-row { position:relative; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:.8rem 2.6rem .8rem .85rem; margin-bottom:.5rem; }
 .sys-row-num { font-size:.6rem; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.07em; margin-bottom:.45rem; }
-.sys-grid-top { display:grid; grid-template-columns:2fr 1fr 80px; gap:.5rem .65rem; margin-bottom:.5rem; }
+.sys-grid-top { display:grid; grid-template-columns:2fr 1fr; gap:.5rem .65rem; margin-bottom:.5rem; }
 .sys-grid-bot { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.5rem .65rem; }
 .sys-remove-btn { position:absolute; top:.55rem; right:.55rem; background:none; border:none; color:var(--text3); cursor:pointer; font-size:.85rem; width:22px; height:22px; border-radius:4px; display:flex; align-items:center; justify-content:center; line-height:1; }
 .sys-remove-btn:hover { background:var(--red-dim); color:var(--red); }
@@ -123,7 +123,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   .req-form-field.full { grid-column:1; }
   .cal-wrap { flex-direction:column; }
   .sys-grid-top { grid-template-columns:1fr 1fr; }
-  .sys-grid-top .req-form-field:last-child { grid-column:1/-1; }
   .sys-grid-bot { grid-template-columns:1fr 1fr; }
   .sys-grid-bot .req-form-field:last-child { grid-column:1/-1; }
 }
@@ -241,7 +240,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
       <!-- ── Systems ── -->
       <div class="systems-hdr">
-        <div class="systems-label">Systems <span style="color:var(--red);font-weight:400">*</span></div>
+        <div>
+          <div class="systems-label">Systems <span style="color:var(--red);font-weight:400">*</span></div>
+          <div style="font-size:.72rem;color:var(--text3);margin-top:.15rem">Add a system row for each rack.</div>
+        </div>
         <button class="btn btn-ghost btn-sm" onclick="addSystem()">+ Add System</button>
       </div>
 
@@ -403,7 +405,7 @@ function propagateDates() {
 
 // ── SYSTEMS ──────────────────────────────────────
 function makeSys() {
-  return { id: nextSysId++, name:'', rackType:'', numRacks:1, start:'', end:'', notes:'' };
+  return { id: nextSysId++, name:'', rackType:'', start:'', end:'', notes:'' };
 }
 
 window.addSystem = function() {
@@ -441,11 +443,6 @@ function renderSystems() {
           <label class="req-form-label">Rack Type</label>
           <input class="req-form-input" type="text" value="${escH(s.rackType)}" placeholder="e.g. AV Rack"
             oninput="onSysField(${s.id},'rackType',this.value)">
-        </div>
-        <div class="req-form-field">
-          <label class="req-form-label">No. Racks</label>
-          <input class="req-form-input" type="number" min="1" value="${s.numRacks}"
-            oninput="onSysField(${s.id},'numRacks',this.value)">
         </div>
       </div>
       <div class="sys-grid-bot">
@@ -602,7 +599,6 @@ window.submitForm = async function() {
         request_id:       parentId,
         system_room_name: s.name.trim() || null,
         rack_type:        s.rackType.trim() || null,
-        num_racks:        s.numRacks || 1,
         requested_start:  s.start || null,
         requested_end:    s.end   || null,
         notes:            s.notes.trim() || null,
