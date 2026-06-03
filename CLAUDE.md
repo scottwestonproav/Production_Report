@@ -73,8 +73,19 @@ Table with Gantt bars per task. Bars: rack build (yellow), test window (purple),
 ### Onsite Availability
 Filtered to `status = 'Onsite build'` rows that have both `rack_build_start` and `rack_build_end`. Shows a week-by-week calendar. Per-week capacity pills (green/amber/red) driven by `onsiteSettings.engineerCapacity` (default 1). Duration estimates (`qty × days-per-rack-type`) are configurable via the ⚙ settings panel and persisted to `localStorage` under key `onsite_cap_v1`. Amber "tight" flag when scheduled window < estimate; red "clash" flag when concurrent count exceeds capacity or an engineer is double-booked.
 
-## Future: `requests` table
-A planned `requests` table will let PMs submit onsite install requests. A `Requested` status on a task will render as a dashed/tentative block in the Onsite view until the build team confirms it to `Onsite build`. Not yet built — do not add until asked.
+## `requests` table — PM onsite build request flow
+
+A separate Supabase table (never writes to `tasks`). Columns: `id`, `created_at`, `seqf`, `project_name`, `client_name`, `project_manager`, `site_location`, `site_contact`, `num_racks` (int), `requested_start` (date), `requested_end` (date), `scope`, `urgent` (bool), `notes`, `request_status`, `review_notes`, `reviewed_by`, `reviewed_at`, `linked_task_id`.
+
+`request_status` values: `Pending` · `Approved` · `Rejected` · `On Hold` · `Scheduled`.
+
+**How it works:**
+- PMs click **+ Request Build** (filter bar on the Onsite Availability view) to open a form; submission inserts a `Pending` row.
+- Pending and Approved requests appear as tentative blocks on the Onsite calendar (amber dashed = Pending, green solid = Approved), counted toward weekly capacity alongside confirmed tasks.
+- Clicking a block opens a review modal; the build team can **Approve** or **Reject**. Approve shows a reminder to add to the production master — `tasks` is **not** written automatically.
+- When an Approved request's `seqf` + date range matches a `tasks` row with `status = 'Onsite build'`, the request auto-flips to `Scheduled` and stops drawing on the calendar.
+- Realtime channel `requests-rt` keeps the calendar live alongside `tasks-rt`.
+- `reviewed_by` is null in v1 (no auth). Add Supabase Auth when restricting approve/reject to logged-in users.
 
 ## Key code patterns
 

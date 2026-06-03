@@ -327,6 +327,40 @@ tbody tr { cursor: default; }
 .onsite-settings-unit { font-size:.72rem; color:var(--text3); white-space:nowrap; }
 .onsite-dur-est { font-size:.63rem; color:var(--text3); margin-top:.1rem; }
 .onsite-dur-tight { color:var(--amber); }
+
+/* ── REQUEST FLOW ── */
+.req-filter-bar { display:flex; align-items:center; gap:.5rem; padding:.5rem .75rem; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:.7rem; flex-wrap:wrap; }
+.req-filter-label { font-size:.68rem; color:var(--text3); font-weight:500; text-transform:uppercase; letter-spacing:.06em; flex-shrink:0; }
+.req-filter-pill { display:inline-flex; align-items:center; gap:.3rem; font-size:.72rem; font-weight:500; padding:.2rem .65rem; border-radius:20px; cursor:pointer; border:1px solid transparent; transition:all .15s; user-select:none; background:none; font-family:var(--font); }
+.req-filter-pill.on-Pending  { background:rgba(245,158,11,.18); color:var(--amber); border-color:rgba(245,158,11,.4); }
+.req-filter-pill.on-Approved { background:rgba(16,185,129,.12); color:var(--green); border-color:rgba(16,185,129,.35); }
+.req-filter-pill.on-Rejected { background:rgba(239,68,68,.12);  color:var(--red);   border-color:rgba(239,68,68,.3); }
+.req-filter-pill.off { color:var(--text3); border-color:var(--border2); }
+.req-filter-pill.off:hover { color:var(--text2); background:var(--bg2); }
+.req-row-label { padding:.45rem .75rem; border-right:1px solid var(--border2); flex-shrink:0; display:flex; flex-direction:column; justify-content:center; min-height:42px; background:rgba(245,158,11,.04); }
+.req-block-pending  { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; border:2px dashed rgba(245,158,11,.7); background:rgba(245,158,11,.1); transition:filter .15s; }
+.req-block-pending:hover  { filter:brightness(1.2); }
+.req-block-approved { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; background:rgba(16,185,129,.65); transition:filter .15s; }
+.req-block-approved:hover { filter:brightness(1.15); }
+.req-block-rejected { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; background:rgba(239,68,68,.25); border:1px dashed rgba(239,68,68,.5); transition:filter .15s; }
+.req-block-label { font-size:.68rem; font-weight:500; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; padding:0 6px; }
+.req-badge { display:inline-block; font-size:.58rem; font-weight:600; padding:.1rem .38rem; border-radius:10px; text-transform:uppercase; letter-spacing:.04em; margin-left:.3rem; vertical-align:middle; }
+.req-badge-pending  { background:rgba(245,158,11,.22); color:var(--amber); }
+.req-badge-approved { background:rgba(16,185,129,.18); color:var(--green); }
+.req-badge-rejected { background:rgba(239,68,68,.15);  color:var(--red); }
+.req-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.55rem .85rem; }
+.req-form-field { display:flex; flex-direction:column; gap:.28rem; }
+.req-form-field.full { grid-column:1/-1; }
+.req-form-label { font-size:.62rem; font-weight:500; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; }
+.req-form-input { background:var(--bg3); border:1px solid var(--border2); color:var(--text); font-family:var(--font); font-size:.82rem; padding:.35rem .55rem; border-radius:var(--radius); outline:none; }
+.req-form-input:focus { border-color:var(--blue); }
+.req-form-input.err { border-color:var(--red); }
+.req-form-textarea { resize:vertical; min-height:58px; }
+.req-form-actions { display:flex; align-items:center; gap:.6rem; padding:.85rem 0 0; border-top:1px solid var(--border); margin-top:.85rem; flex-wrap:wrap; }
+.req-review-reminder { background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.3); border-radius:var(--radius); padding:.75rem 1rem; font-size:.8rem; color:var(--green); line-height:1.55; margin-bottom:1rem; }
+.req-review-notes { background:var(--bg3); border:1px solid var(--border2); color:var(--text); font-family:var(--font); font-size:.8rem; padding:.35rem .55rem; border-radius:var(--radius); outline:none; width:100%; resize:vertical; min-height:52px; margin-bottom:.65rem; }
+.req-review-notes:focus { border-color:var(--blue); }
+.req-review-actions { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
 </style>
 </head>
 <body>
@@ -527,6 +561,34 @@ tbody tr { cursor: default; }
     </div>
   </div>
 
+  <!-- ── REQUEST FORM MODAL ── -->
+  <div id="requestFormModal" class="detail-overlay" style="display:none" onclick="if(event.target===this)closeRequestForm()">
+    <div class="detail-box" onclick="event.stopPropagation()" style="width:min(680px,100%);max-height:92vh">
+      <div class="detail-header">
+        <div>
+          <div class="detail-title">Request Onsite Rack Build</div>
+          <div class="detail-sub">Submitted requests go to the build team for review — they do not affect the production master.</div>
+        </div>
+        <button class="detail-close" onclick="closeRequestForm()" title="Close (Esc)">✕</button>
+      </div>
+      <div class="detail-body" id="requestFormBody"></div>
+    </div>
+  </div>
+
+  <!-- ── REQUEST REVIEW MODAL ── -->
+  <div id="requestReviewModal" class="detail-overlay" style="display:none" onclick="if(event.target===this)closeRequestReview()">
+    <div class="detail-box" onclick="event.stopPropagation()" style="width:min(640px,100%);max-height:92vh">
+      <div class="detail-header">
+        <div>
+          <div class="detail-title" id="reviewTitle">Build Request</div>
+          <div class="detail-sub" id="reviewSub"></div>
+        </div>
+        <button class="detail-close" onclick="closeRequestReview()" title="Close (Esc)">✕</button>
+      </div>
+      <div class="detail-body" id="reviewBody"></div>
+    </div>
+  </div>
+
   <div id="mobileList"></div>
 
   <div id="onsiteSettingsPanel" style="display:none"></div>
@@ -591,6 +653,9 @@ let visibleTasks = [];
 let currentView        = 'gantt'; // 'gantt' | 'onsite'
 let onsiteSettings     = loadOnsiteSettings(); // { engineerCapacity, defaultDays, daysPerType }
 let onsiteSettingsOpen = false;
+let requests           = [];
+let requestsRealtimeSub = null;
+let reqStatusFilter    = new Set(['Pending', 'Approved']);
 let teamSize  = +(localStorage.getItem(TEAM_KEY) || 9);
 let testSize  = +(localStorage.getItem(TEST_KEY)  || 3);
 let mobileGanttMode = false;
@@ -698,6 +763,7 @@ if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
     });
     loadTasks();
     loadLeaveData();
+    loadRequests();
   } catch(initErr) {
     setConn('err', `Client init failed: ${initErr.message}`);
   }
@@ -797,6 +863,47 @@ function subscribeRealtime() {
   }
 }
 
+async function loadRequests() {
+  if (!supabase) return;
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/requests?select=*&order=created_at.desc`;
+    const res = await fetch(url, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+    });
+    if (!res.ok) { console.warn('[Requests] load failed HTTP', res.status); return; }
+    const data = await res.json();
+    requests = (data || []).map(dbToRequest);
+    if (currentView === 'onsite') renderOnsiteView();
+    subscribeRequestsRealtime();
+  } catch(e) { console.warn('[Requests] load error:', e); }
+}
+
+function subscribeRequestsRealtime() {
+  if (!supabase) return;
+  if (requestsRealtimeSub) { try { supabase.removeChannel(requestsRealtimeSub); } catch {} }
+  try {
+    requestsRealtimeSub = supabase.channel('requests-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, payload => {
+        try {
+          if (payload.eventType === 'INSERT') {
+            const r = dbToRequest(payload.new);
+            if (!requests.find(x => x.id === r.id)) { requests.push(r); render(); }
+          } else if (payload.eventType === 'UPDATE') {
+            const r = dbToRequest(payload.new);
+            const i = requests.findIndex(x => x.id === r.id);
+            if (i >= 0) requests[i] = r; else requests.push(r);
+            render();
+          } else if (payload.eventType === 'DELETE') {
+            requests = requests.filter(x => x.id !== payload.old.id); render();
+          }
+        } catch(e) { console.warn('[Requests realtime] handler error:', e); }
+      })
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR') console.warn('[Requests realtime] channel error');
+      });
+  } catch(e) { console.warn('[Requests realtime] subscribe failed:', e); }
+}
+
 async function upsertTask(data, id) {
   setSaving(true);
   try {
@@ -857,6 +964,21 @@ function taskToDb(t) {
     test_start: d(t.testStart), test_end: d(t.testEnd),
     fat_date: d(t.fat_date), site_date: d(t.site_date),
     comments: d(t.comments), qty: t.qty || 1,
+  };
+}
+
+function dbToRequest(r) {
+  return {
+    id: r.id, created_at: r.created_at || '',
+    seqf: r.seqf || '', project_name: r.project_name || '',
+    client_name: r.client_name || '', project_manager: r.project_manager || '',
+    site_location: r.site_location || '', site_contact: r.site_contact || '',
+    num_racks: r.num_racks || 1,
+    requested_start: r.requested_start || '', requested_end: r.requested_end || '',
+    scope: r.scope || '', urgent: r.urgent || false,
+    notes: r.notes || '', request_status: r.request_status || 'Pending',
+    review_notes: r.review_notes || '', reviewed_by: r.reviewed_by || '',
+    reviewed_at: r.reviewed_at || '', linked_task_id: r.linked_task_id || null,
   };
 }
 
@@ -1718,7 +1840,7 @@ window.closeDetail = function() {
   document.getElementById('detailModal').style.display = 'none';
 };
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDetail(); closeStatusListModal(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDetail(); closeStatusListModal(); closeRequestForm(); closeRequestReview(); } });
 
 // ── METRIC BUBBLE CLICK / DBLCLICK ───────────────
 (function() {
@@ -1862,13 +1984,17 @@ function onsiteEngStyle(name) {
   return ONSITE_ENG_PALETTE[h % ONSITE_ENG_PALETTE.length];
 }
 
-function getOnsiteWeeks() {
+function getOnsiteWeeks(extraItems = []) {
   const today = new Date().toISOString().slice(0,10);
   const onsiteTasks = tasks.filter(t => t.status === ONSITE_STATUS && t.projStart && t.projEnd);
   let minD = addDays(today, -28), maxD = addDays(today, 112);
   onsiteTasks.forEach(t => {
     if (t.projStart < minD) minD = t.projStart;
     if (t.projEnd   > maxD) maxD = t.projEnd;
+  });
+  extraItems.forEach(item => {
+    if (item.start && item.start < minD) minD = item.start;
+    if (item.end   && item.end   > maxD) maxD = item.end;
   });
   // Snap minD back to the nearest Monday
   let startDate = toDay(minD);
@@ -1890,28 +2016,40 @@ function renderOnsiteView() {
   const container = document.getElementById('onsiteView');
   if (!container) return;
 
+  checkDedupRequests();
+
   const onsiteTasks = tasks
     .filter(t => t.status === ONSITE_STATUS && t.projStart && t.projEnd)
     .sort((a,b) => a.projStart.localeCompare(b.projStart));
 
-  if (!onsiteTasks.length) {
-    container.innerHTML = '<div class="onsite-view"><div class="onsite-empty">No onsite build rows found. Tasks with status "Onsite build" and rack build dates will appear here.</div></div>';
+  const activeRequests = requests
+    .filter(r => reqStatusFilter.has(r.request_status) && r.requested_start && r.requested_end)
+    .sort((a,b) => a.requested_start.localeCompare(b.requested_start));
+
+  const filterBar = reqFilterBarHtml();
+
+  if (!onsiteTasks.length && !activeRequests.length) {
+    container.innerHTML = `${filterBar}<div class="onsite-view"><div class="onsite-empty">No onsite build rows or active requests for the selected filters.</div></div>`;
     return;
   }
 
   const cap    = Math.max(1, onsiteSettings.engineerCapacity || 1);
-  const weeks  = getOnsiteWeeks();
+  const weeks  = getOnsiteWeeks(activeRequests.map(r => ({ start: r.requested_start, end: r.requested_end })));
   const today  = new Date().toISOString().slice(0,10);
   const WCOL   = 80;
   const LCOL   = 240;
   const totalW = LCOL + weeks.length * WCOL;
 
-  // Per-week overlap counts
+  // Capacity counts: confirmed tasks + active requests combined
+  const allCapItems = [
+    ...onsiteTasks.map(t => ({ start: t.projStart, end: t.projEnd })),
+    ...activeRequests.map(r => ({ start: r.requested_start, end: r.requested_end })),
+  ];
   const weekCounts = weeks.map(w =>
-    onsiteTasks.filter(t => t.projStart <= w.end && t.projEnd >= w.start).length
+    allCapItems.filter(item => item.start <= w.end && item.end >= w.start).length
   );
 
-  // Same-engineer double-booking detection
+  // Same-engineer double-booking (confirmed tasks only)
   const engClashSet = new Set();
   weeks.forEach(w => {
     const ec = {};
@@ -1922,7 +2060,6 @@ function renderOnsiteView() {
     Object.entries(ec).forEach(([eng, n]) => { if (n > 1) engClashSet.add(`${eng}|${w.start}`); });
   });
 
-  // Effort estimate for a task: qty × days-per-rack (from settings)
   function estDays(t) {
     const dpu = onsiteSettings.daysPerType[t.rack_type] || onsiteSettings.defaultDays || 5;
     return Math.max(1, (t.qty || 1) * dpu);
@@ -1941,75 +2078,125 @@ function renderOnsiteView() {
     return `<div class="onsite-cap-cell" style="width:${WCOL}px"><span class="onsite-cap-pill ${cls}">${used}/${cap}${used>cap?' ⚠':''}</span></div>`;
   }).join('');
 
-  // Task rows
+  // ── Confirmed task rows ───────────────────────────
   const taskRowsHtml = onsiteTasks.map(t => {
-    const eng      = t.wireman || '';
-    const style    = onsiteEngStyle(eng || null);
-    const est      = estDays(t);
-    const schDays  = Math.max(1, daysBetween(t.projStart, t.projEnd) + 1);
-    const isTight  = est > schDays; // window shorter than estimate
-
-    const isCapClash = weeks.some((w, i) =>
-      t.projStart <= w.end && t.projEnd >= w.start && weekCounts[i] > cap
-    );
-    const isEngClash = eng && weeks.some(w =>
-      t.projStart <= w.end && t.projEnd >= w.start && engClashSet.has(`${eng}|${w.start}`)
-    );
+    const eng     = t.wireman || '';
+    const style   = onsiteEngStyle(eng || null);
+    const est     = estDays(t);
+    const schDays = Math.max(1, daysBetween(t.projStart, t.projEnd) + 1);
+    const isTight = est > schDays;
+    const isCapClash = weeks.some((w, i) => t.projStart <= w.end && t.projEnd >= w.start && weekCounts[i] > cap);
+    const isEngClash = eng && weeks.some(w => t.projStart <= w.end && t.projEnd >= w.start && engClashSet.has(`${eng}|${w.start}`));
     const hasClash = isCapClash || isEngClash;
 
     const cellsHtml = weeks.map((w, i) => {
       const inSpan = t.projStart <= w.end && t.projEnd >= w.start;
       if (!inSpan) return `<div class="onsite-task-cell" style="width:${WCOL}px"></div>`;
-
-      const isFirst = t.projStart >= w.start;
-      const isLast  = t.projEnd   <= w.end;
-      const rL = isFirst ? '5px' : '0';
-      const rR = isLast  ? '5px' : '0';
-      const bRadius = `${rL} ${rR} ${rR} ${rL}`;
-      const pL = isFirst ? '4px' : '0';
-      const pR = isLast  ? '4px' : '0';
-      const clashShadow = hasClash ? 'box-shadow:0 0 0 2px var(--red);' : isTight ? 'box-shadow:0 0 0 2px var(--amber);' : '';
-      const label = isFirst
-        ? `<span class="onsite-block-label" style="color:${style.text}">${escH(t.name||'')}${t.seqf?' · '+escH(t.seqf):''}${est?' · ~'+est+'d':''}</span>`
-        : '';
-      const titleExtra = `~${est}d est · ${schDays}d scheduled${isTight?' ⚠ window may be tight':''}${hasClash?' · ⚠ clash':''}`;
-
-      return `<div class="onsite-task-cell" style="width:${WCOL}px;padding-left:${pL};padding-right:${pR}">
+      const isFirst = t.projStart >= w.start, isLast = t.projEnd <= w.end;
+      const rL = isFirst ? '5px' : '0', rR = isLast ? '5px' : '0';
+      const shadow = hasClash ? 'box-shadow:0 0 0 2px var(--red);' : isTight ? 'box-shadow:0 0 0 2px var(--amber);' : '';
+      const label = isFirst ? `<span class="onsite-block-label" style="color:${style.text}">${escH(t.name||'')}${t.seqf?' · '+escH(t.seqf):''}${est?' · ~'+est+'d':''}</span>` : '';
+      return `<div class="onsite-task-cell" style="width:${WCOL}px;padding-left:${isFirst?'4px':'0'};padding-right:${isLast?'4px':'0'}">
         <div class="onsite-block" onclick="showOnsiteDetail(${JSON.stringify(t.id)})"
-          style="background:${style.bg};border-radius:${bRadius};${clashShadow}"
-          title="${escH(t.name)} · ${fmtShort(t.projStart)}–${fmtShort(t.projEnd)}${eng?' · '+escH(eng):''} · ${titleExtra}">
-          ${label}
-        </div>
-      </div>`;
+          style="background:${style.bg};border-radius:${rL} ${rR} ${rR} ${rL};${shadow}"
+          title="${escH(t.name)} · ${fmtShort(t.projStart)}–${fmtShort(t.projEnd)}${eng?' · '+escH(eng):''} · ~${est}d est · ${schDays}d scheduled${isTight?' ⚠ tight':''}${hasClash?' ⚠ clash':''}">
+          ${label}</div></div>`;
     }).join('');
 
-    const flags = [
-      hasClash ? `<span class="onsite-clash-note">⚠ clash</span>` : '',
-      isTight  ? `<span class="onsite-clash-note" style="color:var(--amber)">⚠ tight</span>` : '',
-    ].filter(Boolean).join('');
-
+    const flags = [hasClash?`<span class="onsite-clash-note">⚠ clash</span>`:'', isTight?`<span class="onsite-clash-note" style="color:var(--amber)">⚠ tight</span>`:''].filter(Boolean).join('');
     return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border)">
       <div class="onsite-row-label" style="width:${LCOL}px">
-        <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escH(t.name||'')}">${escH(t.name||'—')}${flags}</div>
-        ${t.seqf ? `<div style="font-size:.68rem;color:var(--text3);font-family:var(--mono)">${escH(t.seqf)}</div>` : ''}
-        ${eng    ? `<div style="font-size:.68rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(eng)}</div>` : ''}
+        <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(t.name||'—')}${flags}</div>
+        ${t.seqf?`<div style="font-size:.68rem;color:var(--text3);font-family:var(--mono)">${escH(t.seqf)}</div>`:''}
+        ${eng?`<div style="font-size:.68rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(eng)}</div>`:''}
         <div class="onsite-dur-est${isTight?' onsite-dur-tight':''}">~${est}d est · ${schDays}d scheduled</div>
       </div>
-      <div style="display:flex;align-items:center">${cellsHtml}</div>
-    </div>`;
+      <div style="display:flex;align-items:center">${cellsHtml}</div></div>`;
   }).join('');
 
-  container.innerHTML = `<div class="onsite-view"><div class="onsite-scroll" style="min-width:0">
+  // ── Request rows (pending / approved / rejected) ──
+  const requestRowsHtml = activeRequests.map(req => {
+    const isPending  = req.request_status === 'Pending';
+    const isApproved = req.request_status === 'Approved';
+    const blockCls   = isPending ? 'req-block-pending' : isApproved ? 'req-block-approved' : 'req-block-rejected';
+    const badgeCls   = isPending ? 'req-badge-pending' : isApproved ? 'req-badge-approved' : 'req-badge-rejected';
+    const pm = req.project_manager ? fmtPerson(req.project_manager) : '';
+
+    const cellsHtml = weeks.map((w, i) => {
+      const inSpan = req.requested_start <= w.end && req.requested_end >= w.start;
+      if (!inSpan) return `<div class="onsite-task-cell" style="width:${WCOL}px"></div>`;
+      const isFirst = req.requested_start >= w.start, isLast = req.requested_end <= w.end;
+      const rL = isFirst ? '5px' : '0', rR = isLast ? '5px' : '0';
+      const label = isFirst ? `<span class="req-block-label" style="color:${isApproved?'#fff':'var(--amber)'}">${escH(req.project_name||'')}${req.seqf?' · '+escH(req.seqf):''}</span>` : '';
+      return `<div class="onsite-task-cell" style="width:${WCOL}px;padding-left:${isFirst?'4px':'0'};padding-right:${isLast?'4px':'0'}">
+        <div class="${blockCls}" onclick="openRequestReview('${escH(String(req.id))}')"
+          style="border-radius:${rL} ${rR} ${rR} ${rL}"
+          title="${escH(req.project_name)} · ${fmtShort(req.requested_start)}–${fmtShort(req.requested_end)} · ${req.num_racks} rack${req.num_racks>1?'s':''} · ${req.request_status}${req.urgent?' · URGENT':''}">
+          ${label}</div></div>`;
+    }).join('');
+
+    return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border)">
+      <div class="req-row-label" style="width:${LCOL}px">
+        <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(req.project_name||'—')}<span class="req-badge ${badgeCls}">${req.request_status}</span>${req.urgent?'<span style="font-size:.6rem;color:var(--red);margin-left:.3rem">urgent</span>':''}</div>
+        ${req.seqf?`<div style="font-size:.68rem;color:var(--text3);font-family:var(--mono)">${escH(req.seqf)}</div>`:''}
+        ${pm?`<div style="font-size:.68rem;color:var(--text2)">${escH(pm)}</div>`:''}
+        <div class="onsite-dur-est">${req.num_racks} rack${req.num_racks>1?'s':''} · ${fmtShort(req.requested_start)}–${fmtShort(req.requested_end)}</div>
+      </div>
+      <div style="display:flex;align-items:center">${cellsHtml}</div></div>`;
+  }).join('');
+
+  container.innerHTML = `${filterBar}<div class="onsite-view"><div class="onsite-scroll" style="min-width:0">
     <div style="display:flex;min-width:${totalW}px;background:var(--bg3);border-bottom:1px solid var(--border)">
-      <div style="width:${LCOL}px;min-width:${LCOL}px;padding:.4rem .75rem;font-size:.65rem;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-right:1px solid var(--border2)">Project / Engineer</div>
+      <div style="width:${LCOL}px;min-width:${LCOL}px;padding:.4rem .75rem;font-size:.65rem;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-right:1px solid var(--border2)">Project / Engineer / Request</div>
       <div style="display:flex">${weekHdrHtml}</div>
     </div>
     <div style="display:flex;min-width:${totalW}px;background:var(--bg3);border-bottom:1px solid var(--border)">
       <div style="width:${LCOL}px;min-width:${LCOL}px;padding:.4rem .75rem;font-size:.68rem;color:var(--text2);border-right:1px solid var(--border2)">Capacity (max ${cap} concurrent)</div>
       <div style="display:flex">${capRowHtml}</div>
     </div>
-    <div style="min-width:${totalW}px">${taskRowsHtml}</div>
+    <div style="min-width:${totalW}px">${taskRowsHtml}${requestRowsHtml}</div>
   </div></div>`;
+}
+
+// ── REQUEST HELPERS ───────────────────────────────
+function reqFilterBarHtml() {
+  const cnt = s => requests.filter(r => r.request_status === s && r.requested_start && r.requested_end).length;
+  const pill = (status, label) => {
+    const n = cnt(status), on = reqStatusFilter.has(status);
+    return `<button class="req-filter-pill ${on?'on-'+status:'off'}" onclick="toggleRequestFilter('${status}')">${label}${n?' ('+n+')':''}</button>`;
+  };
+  return `<div class="req-filter-bar">
+    <span class="req-filter-label">Requests:</span>
+    ${pill('Pending','Pending')}${pill('Approved','Approved')}${pill('Rejected','Rejected')}
+    <button class="btn btn-ghost" style="font-size:.72rem;padding:.25rem .65rem;margin-left:auto" onclick="openRequestForm()">+ Request Build</button>
+  </div>`;
+}
+
+function checkDedupRequests() {
+  for (const req of requests) {
+    if (req.request_status !== 'Approved') continue;
+    if (!req.seqf || !req.requested_start || !req.requested_end) continue;
+    const match = tasks.find(t =>
+      t.status === ONSITE_STATUS && t.seqf === req.seqf &&
+      t.projStart && t.projEnd &&
+      t.projStart <= req.requested_end && t.projEnd >= req.requested_start
+    );
+    if (match) markRequestScheduled(req.id, match.id);
+  }
+}
+
+async function markRequestScheduled(reqId, taskId) {
+  const r = requests.find(x => x.id === reqId);
+  if (r) r.request_status = 'Scheduled'; // optimistic — realtime will confirm
+  try {
+    const { error } = await supabase.from('requests')
+      .update({ request_status: 'Scheduled', linked_task_id: taskId })
+      .eq('id', reqId);
+    if (error) throw error;
+  } catch(e) {
+    if (r) r.request_status = 'Approved'; // rollback
+    console.warn('[Requests] auto-schedule failed:', e);
+  }
 }
 
 window.switchView = function(view) {
@@ -2111,6 +2298,144 @@ window.onsiteSettingChange = function(key, rawVal) {
     else onsiteSettings.daysPerType[type] = Math.round(val);
   }
   saveOnsiteSettings();
+  renderOnsiteView();
+};
+
+// ── REQUEST FORM ──────────────────────────────────
+window.openRequestForm = function() {
+  const body = document.getElementById('requestFormBody');
+  if (!body) return;
+  body.innerHTML = `<div class="req-form-grid">
+    <div class="req-form-field"><label class="req-form-label">Project Name *</label><input class="req-form-input" id="rf_name" type="text" placeholder="e.g. Acme HQ Boardroom"></div>
+    <div class="req-form-field"><label class="req-form-label">SEQF</label><input class="req-form-input" id="rf_seqf" type="text" placeholder="e.g. 24-1234"></div>
+    <div class="req-form-field"><label class="req-form-label">Client Name</label><input class="req-form-input" id="rf_client" type="text"></div>
+    <div class="req-form-field"><label class="req-form-label">Project Manager</label><input class="req-form-input" id="rf_pm" type="text" placeholder="first.last@proav.com"></div>
+    <div class="req-form-field"><label class="req-form-label">Site Location *</label><input class="req-form-input" id="rf_site" type="text"></div>
+    <div class="req-form-field"><label class="req-form-label">Site Contact</label><input class="req-form-input" id="rf_contact" type="text"></div>
+    <div class="req-form-field"><label class="req-form-label">Number of Racks *</label><input class="req-form-input" id="rf_racks" type="number" min="1" value="1"></div>
+    <div class="req-form-field"></div>
+    <div class="req-form-field"><label class="req-form-label">Requested Start *</label><input class="req-form-input" id="rf_start" type="date"></div>
+    <div class="req-form-field"><label class="req-form-label">Requested End *</label><input class="req-form-input" id="rf_end" type="date"></div>
+    <div class="req-form-field full"><label class="req-form-label">Scope / Work Description</label><textarea class="req-form-input req-form-textarea" id="rf_scope" placeholder="Describe the install scope…"></textarea></div>
+    <div class="req-form-field full"><label class="req-form-label">Notes</label><textarea class="req-form-input req-form-textarea" id="rf_notes"></textarea></div>
+    <div class="req-form-field full"><label style="display:flex;align-items:center;gap:.45rem;cursor:pointer"><input type="checkbox" id="rf_urgent" style="accent-color:var(--red);width:14px;height:14px"><span class="req-form-label" style="text-transform:none;letter-spacing:0;font-size:.8rem">Mark as urgent</span></label></div>
+  </div>
+  <div class="req-form-actions">
+    <button class="btn btn-primary" onclick="submitRequestForm()">Submit Request</button>
+    <button class="btn btn-ghost" onclick="closeRequestForm()">Cancel</button>
+    <span id="rf_err" style="font-size:.78rem;color:var(--red);display:none"></span>
+  </div>`;
+  document.getElementById('requestFormModal').style.display = 'flex';
+};
+window.closeRequestForm = function() { document.getElementById('requestFormModal').style.display = 'none'; };
+
+window.submitRequestForm = async function() {
+  const g = id => document.getElementById(id);
+  const name = g('rf_name').value.trim();
+  const site = g('rf_site').value.trim();
+  const start = g('rf_start').value;
+  const end   = g('rf_end').value;
+  const racks = Math.max(1, parseInt(g('rf_racks').value) || 1);
+  const errEl = g('rf_err');
+  const req = ['rf_name','rf_site','rf_start','rf_end'];
+  req.forEach(id => g(id).classList.toggle('err', !g(id).value.trim()));
+  const errs = [];
+  if (!name)  errs.push('Project name is required.');
+  if (!site)  errs.push('Site location is required.');
+  if (!start) errs.push('Start date is required.');
+  if (!end)   errs.push('End date is required.');
+  if (start && end && end < start) errs.push('End must be after start.');
+  if (errs.length) { errEl.textContent = errs[0]; errEl.style.display = ''; return; }
+  errEl.style.display = 'none';
+  const btn = document.querySelector('#requestFormModal .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+  try {
+    const { error } = await supabase.from('requests').insert({
+      project_name: name, seqf: g('rf_seqf').value.trim() || null,
+      client_name: g('rf_client').value.trim() || null,
+      project_manager: g('rf_pm').value.trim() || null,
+      site_location: site, site_contact: g('rf_contact').value.trim() || null,
+      num_racks: racks, requested_start: start, requested_end: end,
+      scope: g('rf_scope').value.trim() || null,
+      notes: g('rf_notes').value.trim() || null,
+      urgent: g('rf_urgent').checked, request_status: 'Pending',
+    });
+    if (error) throw error;
+    closeRequestForm();
+    showToast('Request submitted — the build team will review it.', 'ok');
+  } catch(e) {
+    errEl.textContent = `Submit failed: ${e.message}`; errEl.style.display = '';
+    console.error('[Requests] submit error:', e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit Request'; }
+  }
+};
+
+// ── REQUEST REVIEW ────────────────────────────────
+window.openRequestReview = function(id) {
+  const req = requests.find(r => String(r.id) === String(id));
+  if (!req) return;
+  document.getElementById('reviewTitle').textContent = req.project_name || 'Build Request';
+  document.getElementById('reviewSub').textContent   =
+    `${req.request_status} · ${req.urgent?'URGENT · ':''}submitted ${fmtMed(req.created_at.slice(0,10))}`;
+
+  const fld = (label, val, full) => val ? `<div class="detail-field${full?' full':''}">
+    ${label?`<div class="detail-label">${label}</div>`:''}
+    <div class="detail-val">${escH(String(val))}</div></div>` : '';
+
+  const isActionable = req.request_status === 'Pending' || req.request_status === 'Approved';
+
+  document.getElementById('reviewBody').innerHTML = `
+    ${req.request_status === 'Approved' ? `<div class="req-review-reminder">✓ Approved — remember to add this build to the production master spreadsheet via the normal route. The <span style="font-family:var(--mono);font-size:.85em">tasks</span> table is not automatically updated.</div>` : ''}
+    <div class="detail-section"><div class="detail-section-title">Request Details</div>
+    <div class="detail-grid">
+      ${fld('SEQF', req.seqf)}${fld('Client', req.client_name)}
+      ${fld('Project Manager', fmtPerson(req.project_manager)||req.project_manager)}
+      ${fld('Site Location', req.site_location)}${fld('Site Contact', req.site_contact)}
+      ${fld('Racks', String(req.num_racks))}
+      ${fld('Requested Start', fmtLong(req.requested_start))}${fld('Requested End', fmtLong(req.requested_end))}
+      ${fld('Urgent', req.urgent ? 'Yes' : null)}
+    </div></div>
+    ${req.scope ? `<div class="detail-section"><div class="detail-section-title">Scope</div><div class="detail-grid">${fld('',req.scope,true)}</div></div>` : ''}
+    ${req.notes ? `<div class="detail-section"><div class="detail-section-title">Notes</div><div class="detail-grid">${fld('',req.notes,true)}</div></div>` : ''}
+    ${req.reviewed_by||req.review_notes ? `<div class="detail-section"><div class="detail-section-title">Review</div><div class="detail-grid">${fld('Reviewed by',req.reviewed_by)}${fld('Review notes',req.review_notes,true)}</div></div>` : ''}
+    ${isActionable ? `<div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:.5rem">
+      <div style="font-size:.8rem;font-weight:500;color:var(--text2);margin-bottom:.55rem">Review</div>
+      <textarea class="req-review-notes" id="reviewNotesInput" placeholder="Optional notes…"></textarea>
+      <div class="req-review-actions">
+        ${req.request_status==='Pending'?`<button class="btn btn-primary" id="approveBtn" onclick="approveRequest('${id}')">✓ Approve</button>`:''}
+        <button class="btn btn-danger" id="rejectBtn" onclick="rejectRequest('${id}')">✕ Reject</button>
+        <span style="font-size:.68rem;color:var(--text3);line-height:1.5">${req.request_status==='Pending'?'Approve = confirmed in calendar, no write to tasks.':'Reject = removes from calendar.'}</span>
+      </div></div>` : ''}`;
+  document.getElementById('requestReviewModal').style.display = 'flex';
+};
+window.closeRequestReview = function() { document.getElementById('requestReviewModal').style.display = 'none'; };
+
+window.approveRequest = async function(id) { await doReview(id, 'Approved'); };
+window.rejectRequest  = async function(id) { await doReview(id, 'Rejected'); };
+
+async function doReview(id, status) {
+  // Note: reviewed_by left null in v1 (no auth). Add Supabase Auth when access needs restricting.
+  const notes = document.getElementById('reviewNotesInput')?.value?.trim() || null;
+  const btnId  = status === 'Approved' ? 'approveBtn' : 'rejectBtn';
+  const btn    = document.getElementById(btnId);
+  if (btn) { btn.disabled = true; btn.textContent = status === 'Approved' ? 'Approving…' : 'Rejecting…'; }
+  try {
+    const { error } = await supabase.from('requests').update({
+      request_status: status, review_notes: notes,
+      reviewed_at: new Date().toISOString(),
+    }).eq('id', id);
+    if (error) throw error;
+    closeRequestReview();
+    showToast(status === 'Approved' ? 'Approved. Remember to add to production master.' : 'Request rejected.', 'ok');
+  } catch(e) {
+    showToast(`Update failed: ${e.message}`, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = status === 'Approved' ? '✓ Approve' : '✕ Reject'; }
+  }
+}
+
+window.toggleRequestFilter = function(status) {
+  if (reqStatusFilter.has(status)) reqStatusFilter.delete(status); else reqStatusFilter.add(status);
   renderOnsiteView();
 };
 
