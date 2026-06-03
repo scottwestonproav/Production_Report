@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Request Onsite Build — proAV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #0f1117; --bg2: #161b27; --bg3: #1e2535;
+  --border:    #2a3248; --border2: #374160;
+  --text:      #e8eaf0; --text2: #8b93a8; --text3: #5a6278;
+  --blue:      #7ab800; --blue-dim: #1e2d05;
+  --green:     #10b981; --green-dim: #0a3d28;
+  --red:       #ef4444; --red-dim: #3d1212;
+  --amber:     #f59e0b; --amber-dim: #3d2a06;
+  --purple:    #8b5cf6;
+  --radius:    8px; --radius-lg: 12px;
+  --font: 'DM Sans', sans-serif; --mono: 'DM Mono', monospace;
+}
+html { font-size: 14px; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+.app { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+
+/* ── CONNECTION BAR ── */
+.conn-bar { display:flex; align-items:center; gap:.5rem; font-size:.72rem; padding:.4rem .85rem; border-radius:var(--radius); margin-bottom:.85rem; border:1px solid var(--border); }
+.conn-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.conn-ok      { background:var(--green-dim); border-color:var(--green); color:var(--green); }
+.conn-ok      .conn-dot { background:var(--green); }
+.conn-err     { background:var(--red-dim); border-color:var(--red); color:var(--red); }
+.conn-err     .conn-dot { background:var(--red); }
+.conn-loading { background:var(--bg2); color:var(--text2); }
+.conn-loading .conn-dot { background:var(--amber); animation:pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+/* ── HEADER ── */
+.header { display:flex; align-items:center; gap:1rem; margin-bottom:1.25rem; flex-wrap:wrap; }
+.header-brand { display:flex; align-items:center; gap:1rem; flex:1; min-width:0; }
+.header-divider { width:1px; height:34px; background:var(--border2); flex-shrink:0; }
+.header-title { font-size:1rem; font-weight:600; letter-spacing:-.02em; }
+.header-sub { font-size:.72rem; color:var(--text3); font-family:var(--mono); margin-top:.1rem; }
+
+/* ── BUTTONS ── */
+.btn { display:inline-flex; align-items:center; gap:.4rem; padding:.45rem .9rem; border-radius:var(--radius); font-family:var(--font); font-size:.8rem; font-weight:500; cursor:pointer; border:1px solid transparent; transition:all .15s; white-space:nowrap; text-decoration:none; }
+.btn-primary { background:var(--blue); color:#fff; }
+.btn-primary:hover { background:#639600; }
+.btn-ghost { background:transparent; border-color:var(--border2); color:var(--text2); }
+.btn-ghost:hover { background:var(--bg3); color:var(--text); }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+
+/* ── LEGEND ── */
+.legend-bar { display:flex; align-items:center; gap:1.25rem; margin-bottom:1.25rem; flex-wrap:wrap; }
+.leg { display:flex; align-items:center; gap:.45rem; font-size:.75rem; color:var(--text2); }
+.leg-sw { width:18px; height:18px; border-radius:4px; flex-shrink:0; }
+
+/* ── CALENDAR ── */
+.cal-wrap { display:flex; flex-wrap:wrap; gap:1rem; margin-bottom:1.75rem; }
+.cal-month { flex:1; min-width:280px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1rem; }
+.cal-month-title { font-weight:600; font-size:.88rem; text-align:center; margin-bottom:.75rem; color:var(--text); }
+.cal-dow-row { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:3px; }
+.cal-dow-row div { text-align:center; font-size:.58rem; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; padding:.2rem 0; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+.cal-day { text-align:center; font-size:.78rem; padding:.35rem 0; border-radius:5px; cursor:default; font-family:var(--mono); min-height:30px; display:flex; align-items:center; justify-content:center; position:relative; transition:filter .1s; }
+.cal-blank { }
+.cal-past { color:var(--text3); opacity:.45; }
+.cal-available { background:var(--blue-dim); color:var(--blue); cursor:pointer; border:1px solid rgba(122,184,0,.2); }
+.cal-available:hover { filter:brightness(1.4); }
+.cal-tentative { background:var(--amber-dim); color:var(--amber); cursor:not-allowed; border:1px solid rgba(245,158,11,.2); }
+.cal-booked { background:var(--red-dim); color:var(--red); cursor:not-allowed; border:1px solid rgba(239,68,68,.2); }
+.cal-today { outline:2px solid var(--blue); outline-offset:-2px; }
+.cal-sel-edge { background:var(--blue) !important; color:#fff !important; border-color:var(--blue) !important; font-weight:600; }
+.cal-sel-in { background:rgba(122,184,0,.18) !important; color:var(--blue) !important; border:1px solid rgba(122,184,0,.15) !important; }
+
+/* ── SECTION TITLE ── */
+.section-title { font-size:.88rem; font-weight:600; color:var(--text); margin-bottom:.2rem; }
+.section-sub { font-size:.78rem; color:var(--text2); margin-bottom:1rem; line-height:1.55; }
+
+/* ── FORM ── */
+.form-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1.25rem 1.5rem 1.5rem; }
+.req-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.6rem .85rem; }
+.req-form-field { display:flex; flex-direction:column; gap:.28rem; }
+.req-form-field.full { grid-column:1/-1; }
+.req-form-label { font-size:.62rem; font-weight:500; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; }
+.req-form-input { background:var(--bg3); border:1px solid var(--border2); color:var(--text); font-family:var(--font); font-size:.82rem; padding:.38rem .55rem; border-radius:var(--radius); outline:none; }
+.req-form-input:focus { border-color:var(--blue); }
+.req-form-input.err { border-color:var(--red); }
+.req-form-textarea { resize:vertical; min-height:58px; }
+.req-form-input::-webkit-calendar-picker-indicator { filter:invert(0.6); cursor:pointer; }
+.req-form-actions { display:flex; align-items:center; gap:.6rem; padding:.9rem 0 0; border-top:1px solid var(--border); margin-top:.85rem; flex-wrap:wrap; }
+.hint { font-size:.7rem; color:var(--text3); line-height:1.5; }
+
+/* ── SUCCESS ── */
+.success-panel { background:var(--green-dim); border:1px solid rgba(16,185,129,.4); border-radius:var(--radius-lg); padding:1.5rem 1.75rem; text-align:center; }
+.success-icon { font-size:2rem; margin-bottom:.65rem; }
+.success-title { font-size:1.1rem; font-weight:600; color:var(--green); margin-bottom:.4rem; }
+.success-sub { font-size:.83rem; color:var(--text2); line-height:1.6; }
+
+/* ── TOAST ── */
+.toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); background:var(--bg2); border:1px solid var(--border2); color:var(--text); font-size:.8rem; padding:.6rem 1.1rem; border-radius:var(--radius); z-index:2000; box-shadow:0 4px 24px rgba(0,0,0,.5); animation:toastIn .2s ease, toastOut .3s ease 2.5s forwards; white-space:nowrap; }
+.toast.toast-error { border-color:var(--red); color:#f08080; }
+.toast.toast-ok { border-color:var(--green); color:var(--green); }
+@keyframes toastIn  { from { opacity:0; transform:translateX(-50%) translateY(8px); } }
+@keyframes toastOut { to   { opacity:0; transform:translateX(-50%) translateY(8px); } }
+
+@media (max-width:640px) {
+  .req-form-grid { grid-template-columns:1fr; }
+  .req-form-field.full { grid-column:1; }
+  .cal-wrap { flex-direction:column; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="conn-bar conn-loading" id="connBar">
+    <div class="conn-dot"></div>
+    <span id="connMsg">Connecting…</span>
+  </div>
+
+  <div class="header">
+    <div class="header-brand">
+      <svg xmlns="http://www.w3.org/2000/svg" width="120" height="28" viewBox="0 0 165 38.343" style="flex-shrink:0">
+        <g transform="translate(-192.662 -398.538)">
+          <g transform="translate(283.839 398.538)">
+            <path d="M305.921,428.649l13.742-23.8c.072-.121.139-.217.195-.294a2.422,2.422,0,0,1,.2.3l13.743,23.8h6.72L325.1,401.935a5.736,5.736,0,0,0-10.475,0L299.2,428.649Z" transform="translate(-299.199 -398.538)" fill="#7ab800"/>
+          </g>
+          <g transform="translate(316.34 399.47)">
+            <path d="M371.776,399.628l-13.744,23.8a2.8,2.8,0,0,1-.195.3,2.782,2.782,0,0,1-.2-.3l-13.743-23.8h-6.72L352.6,426.342a5.736,5.736,0,0,0,10.475,0L378.5,399.628Z" transform="translate(-337.176 -399.628)" fill="#7ab800"/>
+          </g>
+          <g transform="translate(192.662 398.671)">
+            <path d="M198.483,437.037h-5.821V409.521a9.911,9.911,0,0,1,9.9-9.9h8.053a14.608,14.608,0,0,1,0,29.216h-8.538v-5.826h8.538a8.782,8.782,0,0,0,0-17.564h-8.053a4.081,4.081,0,0,0-4.075,4.078v27.516Z" transform="translate(-192.662 -398.828)" fill="#b0b0b0"/>
+            <g transform="translate(35.513 0.789)">
+              <path d="M259.588,402.722a14.5,14.5,0,0,0-9-3.1h-6.5a9.909,9.909,0,0,0-9.9,9.9V428.8h5.821V409.515a4.081,4.081,0,0,1,4.076-4.075h6.5a8.714,8.714,0,0,1,5.979,2.363A18.432,18.432,0,0,1,259.588,402.722Z" transform="translate(-234.193 -399.617)" fill="#b0b0b0"/>
+            </g>
+            <path d="M279.622,429.48c-8.972,0-16.268-6.906-16.268-15.392s7.3-15.393,16.268-15.393,16.27,6.9,16.27,15.393-7.3,15.392-16.27,15.392Zm0-24.965c-5.76,0-10.446,4.294-10.446,9.573s4.686,9.573,10.446,9.573,10.448-4.3,10.448-9.573-4.688-9.573-10.448-9.573Z" transform="translate(-202.906 -398.694)" fill="#b0b0b0"/>
+          </g>
+        </g>
+      </svg>
+      <div class="header-divider"></div>
+      <div>
+        <div class="header-title">Request Onsite Build</div>
+        <div class="header-sub">Availability &amp; booking</div>
+      </div>
+    </div>
+    <a href="index.html" class="btn btn-ghost" style="font-size:.75rem;padding:.3rem .7rem">← Dashboard</a>
+  </div>
+
+  <div style="font-size:.83rem;color:var(--text2);line-height:1.65;margin-bottom:1.25rem">
+    Select available dates on the calendar below, then fill in the form and submit. The build team will review your request and confirm or reject it.
+  </div>
+
+  <div class="legend-bar">
+    <div class="leg"><div class="leg-sw" style="background:var(--blue-dim);border:1px solid rgba(122,184,0,.25)"></div><span>Available</span></div>
+    <div class="leg"><div class="leg-sw" style="background:var(--amber-dim);border:1px solid rgba(245,158,11,.25)"></div><span>Pending request — may not be free</span></div>
+    <div class="leg"><div class="leg-sw" style="background:var(--red-dim);border:1px solid rgba(239,68,68,.25)"></div><span>Fully booked</span></div>
+    <div style="margin-left:auto;font-size:.7rem;color:var(--text3);font-family:var(--mono)" id="capLabel"></div>
+  </div>
+
+  <div id="calendar" class="cal-wrap">
+    <div style="color:var(--text3);font-size:.85rem;padding:1rem">Loading availability…</div>
+  </div>
+
+  <div id="successPanel" class="success-panel" style="display:none">
+    <div class="success-icon">✓</div>
+    <div class="success-title">Request Submitted</div>
+    <div class="success-sub">Your request has been sent to the build team for review.<br>You'll see it appear on the calendar as a pending block.</div>
+    <div style="margin-top:1.1rem;display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="resetForm()">Submit another request</button>
+    </div>
+  </div>
+
+  <div id="formWrap">
+    <div class="section-title" style="margin-bottom:.25rem">Build Request Details</div>
+    <div class="section-sub">Fields marked * are required. You can also type dates directly in the Start / End fields.</div>
+
+    <div class="form-card">
+      <div class="req-form-grid">
+        <div class="req-form-field">
+          <label class="req-form-label">Project Name *</label>
+          <input class="req-form-input" id="rf_name" type="text" placeholder="e.g. Acme HQ Boardroom">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">SEQF</label>
+          <input class="req-form-input" id="rf_seqf" type="text" placeholder="e.g. 24-1234">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">Client Name</label>
+          <input class="req-form-input" id="rf_client" type="text">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">Project Manager</label>
+          <input class="req-form-input" id="rf_pm" type="text" placeholder="first.last@proav.com">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">Site Location *</label>
+          <input class="req-form-input" id="rf_site" type="text" placeholder="City / address">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">Site Contact</label>
+          <input class="req-form-input" id="rf_contact" type="text" placeholder="Name / phone">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">Number of Racks *</label>
+          <input class="req-form-input" id="rf_racks" type="number" min="1" value="1">
+        </div>
+        <div class="req-form-field"></div>
+        <div class="req-form-field">
+          <label class="req-form-label">Requested Start *</label>
+          <input class="req-form-input" id="rf_start" type="date" oninput="onDateInput()">
+        </div>
+        <div class="req-form-field">
+          <label class="req-form-label">Requested End *</label>
+          <input class="req-form-input" id="rf_end" type="date" oninput="onDateInput()">
+        </div>
+        <div class="req-form-field full">
+          <label class="req-form-label">Scope / Work Description</label>
+          <textarea class="req-form-input req-form-textarea" id="rf_scope" placeholder="Describe the install scope…"></textarea>
+        </div>
+        <div class="req-form-field full">
+          <label class="req-form-label">Notes</label>
+          <textarea class="req-form-input req-form-textarea" id="rf_notes"></textarea>
+        </div>
+        <div class="req-form-field full">
+          <label style="display:flex;align-items:center;gap:.45rem;cursor:pointer">
+            <input type="checkbox" id="rf_urgent" style="accent-color:var(--red);width:14px;height:14px">
+            <span class="req-form-label" style="text-transform:none;letter-spacing:0;font-size:.8rem">Mark as urgent</span>
+          </label>
+        </div>
+      </div>
+      <div class="req-form-actions">
+        <button class="btn btn-primary" id="submitBtn" onclick="submitForm()">Submit Request</button>
+        <span id="rf_err" style="font-size:.78rem;color:var(--red);display:none;line-height:1.4"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const SUPABASE_URL = 'https://ykttrpmdytpvkpfuqvza.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrdHRycG1keXRwdmtwZnVxdnphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTAyNTAsImV4cCI6MjA5NDc2NjI1MH0.moNeSzhjYHGf9DBb3pWwQ_AxiIp0xxeOkV1jaXmAKjg';
+
+const ONSITE_STATUS  = 'Onsite build';
+const ONSITE_CAP_KEY = 'onsite_cap_v1';
+
+let tasks    = [];
+let requests = [];
+let capacity = 1;
+let selStart = '';
+let selEnd   = '';
+let supabase = null;
+let rtTasks  = null, rtReqs = null;
+
+// ── HELPERS ──────────────────────────────────────
+const toDay       = d => new Date(d + 'T00:00:00');
+const fmtPerson   = e => { if (!e) return ''; const local = e.includes('@') ? e.split('@')[0] : e; return local.split('.').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join(' '); };
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showToast(msg, type='ok') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+
+function setConn(state, msg) {
+  const bar = document.getElementById('connBar');
+  const msgEl = document.getElementById('connMsg');
+  bar.className = `conn-bar conn-${state}`;
+  msgEl.textContent = msg;
+}
+
+// ── CAPACITY ─────────────────────────────────────
+function loadCapacity() {
+  try {
+    const s = JSON.parse(localStorage.getItem(ONSITE_CAP_KEY) || 'null');
+    if (s && typeof s.engineerCapacity === 'number') capacity = Math.max(1, s.engineerCapacity);
+  } catch {}
+  const lbl = document.getElementById('capLabel');
+  if (lbl) lbl.textContent = `capacity: ${capacity} concurrent`;
+}
+
+// ── DAY STATE ────────────────────────────────────
+function dayState(dateStr) {
+  let confirmed = 0, pending = 0;
+  tasks.forEach(t => {
+    if (t.status === ONSITE_STATUS && t.projStart && t.projEnd &&
+        t.projStart <= dateStr && t.projEnd >= dateStr) confirmed++;
+  });
+  requests.forEach(r => {
+    if (!r.requested_start || !r.requested_end) return;
+    if (r.requested_start > dateStr || r.requested_end < dateStr) return;
+    if (r.request_status === 'Approved' || r.request_status === 'Scheduled') confirmed++;
+    else if (r.request_status === 'Pending') pending++;
+  });
+  if (confirmed >= capacity) return 'booked';
+  if (confirmed + pending >= capacity) return 'tentative';
+  return 'available';
+}
+
+// ── CALENDAR RENDER ───────────────────────────────
+function renderCalendar() {
+  const cal = document.getElementById('calendar');
+  if (!cal) return;
+  const today = new Date();
+  const months = [0, 1, 2].map(offset => {
+    return new Date(today.getFullYear(), today.getMonth() + offset, 1);
+  });
+  cal.innerHTML = months.map(m => renderMonth(m)).join('');
+}
+
+function renderMonth(monthDate) {
+  const year  = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const monthName = monthDate.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow    = new Date(year, month, 1).getDay(); // 0=Sun
+  const startOffset = firstDow === 0 ? 6 : firstDow - 1; // Mon-based offset
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  let cells = '';
+  for (let i = 0; i < startOffset; i++) cells += `<div class="cal-day cal-blank"></div>`;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isPast  = dateStr < todayStr;
+    const state   = isPast ? 'past' : dayState(dateStr);
+    const isSelS  = dateStr === selStart;
+    const isSelE  = selEnd && dateStr === selEnd;
+    const isInRng = selStart && selEnd && dateStr > selStart && dateStr < selEnd;
+    const isToday = dateStr === todayStr;
+
+    let cls = `cal-day cal-${state}`;
+    if (isSelS || isSelE) cls += ' cal-sel-edge';
+    else if (isInRng) cls += ' cal-sel-in';
+    if (isToday) cls += ' cal-today';
+
+    const title = state === 'booked'    ? 'Fully booked — unavailable' :
+                  state === 'tentative' ? 'Request pending — may not be free' :
+                  isPast                ? '' : 'Click to select this date';
+
+    const clickable = state === 'available' && !isPast;
+    cells += `<div class="${cls}"${clickable ? ` onclick="selectDay('${dateStr}')"` : ''}${title ? ` title="${escH(title)}"` : ''}>${d}</div>`;
+  }
+
+  return `<div class="cal-month">
+    <div class="cal-month-title">${escH(monthName)}</div>
+    <div class="cal-dow-row"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div>
+    <div class="cal-grid">${cells}</div>
+  </div>`;
+}
+
+// ── DATE SELECTION ────────────────────────────────
+window.selectDay = function(dateStr) {
+  if (!selStart || (selStart && selEnd)) {
+    selStart = dateStr; selEnd = '';
+  } else {
+    if (dateStr < selStart) { selEnd = selStart; selStart = dateStr; }
+    else { selEnd = dateStr; }
+  }
+  syncFormDates();
+  renderCalendar();
+};
+
+function syncFormDates() {
+  const s = document.getElementById('rf_start');
+  const e = document.getElementById('rf_end');
+  if (s) s.value = selStart;
+  if (e) e.value = selEnd;
+}
+
+window.onDateInput = function() {
+  const s = document.getElementById('rf_start').value;
+  const e = document.getElementById('rf_end').value;
+  selStart = s || '';
+  selEnd   = e && s && e >= s ? e : '';
+  renderCalendar();
+};
+
+// ── DATA MAPPERS ─────────────────────────────────
+function dbToTask(r) {
+  return {
+    id: r.id, name: r.name || '', seqf: r.seqf || '',
+    status: r.status || '',
+    projStart: r.rack_build_start || '', projEnd: r.rack_build_end || '',
+    wireman: r.wireman || '', qty: r.qty || 1,
+  };
+}
+function dbToRequest(r) {
+  return {
+    id: r.id, seqf: r.seqf || '', project_name: r.project_name || '',
+    project_manager: r.project_manager || '',
+    requested_start: r.requested_start || '', requested_end: r.requested_end || '',
+    request_status: r.request_status || 'Pending',
+  };
+}
+
+// ── LOAD DATA ────────────────────────────────────
+async function loadData() {
+  setConn('loading', 'Loading availability…');
+  try {
+    const headers = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
+    const [taskRes, reqRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/tasks?select=id,name,seqf,status,rack_build_start,rack_build_end,wireman,qty`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/requests?select=id,seqf,project_name,project_manager,requested_start,requested_end,request_status`, { headers }),
+    ]);
+    if (!taskRes.ok) throw new Error(`Tasks HTTP ${taskRes.status}`);
+    if (!reqRes.ok)  throw new Error(`Requests HTTP ${reqRes.status}`);
+    tasks = (await taskRes.json() || []).map(dbToTask)
+      .filter(t => t.status === ONSITE_STATUS && t.projStart && t.projEnd);
+    requests = (await reqRes.json() || []).map(dbToRequest)
+      .filter(r => ['Pending','Approved','Scheduled'].includes(r.request_status) && r.requested_start && r.requested_end);
+    setConn('ok', `Connected · ${tasks.length} onsite build${tasks.length !== 1 ? 's' : ''} loaded`);
+    renderCalendar();
+    subscribeRealtime();
+  } catch(e) {
+    setConn('err', `Could not load availability: ${e.message}`);
+    const cal = document.getElementById('calendar');
+    if (cal) cal.innerHTML = `<div style="color:var(--red);font-size:.83rem;padding:1rem">⚠ ${escH(e.message)}</div>`;
+  }
+}
+
+function subscribeRealtime() {
+  if (!supabase) return;
+  rtTasks = supabase.channel('req-tasks-rt')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadData())
+    .subscribe();
+  rtReqs = supabase.channel('req-requests-rt')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'requests' }, payload => {
+      try {
+        if (payload.eventType === 'INSERT') {
+          const r = dbToRequest(payload.new);
+          if (['Pending','Approved','Scheduled'].includes(r.request_status) && !requests.find(x => x.id === r.id)) {
+            requests.push(r); renderCalendar();
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const r = dbToRequest(payload.new);
+          const i = requests.findIndex(x => x.id === r.id);
+          if (['Pending','Approved','Scheduled'].includes(r.request_status)) {
+            if (i >= 0) requests[i] = r; else requests.push(r);
+          } else {
+            if (i >= 0) requests.splice(i, 1);
+          }
+          renderCalendar();
+        } else if (payload.eventType === 'DELETE') {
+          requests = requests.filter(x => x.id !== payload.old.id);
+          renderCalendar();
+        }
+      } catch {}
+    })
+    .subscribe();
+}
+
+// ── SUBMIT FORM ───────────────────────────────────
+window.submitForm = async function() {
+  const g    = id => document.getElementById(id);
+  const name = g('rf_name').value.trim();
+  const site = g('rf_site').value.trim();
+  const start = g('rf_start').value;
+  const end   = g('rf_end').value;
+  const racks = Math.max(1, parseInt(g('rf_racks').value) || 1);
+  const errEl = g('rf_err');
+
+  ['rf_name','rf_site','rf_start','rf_end'].forEach(id => g(id).classList.toggle('err', !g(id).value.trim()));
+  const errs = [];
+  if (!name)  errs.push('Project name is required.');
+  if (!site)  errs.push('Site location is required.');
+  if (!start) errs.push('Start date is required.');
+  if (!end)   errs.push('End date is required.');
+  if (start && end && end < start) errs.push('End date must be on or after start date.');
+  if (!errs.length && start && end) {
+    // Check for booked days in selected range
+    let cur = toDay(start);
+    const endD = toDay(end);
+    while (cur <= endD) {
+      const ds = cur.toISOString().slice(0, 10);
+      if (dayState(ds) === 'booked') {
+        errs.push(`${cur.toLocaleDateString('en-GB', {day:'numeric',month:'short'})} is fully booked — please choose different dates.`);
+        break;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+
+  if (errs.length) { errEl.textContent = errs[0]; errEl.style.display = ''; return; }
+  errEl.style.display = 'none';
+
+  const btn = g('submitBtn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+
+  try {
+    const { error } = await supabase.from('requests').insert({
+      project_name:    name,
+      seqf:            g('rf_seqf').value.trim() || null,
+      client_name:     g('rf_client').value.trim() || null,
+      project_manager: g('rf_pm').value.trim() || null,
+      site_location:   site,
+      site_contact:    g('rf_contact').value.trim() || null,
+      num_racks:       racks,
+      requested_start: start,
+      requested_end:   end,
+      scope:           g('rf_scope').value.trim() || null,
+      notes:           g('rf_notes').value.trim() || null,
+      urgent:          g('rf_urgent').checked,
+      request_status:  'Pending',
+    });
+    if (error) throw error;
+
+    // Show success
+    g('formWrap').style.display = 'none';
+    g('successPanel').style.display = '';
+    // The new row will arrive via realtime and update the calendar
+  } catch(e) {
+    errEl.textContent = `Submit failed: ${e.message}`; errEl.style.display = '';
+    console.error('[request.html] submit error:', e);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Submit Request';
+  }
+};
+
+window.resetForm = function() {
+  document.getElementById('formWrap').style.display = '';
+  document.getElementById('successPanel').style.display = 'none';
+  ['rf_name','rf_seqf','rf_client','rf_pm','rf_site','rf_contact','rf_scope','rf_notes'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const racks = document.getElementById('rf_racks'); if (racks) racks.value = '1';
+  const urg   = document.getElementById('rf_urgent'); if (urg) urg.checked = false;
+  selStart = ''; selEnd = '';
+  syncFormDates();
+  renderCalendar();
+};
+
+// ── INIT ─────────────────────────────────────────
+loadCapacity();
+try {
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false },
+    realtime: { timeout: 10000 },
+  });
+  loadData();
+} catch(e) {
+  setConn('err', `Init failed: ${e.message}`);
+}
+</script>
+</body>
+</html>
