@@ -339,9 +339,9 @@ tbody tr { cursor: default; }
 .req-filter-pill.off { color:var(--text3); border-color:var(--border2); }
 .req-filter-pill.off:hover { color:var(--text2); background:var(--bg2); }
 .req-row-label { padding:.45rem .75rem; border-right:1px solid var(--border2); flex-shrink:0; display:flex; flex-direction:column; justify-content:center; min-height:42px; background:rgba(245,158,11,.04); }
-.req-block-pending  { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; border:2px dashed rgba(245,158,11,.7); background:rgba(245,158,11,.22); transition:filter .15s; }
-.req-block-pending:hover  { filter:brightness(1.2); }
-.req-block-approved { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; background:var(--blue); transition:filter .15s; }
+.req-block-pending  { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; opacity:.5; transition:filter .15s; }
+.req-block-pending:hover  { filter:brightness(1.25); opacity:.75; }
+.req-block-approved { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; transition:filter .15s; }
 .req-block-approved:hover { filter:brightness(1.15); }
 .req-block-rejected { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; background:rgba(239,68,68,.25); border:1px dashed rgba(239,68,68,.5); transition:filter .15s; }
 .req-block-label { font-size:.68rem; font-weight:500; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; padding:0 6px; }
@@ -2240,19 +2240,23 @@ function renderOnsiteView() {
   const requestRowsHtml = activeRequests.map(req => {
     const isPending   = req.request_status === 'Pending';
     const isConfirmed = req.request_status === 'Approved' || req.request_status === 'Scheduled';
+    const isRejected  = !isPending && !isConfirmed;
     const blockCls    = isPending ? 'req-block-pending' : isConfirmed ? 'req-block-approved' : 'req-block-rejected';
     const badgeCls    = isPending ? 'req-badge-pending' : isConfirmed ? 'req-badge-approved' : 'req-badge-rejected';
-    const pm = req.project_manager ? fmtPerson(req.project_manager) : '';
+    const pm          = req.project_manager ? fmtPerson(req.project_manager) : '';
+    const reqStyle    = onsiteEngStyle(req.project_manager || null);
+    const blockBg     = isRejected ? '' : `background:${reqStyle.bg};`;
+    const labelColor  = isRejected ? 'var(--red)' : reqStyle.text;
 
     const cellsHtml = weeks.map((w, i) => {
       const inSpan = req.effectiveStart <= w.end && req.effectiveEnd >= w.start;
       if (!inSpan) return `<div class="onsite-task-cell" style="width:${WCOL}px"></div>`;
       const isFirst = req.effectiveStart >= w.start, isLast = req.effectiveEnd <= w.end;
       const rL = isFirst ? '5px' : '0', rR = isLast ? '5px' : '0';
-      const label = isFirst ? `<span class="req-block-label" style="color:${isConfirmed?'#fff':'var(--amber)'}">${escH(req.project_name||'')}${req.seqf?' · '+escH(req.seqf):''}</span>` : '';
+      const label = isFirst ? `<span class="req-block-label" style="color:${labelColor}">${escH(req.project_name||'')}${req.seqf?' · '+escH(req.seqf):''}</span>` : '';
       return `<div class="onsite-task-cell" style="width:${WCOL}px;padding-left:${isFirst?'4px':'0'};padding-right:${isLast?'4px':'0'}">
         <div class="${blockCls}" onclick="openRequestReview('${escH(String(req.id))}')"
-          style="border-radius:${rL} ${rR} ${rR} ${rL}"
+          style="${blockBg}border-radius:${rL} ${rR} ${rR} ${rL}"
           title="${escH(req.project_name)} · ${fmtShort(req.effectiveStart)}–${fmtShort(req.effectiveEnd)} · ${req.request_status}${req.urgent?' · URGENT':''}">
           ${label}</div></div>`;
     }).join('');
