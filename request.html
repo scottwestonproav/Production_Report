@@ -56,7 +56,18 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .leg-sw { width:18px; height:18px; border-radius:4px; flex-shrink:0; }
 
 /* ── CALENDAR ── */
-.cal-wrap { display:flex; flex-wrap:nowrap; gap:1rem; margin-bottom:1.75rem; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding-bottom:.25rem; }
+.cal-scroll-wrap { margin-bottom:1.75rem; }
+.cal-nav-row { display:flex; align-items:center; gap:.5rem; margin-bottom:.65rem; }
+.cal-nav-btn { background:var(--bg3); border:1px solid var(--border2); color:var(--text2); border-radius:var(--radius); width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.3rem; line-height:1; transition:all .15s; flex-shrink:0; padding:0; font-family:var(--font); }
+.cal-nav-btn:hover:not(:disabled) { background:var(--bg2); color:var(--text); border-color:var(--blue); }
+.cal-nav-btn:disabled { opacity:.28; cursor:not-allowed; }
+.cal-nav-label { font-size:.72rem; color:var(--text3); font-family:var(--mono); flex:1; text-align:center; }
+.cal-rel { position:relative; }
+.cal-fade-r { position:absolute; top:0; right:0; bottom:0; width:56px; background:linear-gradient(to right,transparent,var(--bg) 88%); pointer-events:none; border-radius:0 var(--radius-lg) var(--radius-lg) 0; transition:opacity .25s; }
+.cal-pips { display:flex; justify-content:center; gap:.55rem; margin-top:.65rem; }
+.cal-pip { width:7px; height:7px; border-radius:50%; background:var(--border2); border:none; padding:0; cursor:pointer; transition:background .2s, transform .15s; }
+.cal-pip.active { background:var(--blue); transform:scale(1.3); }
+.cal-wrap { display:flex; flex-wrap:nowrap; gap:1rem; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding-bottom:.25rem; }
 .cal-month { flex:0 0 calc(50% - .5rem); min-width:260px; scroll-snap-align:start; background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1rem; }
 .cal-month-title { font-weight:600; font-size:.88rem; text-align:center; margin-bottom:.75rem; color:var(--text); }
 .cal-dow-row { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:3px; }
@@ -179,8 +190,23 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
     <div style="margin-left:auto;font-size:.7rem;color:var(--text3);font-family:var(--mono)" id="capLabel"></div>
   </div>
 
-  <div id="calendar" class="cal-wrap">
-    <div style="color:var(--text3);font-size:.85rem;padding:1rem">Loading availability…</div>
+  <div class="cal-scroll-wrap">
+    <div class="cal-nav-row">
+      <button class="cal-nav-btn" id="calPrev" onclick="scrollCal(-1)" disabled title="Previous months">&#8249;</button>
+      <span class="cal-nav-label" id="calNavLabel"></span>
+      <button class="cal-nav-btn" id="calNext" onclick="scrollCal(1)" title="Next months">&#8250;</button>
+    </div>
+    <div class="cal-rel">
+      <div id="calendar" class="cal-wrap">
+        <div style="color:var(--text3);font-size:.85rem;padding:1rem">Loading availability…</div>
+      </div>
+      <div class="cal-fade-r" id="calFadeR"></div>
+    </div>
+    <div class="cal-pips" id="calPips">
+      <button class="cal-pip active" onclick="scrollCalToPage(0)" title="Months 1–2"></button>
+      <button class="cal-pip" onclick="scrollCalToPage(1)" title="Months 3–4"></button>
+      <button class="cal-pip" onclick="scrollCalToPage(2)" title="Months 5–6"></button>
+    </div>
   </div>
 
   <div id="successPanel" class="success-panel" style="display:none">
@@ -368,6 +394,66 @@ function dayState(dateStr) {
   return 'available';
 }
 
+// ── CALENDAR NAV ─────────────────────────────────
+function updateCalNav() {
+  const wrap  = document.getElementById('calendar');
+  const prev  = document.getElementById('calPrev');
+  const next  = document.getElementById('calNext');
+  const fade  = document.getElementById('calFadeR');
+  const label = document.getElementById('calNavLabel');
+  const pips  = document.getElementById('calPips');
+  if (!wrap) return;
+
+  const scrollLeft = wrap.scrollLeft;
+  const maxScroll  = wrap.scrollWidth - wrap.clientWidth;
+  const atStart    = scrollLeft <= 2;
+  const atEnd      = maxScroll <= 0 || scrollLeft >= maxScroll - 2;
+
+  if (prev)  prev.disabled = atStart;
+  if (next)  next.disabled = atEnd;
+  if (fade)  fade.style.opacity = atEnd ? '0' : '1';
+
+  const monthEls = wrap.querySelectorAll('.cal-month');
+  if (!monthEls.length) return;
+
+  const monthW  = monthEls[0].offsetWidth;
+  const firstVis = Math.max(0, Math.round(scrollLeft / (monthW + 16)));
+  const page     = Math.floor(firstVis / 2);
+
+  if (label) {
+    const titles = [...wrap.querySelectorAll('.cal-month-title')].map(el => el.textContent.trim());
+    const a = titles[firstVis]   || '';
+    const b = titles[Math.min(firstVis + 1, titles.length - 1)] || '';
+    const [aMonth, aYear] = a.split(' ');
+    const [bMonth, bYear] = b.split(' ');
+    label.textContent = a === b ? a
+      : aYear === bYear ? `${aMonth} – ${bMonth} ${aYear}`
+      : `${a} – ${b}`;
+  }
+
+  if (pips) {
+    [...pips.querySelectorAll('.cal-pip')].forEach((p, i) => p.classList.toggle('active', i === page));
+  }
+}
+
+window.scrollCal = function(dir) {
+  const wrap = document.getElementById('calendar');
+  if (!wrap) return;
+  const month = wrap.querySelector('.cal-month');
+  if (!month) return;
+  wrap.scrollBy({ left: dir * (month.offsetWidth + 16) * 2, behavior: 'smooth' });
+  setTimeout(updateCalNav, 320);
+};
+
+window.scrollCalToPage = function(page) {
+  const wrap = document.getElementById('calendar');
+  if (!wrap) return;
+  const month = wrap.querySelector('.cal-month');
+  if (!month) return;
+  wrap.scrollTo({ left: page * (month.offsetWidth + 16) * 2, behavior: 'smooth' });
+  setTimeout(updateCalNav, 320);
+};
+
 function dayHasUrgent(dateStr) {
   return requests.some(r => {
     if (!r.urgent || r.request_status !== 'Pending') return false;
@@ -382,6 +468,7 @@ function renderCalendar() {
   if (!cal) return;
   const today = new Date();
   cal.innerHTML = [0,1,2,3,4,5].map(o => renderMonth(new Date(today.getFullYear(), today.getMonth()+o, 1))).join('');
+  setTimeout(updateCalNav, 0);
 }
 
 function renderMonth(monthDate) {
@@ -695,6 +782,7 @@ window.resetForm = function() {
 };
 
 // ── INIT ─────────────────────────────────────────
+document.getElementById('calendar')?.addEventListener('scroll', () => requestAnimationFrame(updateCalNav), { passive: true });
 loadCapacity();
 (function() {
   const md = getMinDate();
