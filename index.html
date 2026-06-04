@@ -327,6 +327,8 @@ tbody tr { cursor: default; }
 .onsite-settings-unit { font-size:.72rem; color:var(--text3); white-space:nowrap; }
 .onsite-dur-est { font-size:.63rem; color:var(--text3); margin-top:.1rem; }
 .onsite-dur-tight { color:var(--amber); }
+.req-row-hl { animation: req-hl-kf 2.5s ease forwards; }
+@keyframes req-hl-kf { 0%,15% { background:rgba(122,184,0,.18); box-shadow:inset 0 0 0 2px var(--blue); } 100% { background:transparent; box-shadow:none; } }
 
 /* ── REQUEST FLOW ── */
 .req-filter-bar { display:flex; align-items:center; gap:.5rem; padding:.5rem .75rem; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:.7rem; flex-wrap:wrap; }
@@ -689,6 +691,8 @@ applyNotifState();
 let tasks     = [];
 let visibleTasks = [];
 let currentView        = 'gantt'; // 'gantt' | 'onsite'
+let _deepLinkReqId     = null;   // ?request=<uuid> URL param
+let _deepLinkDone      = false;  // true once scroll+highlight has fired
 let onsiteSettings     = loadOnsiteSettings(); // { engineerCapacity, defaultDays, daysPerType }
 let onsiteSettingsOpen = false;
 let requests           = [];
@@ -809,6 +813,10 @@ if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
     loadTasks();
     loadLeaveData();
     loadRequests();
+    // URL deep-link: ?view=onsite switches view; ?request=<uuid> highlights a request row
+    const _urlP = new URLSearchParams(window.location.search);
+    if (_urlP.get('request')) _deepLinkReqId = _urlP.get('request');
+    if (_urlP.get('view') === 'onsite') switchView('onsite');
   } catch(initErr) {
     setConn('err', `Client init failed: ${initErr.message}`);
   }
@@ -2106,6 +2114,12 @@ function renderOnsiteView() {
 
   checkDedupRequests();
 
+  // If a deep-link request is pending and its status is filtered out, temporarily include it
+  if (_deepLinkReqId && !_deepLinkDone) {
+    const dlr = requests.find(r => String(r.id) === _deepLinkReqId);
+    if (dlr && !reqStatusFilter.has(dlr.request_status)) reqStatusFilter.add(dlr.request_status);
+  }
+
   const onsiteTasks = tasks
     .filter(t => t.status === ONSITE_STATUS && t.projStart && t.projEnd)
     .sort((a,b) => a.projStart.localeCompare(b.projStart));
@@ -2263,7 +2277,7 @@ function renderOnsiteView() {
 
     const urgentBadge = (req.urgent && isPending) ? '<span style="display:inline-block;background:var(--red);color:#fff;font-size:.55rem;font-weight:700;padding:.08rem .3rem;border-radius:3px;margin-left:.3rem;vertical-align:middle;letter-spacing:.03em">URGENT</span>' : '';
     const urgentBorder = (req.urgent && isPending) ? 'border-left:3px solid var(--red);' : '';
-    return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);${urgentBorder}">
+    return `<div data-req-id="${escH(String(req.id))}" style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);${urgentBorder}">
       <div class="req-row-label" style="width:${LCOL}px">
         <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(req.project_name||'—')}<span class="req-badge ${badgeCls}">${req.request_status}</span>${urgentBadge}</div>
         ${req.seqf?`<div style="font-size:.68rem;color:var(--text3);font-family:var(--mono)">${escH(req.seqf)}</div>`:''}
@@ -2284,6 +2298,16 @@ function renderOnsiteView() {
     </div>
     <div style="min-width:${totalW}px">${taskRowsHtml}${requestRowsHtml}</div>
   </div></div>`;
+
+  // Deep-link: scroll to and highlight the target request row once data is rendered
+  if (_deepLinkReqId && !_deepLinkDone) {
+    const el = container.querySelector(`[data-req-id="${_deepLinkReqId}"]`);
+    if (el) {
+      _deepLinkDone = true;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('req-row-hl');
+    }
+  }
 }
 
 // ── REQUEST HELPERS ───────────────────────────────

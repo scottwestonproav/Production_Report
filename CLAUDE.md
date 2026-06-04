@@ -117,6 +117,18 @@ The `requests.urgent` boolean is surfaced in two places:
 - **`escH(s)`** — HTML-escapes strings before inserting into innerHTML.
 - **`render()`** — single re-render function called after every data change. Rebuilds metrics, filters, Gantt rows, conflict panels, mobile cards, and (if active) the Onsite view.
 
+## URL query parameters
+
+The app reads these on page load (no server involvement — all client-side):
+
+| Param | Values | Effect |
+|---|---|---|
+| `view` | `onsite` | Switches to the Onsite Availability view on load instead of the default Gantt view. |
+| `request` | `<uuid>` | After the Onsite view renders and data loads, scrolls the matching request row into view and plays a brief green highlight animation. If the request's status is currently filtered out, it is temporarily added to the filter so it appears. |
+
+Both params work together: `?view=onsite&request=<uuid>` switches to Onsite and focuses the request.
+If neither param is present, the app behaves exactly as before (Gantt view by default).
+
 ## Editing guidelines
 
 - The entire app is one file. Keep it that way — no new files unless asked.
