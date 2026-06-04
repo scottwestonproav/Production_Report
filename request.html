@@ -310,9 +310,12 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = 'https://ykttrpmdytpvkpfuqvza.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrdHRycG1keXRwdmtwZnVxdnphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTAyNTAsImV4cCI6MjA5NDc2NjI1MH0.moNeSzhjYHGf9DBb3pWwQ_AxiIp0xxeOkV1jaXmAKjg';
 
-const ONSITE_STATUS      = 'Onsite build';
-const ONSITE_CAP_KEY     = 'onsite_cap_v1';
+const ONSITE_STATUS       = 'Onsite build';
+const ONSITE_CAP_KEY      = 'onsite_cap_v1';
 const ACTIVE_SYS_STATUSES = new Set(['Pending', 'Approved', 'Scheduled']);
+const ANDREW_NAME         = 'Andrew Bradley';
+const ANDREW_BUFFER_AFTER = 2; // buffer days added after his build end to absorb slippage
+const ANDREW_STATUSES     = new Set(['In Build', '']); // '' covers null/blank
 
 let tasks      = [];
 let requests   = [];
@@ -330,6 +333,7 @@ let sameDates = false;
 
 // ── HELPERS ──────────────────────────────────────
 const toDay = d => new Date(d + 'T00:00:00');
+function addDays(dateStr, n) { const d = toDay(dateStr); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); }
 function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 const fmtMed = d => d ? toDay(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—';
 function getMinDate() {
@@ -609,7 +613,7 @@ function renderSystems() {
 
 // ── DATA MAPPERS ─────────────────────────────────
 function dbToTask(r) {
-  return { id:r.id, status:r.status||'', projStart:r.rack_build_start||'', projEnd:r.rack_build_end||'' };
+  return { id:r.id, status:r.status||'', wireman:r.wireman||'', projStart:r.rack_build_start||'', projEnd:r.rack_build_end||'' };
 }
 function dbToRequest(r) {
   return { id:r.id, requested_start:r.requested_start||'', requested_end:r.requested_end||'', request_status:r.request_status||'Pending', urgent:!!r.urgent };
@@ -621,13 +625,25 @@ async function loadData() {
   try {
     const h = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
     const [tr, rr, sr] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/tasks?select=id,status,rack_build_start,rack_build_end`, { headers:h }),
+      fetch(`${SUPABASE_URL}/rest/v1/tasks?select=id,status,wireman,rack_build_start,rack_build_end`, { headers:h }),
       fetch(`${SUPABASE_URL}/rest/v1/requests?select=id,requested_start,requested_end,request_status,urgent`, { headers:h }),
       fetch(`${SUPABASE_URL}/rest/v1/request_systems?select=request_id,system_status,requested_start,requested_end`, { headers:h }),
     ]);
     if (!tr.ok) throw new Error(`Tasks HTTP ${tr.status}`);
     if (!rr.ok) throw new Error(`Requests HTTP ${rr.status}`);
-    tasks      = (await tr.json()||[]).map(dbToTask).filter(t => t.status===ONSITE_STATUS && t.projStart && t.projEnd);
+    tasks = (await tr.json()||[]).map(dbToTask)
+      .filter(t => {
+        if (!t.projStart || !t.projEnd) return false;
+        if (t.status === ONSITE_STATUS) return true;
+        return t.wireman === ANDREW_NAME && ANDREW_STATUSES.has(t.status);
+      })
+      .map(t => {
+        // Extend Andrew's In Build / blank tasks by the slippage buffer
+        if (t.wireman === ANDREW_NAME && t.status !== ONSITE_STATUS) {
+          return { ...t, projEnd: addDays(t.projEnd, ANDREW_BUFFER_AFTER) };
+        }
+        return t;
+      });
     requests   = (await rr.json()||[]).map(dbToRequest).filter(r => ['Pending','Approved','Scheduled'].includes(r.request_status));
     reqSysData = sr.ok ? (await sr.json()||[]) : [];
     setConn('ok', `Connected · ${tasks.length} onsite build${tasks.length!==1?'s':''} loaded`);
