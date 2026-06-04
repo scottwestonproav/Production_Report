@@ -2114,8 +2114,21 @@ function renderOnsiteView() {
   // Legacy requests (no child rows) fall back to the parent span.
   // Requests whose every system is inactive (Rejected/Completed/Removed) are excluded.
   const activeRequests = requests
-    .filter(r => reqStatusFilter.has(r.request_status) &&
-                 !(r.request_status === 'Scheduled' && r.linked_task_id))
+    .filter(r => {
+      if (!reqStatusFilter.has(r.request_status)) return false;
+      if (r.request_status === 'Scheduled') {
+        if (r.linked_task_id) return false; // explicit task link
+        // Also suppress if a confirmed onsite task with the same SEQF overlaps the request span
+        if (r.seqf) {
+          const rid  = String(r.id);
+          const span = reqsWithChildren.has(rid) ? reqSysSpans[rid] : null;
+          const s    = span?.start || r.requested_start;
+          const e    = span?.end   || r.requested_end;
+          if (s && e && onsiteTasks.some(t => t.seqf === r.seqf && t.projStart <= e && t.projEnd >= s)) return false;
+        }
+      }
+      return true;
+    })
     .map(r => {
       const rid = String(r.id);
       if (reqsWithChildren.has(rid)) {
