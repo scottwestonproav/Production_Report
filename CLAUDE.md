@@ -83,19 +83,30 @@ Columns: `id`, `created_at`, `seqf`, `project_name`, `client_name`, `project_man
 `request_status` values: `Pending` · `Approved` · `Rejected` · `On Hold` · `Scheduled`.
 
 ### `request_systems` (child, one row per system / rack)
-Columns: `id`, `request_id` (FK → requests.id), `system_room_name`, `rack_type`, `requested_start` (date), `requested_end` (date), `notes`, `system_status` (text: `Pending` / `Approved` / `Rejected` / `Completed` / `Removed`), `reviewed_by` (text), `reviewed_at` (timestamptz).
+Columns: `id`, `request_id` (FK → requests.id), `system_room_name`, `rack_type`, `requested_start` (date), `requested_end` (date), `notes`, `system_status` (text: `Pending` / `Approved` / `Rejected` / `Completed` / `Removed`), `reviewed_by` (text), `reviewed_at` (timestamptz), `review_notes` (text — required reason when rejecting a system), `suggested_start` (date — optional alternative start the team suggests), `suggested_end` (date — optional alternative end the team suggests).
 
 **Calendar occupancy** is computed from `request_systems`, not the parent `requests` span. A system is **active** if its `system_status` is `Pending`, `Approved`, or `Scheduled` (null treated as `Pending` for legacy rows). Active statuses count toward capacity; `Completed`, `Removed`, and `Rejected` do not. The calendar slot for a request spans `MIN(active systems' start)` to `MAX(active systems' end)`. If a request has no active systems it is excluded from the calendar entirely. Legacy requests with no `request_systems` rows fall back to the parent `requested_start`/`requested_end`. Both `index.html` (Onsite Availability view) and `request.html` follow this logic.
 
 **How it works:**
 - PMs submit via `request.html` (public page). One parent `requests` row is inserted with `request_status = 'Pending'`; `requested_start`/`requested_end` are the min/max across all systems. Then one `request_systems` row per system is inserted with `request_id` = parent id.
 - Calendar counts **one slot per request** (parent span). Pending = amber tentative; Approved/Scheduled = confirmed. Capacity uses `onsiteSettings.engineerCapacity`.
-- In `index.html`, clicking a request block opens the review modal. The team (must be signed in) reviews each system individually: each `request_systems` row has its own **Approve** / **Reject** button that sets `system_status`, `reviewed_by`, and `reviewed_at` on that row.
+- In `index.html`, clicking a request block opens the review modal. The team (must be signed in) reviews each system individually: each `request_systems` row has its own **Approve** / **Reject** button. Rejecting expands an inline panel requiring a reason (`review_notes`) and optionally suggested alternative dates (`suggested_start`, `suggested_end`). On confirm, all four fields (`system_status = 'Rejected'`, `reviewed_by`, `reviewed_at`, `review_notes`, and optionally `suggested_start`/`suggested_end`) are written in one update. Rejected systems display the reason and any suggested dates in the review modal so PMs can see them.
 - Once every system has a decision, **Process decisions** becomes enabled. Clicking it sets the parent `request_status` to `Approved` if any system was approved, or `Rejected` if all were rejected — `tasks` is never written from the front end.
 - **Reject whole request** at the bottom of the modal immediately sets `request_status = 'Rejected'` without requiring per-system decisions (covers the case where the team wants to decline the entire job at once).
 - On Approved: Power Automate reads the `request_systems` rows where `system_status = 'Approved'` and expands them into `tasks` rows once the job enters the Excel master.
 - When an Approved request's `seqf` + date range matches a `tasks` row with `status = 'Onsite build'`, the request auto-flips to `Scheduled` and stops drawing on the calendar (de-dup).
 - Realtime channels `requests-rt` and `requests-rt` (in `request.html`) keep both calendars live.
+
+## Urgent visibility
+
+The `requests.urgent` boolean is surfaced in two places:
+
+- **`request.html` calendar**: amber tentative days that overlap an urgent pending request get a small red dot overlay (`.cal-urg-dot`) and a legend entry. The 30-day locked window (`.cal-locked`) appears before the first selectable day.
+- **`index.html` onsite view**: urgent pending requests get a red "URGENT" badge and a red left-border accent on their calendar row. They are sorted to the top of the pending request list. The review modal shows a prominent red "Urgent: Yes" banner when `req.urgent` is true.
+
+## Availability calendar — rolling 6-month window
+
+`request.html` shows 6 months from today (not a fixed 3-month window). The layout is a 2×3 flex grid. The first 30 days are rendered as `.cal-locked` (dashed grey, unselectable). Form date pickers enforce `min = today + 30`. Submit validation also blocks any `requested_start` earlier than `today + 30`.
 
 ## Key code patterns
 

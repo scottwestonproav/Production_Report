@@ -62,13 +62,15 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .cal-dow-row { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:3px; }
 .cal-dow-row div { text-align:center; font-size:.58rem; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; padding:.2rem 0; }
 .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
-.cal-day { text-align:center; font-size:.78rem; padding:.35rem 0; border-radius:5px; cursor:default; font-family:var(--mono); min-height:30px; display:flex; align-items:center; justify-content:center; transition:filter .1s; }
+.cal-day { position:relative; text-align:center; font-size:.78rem; padding:.35rem 0; border-radius:5px; cursor:default; font-family:var(--mono); min-height:30px; display:flex; align-items:center; justify-content:center; transition:filter .1s; }
 .cal-past { color:var(--text3); opacity:.45; }
 .cal-available { background:var(--blue-dim); color:var(--blue); cursor:pointer; border:1px solid rgba(122,184,0,.2); }
 .cal-available:hover { filter:brightness(1.4); }
 .cal-tentative { background:var(--amber-dim); color:var(--amber); cursor:not-allowed; border:1px solid rgba(245,158,11,.2); }
 .cal-booked { background:var(--red-dim); color:var(--red); cursor:not-allowed; border:1px solid rgba(239,68,68,.2); }
 .cal-today { outline:2px solid var(--blue); outline-offset:-2px; }
+.cal-locked { background:rgba(30,37,53,.5); color:var(--text3); cursor:not-allowed; border:1px dashed var(--border2); }
+.cal-urg-dot { position:absolute; top:3px; right:3px; width:5px; height:5px; border-radius:50%; background:var(--red); pointer-events:none; }
 .cal-sel-edge { background:var(--blue) !important; color:#fff !important; border-color:var(--blue) !important; font-weight:600; }
 .cal-sel-in { background:rgba(122,184,0,.18) !important; color:var(--blue) !important; border:1px solid rgba(122,184,0,.15) !important; }
 
@@ -170,8 +172,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
   <div class="legend-bar">
     <div class="leg"><div class="leg-sw" style="background:var(--blue-dim);border:1px solid rgba(122,184,0,.25)"></div><span>Available</span></div>
-    <div class="leg"><div class="leg-sw" style="background:var(--amber-dim);border:1px solid rgba(245,158,11,.25)"></div><span>Pending request — may not be free</span></div>
+    <div class="leg"><div class="leg-sw" style="background:var(--amber-dim);border:1px solid rgba(245,158,11,.25)"></div><span>Pending request</span></div>
     <div class="leg"><div class="leg-sw" style="background:var(--red-dim);border:1px solid rgba(239,68,68,.25)"></div><span>Fully booked</span></div>
+    <div class="leg"><div class="leg-sw" style="background:rgba(30,37,53,.5);border:1px dashed var(--border2)"></div><span>Preparation period</span></div>
+    <div class="leg"><div style="position:relative;width:18px;height:18px;flex-shrink:0"><div class="leg-sw" style="width:18px;height:18px;background:var(--amber-dim);border:1px solid rgba(245,158,11,.25)"></div><span style="position:absolute;top:2px;right:2px;width:5px;height:5px;background:var(--red);border-radius:50%;display:block"></span></div><span>Urgent pending</span></div>
     <div style="margin-left:auto;font-size:.7rem;color:var(--text3);font-family:var(--mono)" id="capLabel"></div>
   </div>
 
@@ -247,6 +251,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
         <button class="btn btn-ghost btn-sm" onclick="addSystem()">+ Add System</button>
       </div>
 
+      <div style="font-size:.72rem;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .7rem;margin-bottom:.6rem">
+        Please allow at least 30 days from today for preparation — earliest available: <span id="minDateLabel" style="font-family:var(--mono);color:var(--amber)"></span>.
+      </div>
+
       <div class="same-dates-bar">
         <label>
           <input type="checkbox" id="sd_check" onchange="toggleSameDates(this.checked)">
@@ -299,6 +307,10 @@ let sameDates = false;
 const toDay = d => new Date(d + 'T00:00:00');
 function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 const fmtMed = d => d ? toDay(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—';
+function getMinDate() {
+  const d = new Date(); d.setDate(d.getDate() + 30);
+  return d.toISOString().slice(0, 10);
+}
 
 function setConn(state, msg) {
   const bar = document.getElementById('connBar');
@@ -356,12 +368,20 @@ function dayState(dateStr) {
   return 'available';
 }
 
+function dayHasUrgent(dateStr) {
+  return requests.some(r => {
+    if (!r.urgent || r.request_status !== 'Pending') return false;
+    const span = effectiveSpan(r);
+    return !!(span && span.start <= dateStr && span.end >= dateStr);
+  });
+}
+
 // ── CALENDAR ─────────────────────────────────────
 function renderCalendar() {
   const cal = document.getElementById('calendar');
   if (!cal) return;
   const today = new Date();
-  cal.innerHTML = [0,1,2].map(o => renderMonth(new Date(today.getFullYear(), today.getMonth()+o, 1))).join('');
+  cal.innerHTML = [0,1,2,3,4,5].map(o => renderMonth(new Date(today.getFullYear(), today.getMonth()+o, 1))).join('');
 }
 
 function renderMonth(monthDate) {
@@ -372,22 +392,31 @@ function renderMonth(monthDate) {
   const firstDow = new Date(year, month, 1).getDay();
   const offset   = firstDow === 0 ? 6 : firstDow - 1;
   const todayStr = new Date().toISOString().slice(0,10);
+  const minDate  = getMinDate();
 
   let cells = '<div class="cal-day" style="opacity:0"></div>'.repeat(offset);
   for (let d = 1; d <= days; d++) {
-    const ds    = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isPast = ds < todayStr;
-    const state  = isPast ? 'past' : dayState(ds);
-    const isSE   = ds === selStart || ds === selEnd;
-    const isIn   = selStart && selEnd && ds > selStart && ds < selEnd;
-    const isToday = ds === todayStr;
+    const ds      = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isPast   = ds < todayStr;
+    const isLocked = !isPast && ds < minDate;
+    const state    = isPast ? 'past' : isLocked ? 'locked' : dayState(ds);
+    const isSE     = ds === selStart || ds === selEnd;
+    const isIn     = selStart && selEnd && ds > selStart && ds < selEnd;
+    const isToday  = ds === todayStr;
+    const isUrgTen = state === 'tentative' && dayHasUrgent(ds);
     let cls = `cal-day cal-${state}`;
     if (isSE) cls += ' cal-sel-edge';
     else if (isIn) cls += ' cal-sel-in';
     if (isToday) cls += ' cal-today';
-    const title = state==='booked' ? 'Fully booked' : state==='tentative' ? 'Request pending' : isPast ? '' : 'Click to select';
-    const click = (!isPast && state==='available') ? ` onclick="selectDay('${ds}')"` : '';
-    cells += `<div class="${cls}"${click}${title?` title="${escH(title)}"`:''} >${d}</div>`;
+    let title;
+    if (isLocked)            title = `Available from ${toDay(minDate).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+    else if (state==='booked')    title = 'Fully booked';
+    else if (state==='tentative') title = isUrgTen ? 'Request pending (includes urgent)' : 'Request pending';
+    else if (isPast)         title = '';
+    else                     title = 'Click to select';
+    const click = (!isPast && !isLocked && state==='available') ? ` onclick="selectDay('${ds}')"` : '';
+    const urgDot = isUrgTen ? '<span class="cal-urg-dot"></span>' : '';
+    cells += `<div class="${cls}"${click}${title?` title="${escH(title)}"`:''} >${d}${urgDot}</div>`;
   }
   return `<div class="cal-month">
     <div class="cal-month-title">${escH(name)}</div>
@@ -397,6 +426,7 @@ function renderMonth(monthDate) {
 }
 
 window.selectDay = function(ds) {
+  if (ds < getMinDate()) return;
   if (!selStart || (selStart && selEnd)) { selStart = ds; selEnd = ''; }
   else { if (ds < selStart) { selEnd = selStart; selStart = ds; } else { selEnd = ds; } }
   syncSameDatePickers();
@@ -454,6 +484,7 @@ window.onSysField = function(id, field, val) {
 function renderSystems() {
   const el = document.getElementById('sys-list');
   if (!el) return;
+  const minDate = getMinDate();
   el.innerHTML = systems.map((s, i) => `
     <div class="sys-row">
       ${systems.length > 1 ? `<button class="sys-remove-btn" onclick="removeSystem(${s.id})" title="Remove system">✕</button>` : ''}
@@ -473,12 +504,12 @@ function renderSystems() {
       <div class="sys-grid-bot">
         <div class="req-form-field">
           <label class="req-form-label">Start Date *</label>
-          <input class="req-form-input sys-start" type="date" value="${s.start}"
+          <input class="req-form-input sys-start" type="date" value="${s.start}" min="${minDate}"
             oninput="onSysField(${s.id},'start',this.value)">
         </div>
         <div class="req-form-field">
           <label class="req-form-label">End Date *</label>
-          <input class="req-form-input sys-end" type="date" value="${s.end}"
+          <input class="req-form-input sys-end" type="date" value="${s.end}" min="${s.start||minDate}"
             oninput="onSysField(${s.id},'end',this.value)">
         </div>
         <div class="req-form-field">
@@ -495,7 +526,7 @@ function dbToTask(r) {
   return { id:r.id, status:r.status||'', projStart:r.rack_build_start||'', projEnd:r.rack_build_end||'' };
 }
 function dbToRequest(r) {
-  return { id:r.id, requested_start:r.requested_start||'', requested_end:r.requested_end||'', request_status:r.request_status||'Pending' };
+  return { id:r.id, requested_start:r.requested_start||'', requested_end:r.requested_end||'', request_status:r.request_status||'Pending', urgent:!!r.urgent };
 }
 
 // ── LOAD DATA ────────────────────────────────────
@@ -505,7 +536,7 @@ async function loadData() {
     const h = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
     const [tr, rr, sr] = await Promise.all([
       fetch(`${SUPABASE_URL}/rest/v1/tasks?select=id,status,rack_build_start,rack_build_end`, { headers:h }),
-      fetch(`${SUPABASE_URL}/rest/v1/requests?select=id,requested_start,requested_end,request_status`, { headers:h }),
+      fetch(`${SUPABASE_URL}/rest/v1/requests?select=id,requested_start,requested_end,request_status,urgent`, { headers:h }),
       fetch(`${SUPABASE_URL}/rest/v1/request_systems?select=request_id,system_status,requested_start,requested_end`, { headers:h }),
     ]);
     if (!tr.ok) throw new Error(`Tasks HTTP ${tr.status}`);
@@ -569,12 +600,14 @@ window.submitForm = async function() {
   if (!site) errs.push('Site location is required.');
 
   // Validate systems
+  const minDate = getMinDate();
   systems.forEach((s, i) => {
     const n = i + 1;
     if (!s.name.trim()) errs.push(`System ${n}: name is required.`);
     if (!s.start)       errs.push(`System ${n}: start date is required.`);
     if (!s.end)         errs.push(`System ${n}: end date is required.`);
     if (s.start && s.end && s.end < s.start) errs.push(`System ${n}: end must be on or after start.`);
+    if (s.start && s.start < minDate) errs.push(`System ${n}: start must be at least 30 days from today (earliest: ${fmtMed(minDate)}).`);
   });
 
   if (errs.length) { errEl.textContent = errs[0]; errEl.style.display = ''; return; }
@@ -663,6 +696,15 @@ window.resetForm = function() {
 
 // ── INIT ─────────────────────────────────────────
 loadCapacity();
+(function() {
+  const md = getMinDate();
+  const s = document.getElementById('sd_start');
+  const e = document.getElementById('sd_end');
+  if (s) s.min = md;
+  if (e) e.min = md;
+  const lbl = document.getElementById('minDateLabel');
+  if (lbl) lbl.textContent = fmtMed(md);
+}());
 systems = [makeSys()];
 renderSystems();
 

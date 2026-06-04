@@ -2125,7 +2125,13 @@ function renderOnsiteView() {
         ? { ...r, effectiveStart: r.requested_start, effectiveEnd: r.requested_end } : null;
     })
     .filter(Boolean)
-    .sort((a,b) => a.effectiveStart.localeCompare(b.effectiveStart));
+    .sort((a, b) => {
+      // Urgent pending requests float to the top, then sort by date
+      const aScore = (a.request_status === 'Pending' && a.urgent) ? 0 : 1;
+      const bScore = (b.request_status === 'Pending' && b.urgent) ? 0 : 1;
+      if (aScore !== bScore) return aScore - bScore;
+      return a.effectiveStart.localeCompare(b.effectiveStart);
+    });
 
   const filterBar = reqFilterBarHtml();
 
@@ -2236,9 +2242,11 @@ function renderOnsiteView() {
           ${label}</div></div>`;
     }).join('');
 
-    return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border)">
+    const urgentBadge = (req.urgent && isPending) ? '<span style="display:inline-block;background:var(--red);color:#fff;font-size:.55rem;font-weight:700;padding:.08rem .3rem;border-radius:3px;margin-left:.3rem;vertical-align:middle;letter-spacing:.03em">URGENT</span>' : '';
+    const urgentBorder = (req.urgent && isPending) ? 'border-left:3px solid var(--red);' : '';
+    return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);${urgentBorder}">
       <div class="req-row-label" style="width:${LCOL}px">
-        <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(req.project_name||'—')}<span class="req-badge ${badgeCls}">${req.request_status}</span>${req.urgent?'<span style="font-size:.6rem;color:var(--red);margin-left:.3rem">urgent</span>':''}</div>
+        <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(req.project_name||'—')}<span class="req-badge ${badgeCls}">${req.request_status}</span>${urgentBadge}</div>
         ${req.seqf?`<div style="font-size:.68rem;color:var(--text3);font-family:var(--mono)">${escH(req.seqf)}</div>`:''}
         ${pm?`<div style="font-size:.68rem;color:var(--text2)">${escH(pm)}</div>`:''}
         <div class="onsite-dur-est">${fmtShort(req.effectiveStart)}–${fmtShort(req.effectiveEnd)}</div>
@@ -2517,10 +2525,28 @@ window.openRequestReview = async function(id) {
       const appSty = st === 'Approved' ? 'border-color:var(--green);color:var(--green);background:var(--green-dim)' : '';
       const rejSty = st === 'Rejected' ? 'border-color:var(--red);color:var(--red);background:var(--red-dim)' : '';
       const canActOnSys = canReview && st !== 'Completed' && st !== 'Removed';
-      const btns   = canActOnSys ? `
-        <div style="display:flex;gap:.4rem;margin-top:.45rem;flex-wrap:wrap">
+      const rejInfo = st === 'Rejected' ? [
+        s.review_notes ? `<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:var(--radius);padding:.35rem .55rem;margin-top:.3rem;font-size:.75rem;color:#f08080;line-height:1.45">${escH(s.review_notes)}</div>` : '',
+        (s.suggested_start && s.suggested_end) ? `<div style="background:var(--amber-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:.35rem .55rem;margin-top:.25rem;font-size:.75rem;color:var(--amber);font-weight:500">Suggested alternative: ${fmtShort(s.suggested_start)} – ${fmtShort(s.suggested_end)}</div>` : '',
+      ].filter(Boolean).join('') : '';
+      const btns = canActOnSys ? `
+        <div id="sysbtns-${s.id}" style="display:flex;gap:.4rem;margin-top:.45rem;flex-wrap:wrap">
           <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${appSty}" onclick="approveSystem('${s.id}','${id}')">✓ Approve</button>
-          <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${rejSty}" onclick="rejectSystem('${s.id}','${id}')">✕ Reject</button>
+          <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${rejSty}" onclick="showSysRejectPanel('${s.id}','${id}')">✕ Reject</button>
+        </div>
+        <div id="sysrp-${s.id}" style="display:none;margin-top:.5rem;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:.65rem .75rem">
+          <div style="font-size:.7rem;font-weight:500;color:var(--text2);margin-bottom:.35rem">Reason for rejection <span style="color:var(--red)">*</span></div>
+          <textarea id="sysrn-${s.id}" class="req-review-notes" placeholder="Required: brief reason for rejection…" style="min-height:44px;margin-bottom:.5rem"></textarea>
+          <div style="font-size:.7rem;font-weight:500;color:var(--text2);margin-bottom:.25rem">Suggest alternative dates <span style="color:var(--text3);font-weight:400">(optional)</span></div>
+          <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+            <input type="date" id="sysss-${s.id}" class="req-form-input" style="width:140px" placeholder="Alt. start">
+            <span style="font-size:.7rem;color:var(--text3)">→</span>
+            <input type="date" id="sysse-${s.id}" class="req-form-input" style="width:140px" placeholder="Alt. end">
+          </div>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+            <button class="btn btn-danger" style="font-size:.7rem;padding:.2rem .55rem" onclick="confirmSysReject('${s.id}','${id}')">Confirm rejection</button>
+            <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem" onclick="cancelSysReject('${s.id}')">Cancel</button>
+          </div>
         </div>` : '';
       return `
         <div class="sys-review-row">
@@ -2536,6 +2562,7 @@ window.openRequestReview = async function(id) {
             ${s.notes?`<span style="font-family:var(--font);color:var(--text3);margin-left:.6rem">${escH(s.notes)}</span>`:''}
           </div>
           ${s.reviewed_by?`<div style="font-size:.65rem;color:var(--text3);margin-top:.2rem">reviewed by ${escH(s.reviewed_by)}</div>`:''}
+          ${rejInfo}
           ${btns}
         </div>`;
     }).join('');
@@ -2562,6 +2589,7 @@ window.openRequestReview = async function(id) {
     ? `<button class="btn btn-primary" id="approveBtn" onclick="approveRequest('${id}')">✓ Approve</button>` : '';
 
   document.getElementById('reviewBody').innerHTML = `
+    ${req.urgent ? `<div style="display:flex;align-items:center;gap:.55rem;background:var(--red-dim);border:1px solid rgba(239,68,68,.5);border-radius:var(--radius);padding:.55rem .85rem;margin-bottom:.85rem;font-size:.82rem;color:var(--red);font-weight:600">&#9888;&nbsp;&nbsp;Urgent: Yes</div>` : ''}
     ${req.request_status === 'Approved' ? `<div class="req-review-reminder">✓ Approved — add to production master. Power Automate expands approved systems into <span style="font-family:var(--mono);font-size:.85em">tasks</span> rows once synced.</div>` : ''}
     <div class="detail-section"><div class="detail-section-title">Job Details</div>
     <div class="detail-grid">
@@ -2656,15 +2684,57 @@ window.submitSignIn = async function() {
 
 // ── PER-SYSTEM REVIEW ─────────────────────────────
 window.approveSystem = async function(sysId, reqId) { await doSystemReview(sysId, reqId, 'Approved'); };
-window.rejectSystem  = async function(sysId, reqId) { await doSystemReview(sysId, reqId, 'Rejected'); };
+window.rejectSystem  = function(sysId, reqId) { showSysRejectPanel(String(sysId), String(reqId)); };
 
-async function doSystemReview(sysId, reqId, status) {
+window.showSysRejectPanel = function(sysId, reqId) {
+  const btns  = document.getElementById(`sysbtns-${sysId}`);
+  const panel = document.getElementById(`sysrp-${sysId}`);
+  if (btns)  btns.style.display  = 'none';
+  if (panel) { panel.style.display = ''; document.getElementById(`sysrn-${sysId}`)?.focus(); }
+};
+
+window.cancelSysReject = function(sysId) {
+  const btns  = document.getElementById(`sysbtns-${sysId}`);
+  const panel = document.getElementById(`sysrp-${sysId}`);
+  if (btns)  btns.style.display  = '';
+  if (panel) panel.style.display = 'none';
+};
+
+window.confirmSysReject = async function(sysId, reqId) {
+  const notesEl = document.getElementById(`sysrn-${sysId}`);
+  const notes   = notesEl?.value?.trim() || '';
+  if (!notes) {
+    if (notesEl) { notesEl.style.borderColor = 'var(--red)'; notesEl.focus(); }
+    showToast('A reason is required when rejecting a system.', 'error');
+    return;
+  }
+  if (notesEl) notesEl.style.borderColor = '';
+  const sugStart = document.getElementById(`sysss-${sysId}`)?.value || null;
+  const sugEnd   = document.getElementById(`sysse-${sysId}`)?.value || null;
+  if ((sugStart && !sugEnd) || (!sugStart && sugEnd)) {
+    showToast('Provide both alternative dates, or neither.', 'error'); return;
+  }
+  if (sugStart && sugEnd && sugEnd < sugStart) {
+    showToast('Alternative end must be on or after start.', 'error'); return;
+  }
+  const btn = document.querySelector(`#sysrp-${sysId} .btn-danger`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Rejecting…'; }
+  await doSystemReview(sysId, reqId, 'Rejected', notes, sugStart || null, sugEnd || null);
+};
+
+async function doSystemReview(sysId, reqId, status, rejNotes = null, sugStart = null, sugEnd = null) {
   try {
-    const { error } = await supabase.from('request_systems').update({
+    const updateData = {
       system_status: status,
       reviewed_by:   currentUser?.email || null,
       reviewed_at:   new Date().toISOString(),
-    }).eq('id', sysId);
+    };
+    if (status === 'Rejected') {
+      updateData.review_notes    = rejNotes;
+      updateData.suggested_start = sugStart;
+      updateData.suggested_end   = sugEnd;
+    }
+    const { error } = await supabase.from('request_systems').update(updateData).eq('id', sysId);
     if (error) throw error;
     await openRequestReview(reqId); // re-render modal with updated statuses
   } catch(e) {
