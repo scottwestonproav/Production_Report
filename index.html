@@ -692,6 +692,7 @@ let tasks     = [];
 let visibleTasks = [];
 let currentView        = 'gantt'; // 'gantt' | 'onsite'
 let _deepLinkReqId     = null;   // ?request=<uuid> URL param
+let _deepLinkView      = null;   // ?view=<view> URL param (applied on first render)
 let _deepLinkDone      = false;  // true once scroll+highlight has fired
 let onsiteSettings     = loadOnsiteSettings(); // { engineerCapacity, defaultDays, daysPerType }
 let onsiteSettingsOpen = false;
@@ -816,7 +817,7 @@ if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
     // URL deep-link: ?view=onsite switches view; ?request=<uuid> highlights a request row
     const _urlP = new URLSearchParams(window.location.search);
     if (_urlP.get('request')) _deepLinkReqId = _urlP.get('request');
-    if (_urlP.get('view') === 'onsite') switchView('onsite');
+    if (_urlP.get('view') === 'onsite') _deepLinkView = 'onsite';
   } catch(initErr) {
     setConn('err', `Client init failed: ${initErr.message}`);
   }
@@ -1348,6 +1349,7 @@ function scrollTodayIntoCenter() {
 }
 
 window.render = function() {
+  if (_deepLinkView) { const v = _deepLinkView; _deepLinkView = null; switchView(v); return; }
   updateFilters();
   const conflicts                         = getConflicts();
   const { conflicts: testConflicts, advisories: testAdvisories } = getTestConflicts();
