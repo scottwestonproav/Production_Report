@@ -673,7 +673,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 // ── ONSITE CAPACITY ───────────────────────────────
 const ONSITE_STATUS  = 'Onsite build'; // must match tasks.status value in DB
-const ONSITE_CAP_KEY = 'onsite_cap_v1'; // localStorage key for capacity settings
+const ONSITE_CAP_KEY     = 'onsite_cap_v1';        // localStorage key for capacity settings
+const WEEKEND_POLICY_KEY = 'proav_weekend_policy_v1'; // localStorage key for weekend request policy
 // system_status values that occupy calendar capacity
 const ACTIVE_SYS_STATUSES = new Set(['Pending', 'Approved', 'Scheduled']);
 
@@ -2550,6 +2551,19 @@ function renderOnsiteSettingsPanel() {
       <span class="onsite-settings-unit">d / rack</span>
     </div>
     ${typeRows || '<div style="font-size:.75rem;color:var(--text3);padding:.3rem 0">No rack types detected in onsite tasks yet — only the default above applies.</div>'}
+    <div class="onsite-settings-section">Request Policy</div>
+    <div class="onsite-settings-field">
+      <span class="onsite-settings-label">Allow weekend dates in build requests</span>
+      ${currentUser
+        ? (() => { const on = localStorage.getItem(WEEKEND_POLICY_KEY) === 'true';
+            return `<label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;flex-shrink:0">
+              <input type="checkbox" ${on?'checked':''} onchange="toggleWeekendsAllowed(this.checked)"
+                style="accent-color:var(--blue);width:14px;height:14px">
+              <span class="onsite-settings-unit">${on?'Allowed':'Blocked'}</span>
+            </label>`; })()
+        : `<span style="font-size:.72rem;color:var(--text3);font-style:italic;flex-shrink:0">sign in to change</span>`
+      }
+    </div>
     <div style="font-size:.68rem;color:var(--text3);margin-top:.65rem;border-top:1px solid var(--border);padding-top:.5rem;line-height:1.55">
       Estimated total = rack qty × days per rack type. Tasks where the scheduled window is shorter than the estimate are flagged <span style="color:var(--amber)">⚠ tight</span>.
       Tasks overlapping another project (or beyond concurrent capacity) are flagged <span style="color:var(--red)">⚠ clash</span>.
@@ -2565,6 +2579,12 @@ window.toggleOnsiteSettings = function() {
   if (onsiteSettingsOpen) { renderOnsiteSettingsPanel(); panel.style.display = ''; }
   else panel.style.display = 'none';
   if (gearBtn) gearBtn.classList.toggle('active', onsiteSettingsOpen);
+};
+
+window.toggleWeekendsAllowed = function(checked) {
+  if (!currentUser) return;
+  localStorage.setItem(WEEKEND_POLICY_KEY, checked ? 'true' : 'false');
+  renderOnsiteSettingsPanel();
 };
 
 window.onsiteSettingChange = function(key, rawVal) {

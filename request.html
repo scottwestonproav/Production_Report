@@ -131,6 +131,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 @keyframes toastIn  { from { opacity:0; transform:translateX(-50%) translateY(8px); } }
 @keyframes toastOut { to   { opacity:0; transform:translateX(-50%) translateY(8px); } }
 
+.sys-weekend-warn { display:none; margin-top:.38rem; font-size:.72rem; color:var(--amber); background:var(--amber-dim); border:1px solid rgba(245,158,11,.3); border-radius:var(--radius); padding:.28rem .6rem; }
+#weekendBanner { font-size:.78rem; border-radius:var(--radius); padding:.5rem .75rem; line-height:1.45; margin-bottom:.3rem; }
+
 @media (max-width:640px) {
   .req-form-grid { grid-template-columns:1fr; }
   .req-form-field.full { grid-column:1; }
@@ -295,6 +298,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
       <div id="sys-list"></div>
 
+      <div id="weekendBanner" style="display:none"></div>
       <div class="req-form-actions">
         <button class="btn btn-primary" id="submitBtn" onclick="submitForm()">Submit Request</button>
         <span id="rf_err" style="font-size:.78rem;color:var(--red);display:none;line-height:1.4"></span>
@@ -312,6 +316,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const ONSITE_STATUS       = 'Onsite build';
 const ONSITE_CAP_KEY      = 'onsite_cap_v1';
+const WEEKEND_POLICY_KEY  = 'proav_weekend_policy_v1';
 const ACTIVE_SYS_STATUSES = new Set(['Pending', 'Approved', 'Scheduled']);
 const ANDREW_NAME         = 'Andrew Bradley';
 const ANDREW_BUFFER_AFTER = 2; // buffer days added after his build end to absorb slippage
@@ -345,6 +350,46 @@ function setConn(state, msg) {
   const bar = document.getElementById('connBar');
   bar.className = `conn-bar conn-${state}`;
   document.getElementById('connMsg').textContent = msg;
+}
+
+// ── WEEKEND HELPERS ──────────────────────────────
+function rangeHasWeekend(start, end) {
+  if (!start || !end || end < start) return false;
+  const s = new Date(start + 'T00:00:00');
+  const days = Math.round((new Date(end + 'T00:00:00') - s) / 864e5);
+  if (days >= 6) return true; // any 7-day span must contain a Saturday or Sunday
+  for (let i = 0; i <= days; i++) {
+    const d = new Date(s); d.setDate(d.getDate() + i);
+    if (d.getDay() === 0 || d.getDay() === 6) return true;
+  }
+  return false;
+}
+
+function updateWeekendWarnings() {
+  const allowed = localStorage.getItem(WEEKEND_POLICY_KEY) === 'true';
+  systems.forEach(s => {
+    const el = document.querySelector(`[data-sys-weekend="${s.id}"]`);
+    if (!el) return;
+    el.style.display = rangeHasWeekend(s.start, s.end) ? '' : 'none';
+  });
+  const anyWeekends = systems.some(s => rangeHasWeekend(s.start, s.end));
+  const banner = document.getElementById('weekendBanner');
+  const btn    = document.getElementById('submitBtn');
+  if (!banner) return;
+  if (!anyWeekends) {
+    banner.style.display = 'none';
+    if (btn) btn.disabled = false;
+    return;
+  }
+  if (allowed) {
+    banner.style.cssText = 'display:block;background:var(--amber-dim);border:1px solid rgba(245,158,11,.4);color:var(--amber);font-size:.78rem;border-radius:var(--radius);padding:.5rem .75rem;line-height:1.45;margin-bottom:.3rem';
+    banner.textContent = '⚠ Your selected dates include weekend days. The build team will be notified.';
+    if (btn) btn.disabled = false;
+  } else {
+    banner.style.cssText = 'display:block;background:var(--red-dim);border:1px solid rgba(239,68,68,.4);color:var(--red);font-size:.78rem;border-radius:var(--radius);padding:.5rem .75rem;line-height:1.45;margin-bottom:.3rem';
+    banner.textContent = '⚠ Weekend dates are not currently permitted. Please adjust your dates to weekdays only.';
+    if (btn) btn.disabled = true;
+  }
 }
 
 // ── CAPACITY ─────────────────────────────────────
@@ -536,6 +581,7 @@ window.onSameDateInput = function() {
   selEnd   = document.getElementById('sd_end').value || '';
   if (sameDates) propagateDates();
   renderCalendar();
+  updateWeekendWarnings();
 };
 
 window.toggleSameDates = function(checked) {
@@ -569,6 +615,7 @@ window.removeSystem = function(id) {
 window.onSysField = function(id, field, val) {
   const s = systems.find(s => s.id === id);
   if (s) s[field] = field === 'numRacks' ? (parseInt(val) || 1) : val;
+  if (field === 'start' || field === 'end') updateWeekendWarnings();
 };
 
 function renderSystems() {
@@ -608,7 +655,9 @@ function renderSystems() {
             oninput="onSysField(${s.id},'notes',this.value)">
         </div>
       </div>
+      <div class="sys-weekend-warn" data-sys-weekend="${s.id}">⚠ This system's dates include weekend days</div>
     </div>`).join('');
+  updateWeekendWarnings();
 }
 
 // ── DATA MAPPERS ─────────────────────────────────
@@ -714,6 +763,14 @@ window.submitForm = async function() {
 
   if (errs.length) { errEl.textContent = errs[0]; errEl.style.display = ''; return; }
 
+  // Weekend policy check
+  const weekendsAllowed = localStorage.getItem(WEEKEND_POLICY_KEY) === 'true';
+  const anyWeekends     = systems.some(s => s.start && s.end && rangeHasWeekend(s.start, s.end));
+  if (anyWeekends && !weekendsAllowed) {
+    errEl.textContent = 'Weekend dates are not currently permitted — please choose weekday-only dates.';
+    errEl.style.display = ''; return;
+  }
+
   // Compute job span (min start / max end across all systems)
   const jobStart = systems.reduce((m,s) => (!m||s.start<m) ? s.start : m, '');
   const jobEnd   = systems.reduce((m,s) => (!m||s.end>m)   ? s.end   : m, '');
@@ -747,8 +804,9 @@ window.submitForm = async function() {
         site_contact:    g('rf_contact').value.trim() || null,
         scope:           g('rf_scope').value.trim() || null,
         notes:           g('rf_notes').value.trim() || null,
-        urgent:          g('rf_urgent').checked,
-        request_status:  'Pending',
+        urgent:            g('rf_urgent').checked,
+        includes_weekends: anyWeekends,
+        request_status:    'Pending',
         requested_start: jobStart,
         requested_end:   jobEnd,
       })
