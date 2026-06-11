@@ -291,6 +291,9 @@ tbody tr { cursor: default; }
   .app.gantt-mode #mLeaveBtn,
   .app.gantt-mode #mGanttBtn { display: none !important; }
   .app.gantt-mode #mBackBtn { display: inline-flex !important; align-items: center; gap: .3rem; flex-shrink: 0; }
+
+  /* Onsite mode overrides (mobile only) */
+  .app.onsite-mode #mobileList { display: none !important; }
 }
 
 /* ── VIEW TABS ── */
@@ -340,7 +343,8 @@ tbody tr { cursor: default; }
 .req-filter-pill.on-Rejected  { background:rgba(239,68,68,.12);  color:var(--red);   border-color:rgba(239,68,68,.3); }
 .req-filter-pill.off { color:var(--text3); border-color:var(--border2); }
 .req-filter-pill.off:hover { color:var(--text2); background:var(--bg2); }
-.req-row-label { padding:.45rem .75rem; border-right:1px solid var(--border2); flex-shrink:0; display:flex; flex-direction:column; justify-content:center; min-height:42px; background:rgba(245,158,11,.04); }
+.req-row-label { padding:.45rem .75rem; border-right:1px solid var(--border2); flex-shrink:0; display:flex; flex-direction:column; justify-content:center; min-height:42px; background:rgba(245,158,11,.04); cursor:pointer; }
+.req-row-label:hover { background:rgba(245,158,11,.10); }
 .req-block-pending  { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; opacity:.5; transition:filter .15s; }
 .req-block-pending:hover  { filter:brightness(1.25); opacity:.75; }
 .req-block-approved { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; transition:filter .15s; }
@@ -2277,7 +2281,7 @@ function renderOnsiteView() {
     const urgentBadge = (req.urgent && isPending) ? '<span style="display:inline-block;background:var(--red);color:#fff;font-size:.55rem;font-weight:700;padding:.08rem .3rem;border-radius:3px;margin-left:.3rem;vertical-align:middle;letter-spacing:.03em">URGENT</span>' : '';
     const urgentBorder = (req.urgent && isPending) ? 'border-left:3px solid var(--red);' : '';
     return `<div data-req-id="${escH(String(req.id))}" style="display:flex;align-items:stretch;border-bottom:1px solid var(--border);${urgentBorder}">
-      <div class="req-row-label" style="width:${LCOL}px">
+      <div class="req-row-label" style="width:${LCOL}px" onclick="openRequestReview('${escH(String(req.id))}')" title="Click to review this request">
         <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(req.project_name||'—')}<span class="req-badge ${badgeCls}">${req.request_status}</span>${urgentBadge}</div>
         ${req.seqf?`<div style="font-size:.68rem;color:var(--text3);font-family:var(--mono)">${escH(req.seqf)}</div>`:''}
         ${pm?`<div style="font-size:.68rem;color:var(--text2)">${escH(pm)}</div>`:''}
@@ -2354,6 +2358,7 @@ window.switchView = function(view) {
   document.getElementById('tabGantt').classList.toggle('active',  view === 'gantt');
   document.getElementById('tabOnsite').classList.toggle('active', view === 'onsite');
   const isGantt = view === 'gantt';
+  document.querySelector('.app').classList.toggle('onsite-mode', !isGantt);
   document.querySelector('.table-wrap').style.display        = isGantt ? '' : 'none';
   document.querySelector('.legend').style.display            = isGantt ? '' : 'none';
   document.querySelector('.controls').style.display          = isGantt ? '' : 'none';
