@@ -346,6 +346,14 @@ function getMinDate() {
   return d.toISOString().slice(0, 10);
 }
 
+function showFieldError(msg) {
+  const el = document.getElementById('rf_err');
+  if (!el) return;
+  el.textContent = msg; el.style.display = '';
+  clearTimeout(showFieldError._t);
+  showFieldError._t = setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
 function setConn(state, msg) {
   const bar = document.getElementById('connBar');
   bar.className = `conn-bar conn-${state}`;
@@ -529,27 +537,32 @@ function renderMonth(monthDate) {
   const todayStr = new Date().toISOString().slice(0,10);
   const minDate  = getMinDate();
 
+  const weekendsBlocked = localStorage.getItem(WEEKEND_POLICY_KEY) !== 'true';
   let cells = '<div class="cal-day" style="opacity:0"></div>'.repeat(offset);
   for (let d = 1; d <= days; d++) {
     const ds      = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow     = new Date(ds + 'T00:00:00').getDay(); // 0=Sun, 6=Sat
+    const isWeekend = dow === 0 || dow === 6;
     const isPast   = ds < todayStr;
     const isLocked = !isPast && ds < minDate;
-    const state    = isPast ? 'past' : isLocked ? 'locked' : dayState(ds);
+    const isWkBlocked = !isPast && !isLocked && isWeekend && weekendsBlocked;
+    const state    = isPast ? 'past' : isLocked ? 'locked' : isWkBlocked ? 'locked' : dayState(ds);
     const isSE     = ds === selStart || ds === selEnd;
     const isIn     = selStart && selEnd && ds > selStart && ds < selEnd;
     const isToday  = ds === todayStr;
     const isUrgTen = state === 'tentative' && dayHasUrgent(ds);
     let cls = `cal-day cal-${state}`;
-    if (isSE) cls += ' cal-sel-edge';
-    else if (isIn) cls += ' cal-sel-in';
+    if (isSE && !isWkBlocked) cls += ' cal-sel-edge';
+    else if (isIn && !isWkBlocked) cls += ' cal-sel-in';
     if (isToday) cls += ' cal-today';
     let title;
-    if (isLocked)            title = `Available from ${toDay(minDate).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+    if (isWkBlocked)              title = 'Weekends are not available';
+    else if (isLocked)            title = `Available from ${toDay(minDate).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
     else if (state==='booked')    title = 'Fully booked';
     else if (state==='tentative') title = isUrgTen ? 'Request pending (includes urgent)' : 'Request pending';
-    else if (isPast)         title = '';
-    else                     title = 'Click to select';
-    const click = (!isPast && !isLocked && state==='available') ? ` onclick="selectDay('${ds}')"` : '';
+    else if (isPast)              title = '';
+    else                          title = 'Click to select';
+    const click = (!isPast && !isLocked && !isWkBlocked && state==='available') ? ` onclick="selectDay('${ds}')"` : '';
     const urgDot = isUrgTen ? '<span class="cal-urg-dot"></span>' : '';
     cells += `<div class="${cls}"${click}${title?` title="${escH(title)}"`:''} >${d}${urgDot}</div>`;
   }
@@ -562,6 +575,8 @@ function renderMonth(monthDate) {
 
 window.selectDay = function(ds) {
   if (ds < getMinDate()) return;
+  const dow = new Date(ds + 'T00:00:00').getDay();
+  if ((dow === 0 || dow === 6) && localStorage.getItem(WEEKEND_POLICY_KEY) !== 'true') return;
   if (!selStart || (selStart && selEnd)) { selStart = ds; selEnd = ''; }
   else { if (ds < selStart) { selEnd = selStart; selStart = ds; } else { selEnd = ds; } }
   syncSameDatePickers();
@@ -612,7 +627,18 @@ window.removeSystem = function(id) {
   renderSystems();
 };
 
-window.onSysField = function(id, field, val) {
+window.onSysField = function(id, field, val, el) {
+  if ((field === 'start' || field === 'end') && val && localStorage.getItem(WEEKEND_POLICY_KEY) !== 'true') {
+    const dow = new Date(val + 'T00:00:00').getDay();
+    if (dow === 0 || dow === 6) {
+      if (el) el.value = '';
+      const s = systems.find(s => s.id === id);
+      if (s) s[field] = '';
+      showFieldError('Weekends are not currently permitted — please choose a weekday.');
+      updateWeekendWarnings();
+      return;
+    }
+  }
   const s = systems.find(s => s.id === id);
   if (s) s[field] = field === 'numRacks' ? (parseInt(val) || 1) : val;
   if (field === 'start' || field === 'end') updateWeekendWarnings();
@@ -642,12 +668,12 @@ function renderSystems() {
         <div class="req-form-field">
           <label class="req-form-label">Start Date *</label>
           <input class="req-form-input sys-start" type="date" value="${s.start}" min="${minDate}"
-            oninput="onSysField(${s.id},'start',this.value)">
+            oninput="onSysField(${s.id},'start',this.value,this)">
         </div>
         <div class="req-form-field">
           <label class="req-form-label">End Date *</label>
           <input class="req-form-input sys-end" type="date" value="${s.end}" min="${s.start||minDate}"
-            oninput="onSysField(${s.id},'end',this.value)">
+            oninput="onSysField(${s.id},'end',this.value,this)">
         </div>
         <div class="req-form-field">
           <label class="req-form-label">Notes</label>
