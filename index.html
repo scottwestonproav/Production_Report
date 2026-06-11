@@ -2253,8 +2253,8 @@ function renderOnsiteView() {
       <div style="display:flex;align-items:center">${cellsHtml}</div></div>`;
   }).join('');
 
-  // ── Request rows (pending / approved / rejected) ──
-  const requestRowsHtml = activeRequests.map(req => {
+  // ── Request row builder ──────────────────────────
+  const buildReqRowHtml = req => {
     const isPending   = req.request_status === 'Pending';
     const isConfirmed = req.request_status === 'Approved' || req.request_status === 'Scheduled';
     const isRejected  = !isPending && !isConfirmed;
@@ -2288,7 +2288,29 @@ function renderOnsiteView() {
         <div class="onsite-dur-est">${fmtShort(req.effectiveStart)}–${fmtShort(req.effectiveEnd)}</div>
       </div>
       <div style="display:flex;align-items:center">${cellsHtml}</div></div>`;
-  }).join('');
+  };
+
+  // Split requests into pending (needs review) vs confirmed/other
+  const pendingRequests   = activeRequests.filter(r => r.request_status === 'Pending');
+  const confirmedRequests = activeRequests.filter(r => r.request_status !== 'Pending');
+
+  const pendingRowsHtml   = pendingRequests.map(buildReqRowHtml).join('');
+  const confirmedRowsHtml = confirmedRequests.map(buildReqRowHtml).join('');
+
+  const sectionHdr = (label, color, borderColor, bg) =>
+    `<div style="display:flex;min-width:${totalW}px;background:${bg};border-top:2px solid ${borderColor};border-bottom:1px solid var(--border)">
+      <div style="padding:.3rem .75rem;font-size:.68rem;font-weight:600;color:${color};text-transform:uppercase;letter-spacing:.06em">${label}</div>
+    </div>`;
+
+  const pendingSection = pendingRequests.length
+    ? sectionHdr(`⏳ Awaiting Review (${pendingRequests.length})`, 'var(--amber)', 'var(--amber)', 'rgba(245,158,11,.08)')
+      + `<div style="min-width:${totalW}px">${pendingRowsHtml}</div>`
+    : '';
+
+  const confirmedSection = (onsiteTasks.length || confirmedRequests.length)
+    ? sectionHdr('Confirmed Builds & Approved Requests', 'var(--text3)', 'var(--border2)', 'var(--bg3)')
+      + `<div style="min-width:${totalW}px">${taskRowsHtml}${confirmedRowsHtml}</div>`
+    : '';
 
   container.innerHTML = `${filterBar}<div class="onsite-view"><div class="onsite-scroll" style="min-width:0">
     <div style="display:flex;min-width:${totalW}px;background:var(--bg3);border-bottom:1px solid var(--border)">
@@ -2299,7 +2321,7 @@ function renderOnsiteView() {
       <div style="width:${LCOL}px;min-width:${LCOL}px;padding:.4rem .75rem;font-size:.68rem;color:var(--text2);border-right:1px solid var(--border2)">Capacity (max ${cap} concurrent)</div>
       <div style="display:flex">${capRowHtml}</div>
     </div>
-    <div style="min-width:${totalW}px">${taskRowsHtml}${requestRowsHtml}</div>
+    ${pendingSection}${confirmedSection}
   </div></div>`;
 
   // Deep-link: scroll to and highlight the target request row once data is rendered
