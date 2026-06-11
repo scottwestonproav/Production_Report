@@ -2111,10 +2111,35 @@ function getOnsiteWeeks(extraItems = []) {
   return weeks;
 }
 
+function updateOnsiteMetrics() {
+  const activeBuilds  = tasks.filter(t => t.status === ONSITE_STATUS && t.projStart && t.projEnd).length;
+  const pendingCount  = requests.filter(r => r.request_status === 'Pending').length;
+  const approvedCount = requests.filter(r => r.request_status === 'Approved' || r.request_status === 'Scheduled').length;
+  const cap           = onsiteSettings.engineerCapacity || 1;
+  document.getElementById('metricsRow').innerHTML = `
+    <div class="metric">
+      <div class="metric-label">Active builds</div>
+      <div class="metric-val neutral">${activeBuilds}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Awaiting review</div>
+      <div class="metric-val ${pendingCount ? 'warn' : 'ok'}">${pendingCount}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Approved</div>
+      <div class="metric-val ${approvedCount ? 'ok' : 'neutral'}">${approvedCount}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Engineer capacity</div>
+      <div class="metric-val neutral">${cap}</div>
+    </div>`;
+}
+
 function renderOnsiteView() {
   const container = document.getElementById('onsiteView');
   if (!container) return;
 
+  updateOnsiteMetrics();
   checkDedupRequests();
 
   // If a deep-link request is pending and its status is filtered out, temporarily include it
@@ -2389,7 +2414,7 @@ window.switchView = function(view) {
   document.getElementById('onsiteView').style.display           = isGantt ? 'none' : '';
   const gearBtn = document.getElementById('tabOnsiteSettings');
   if (gearBtn) gearBtn.style.display = isGantt ? 'none' : '';
-  if (isGantt) { onsiteSettingsOpen = false; if (gearBtn) gearBtn.classList.remove('active'); }
+  if (isGantt) { onsiteSettingsOpen = false; if (gearBtn) gearBtn.classList.remove('active'); render(); }
   else renderOnsiteView();
 };
 
