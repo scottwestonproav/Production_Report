@@ -81,6 +81,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .cal-booked { background:var(--red-dim); color:var(--red); cursor:not-allowed; border:1px solid rgba(239,68,68,.2); }
 .cal-today { outline:2px solid var(--blue); outline-offset:-2px; }
 .cal-locked { background:rgba(30,37,53,.5); color:var(--text3); cursor:not-allowed; border:1px dashed var(--border2); }
+.cal-weekend { background:rgba(60,67,90,.35); color:var(--text3); cursor:not-allowed; border:1px solid rgba(90,98,120,.3); opacity:.6; }
 .cal-urg-dot { position:absolute; top:3px; right:3px; width:5px; height:5px; border-radius:50%; background:var(--red); pointer-events:none; }
 .cal-sel-edge { background:var(--blue) !important; color:#fff !important; border-color:var(--blue) !important; font-weight:600; }
 .cal-sel-in { background:rgba(122,184,0,.18) !important; color:var(--blue) !important; border:1px solid rgba(122,184,0,.15) !important; }
@@ -189,6 +190,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
     <div class="leg"><div class="leg-sw" style="background:var(--red-dim);border:1px solid rgba(239,68,68,.25)"></div><span>Fully booked</span></div>
     <div class="leg"><div class="leg-sw" style="background:rgba(30,37,53,.5);border:1px dashed var(--border2)"></div><span>Preparation period</span></div>
     <div class="leg"><div style="position:relative;width:18px;height:18px;flex-shrink:0"><div class="leg-sw" style="width:18px;height:18px;background:var(--amber-dim);border:1px solid rgba(245,158,11,.25)"></div><span style="position:absolute;top:2px;right:2px;width:5px;height:5px;background:var(--red);border-radius:50%;display:block"></span></div><span>Urgent pending</span></div>
+    <div class="leg" id="legendWeekend" style="display:none"><div class="leg-sw" style="background:rgba(60,67,90,.35);border:1px solid rgba(90,98,120,.3);opacity:.6"></div><span>Weekend (unavailable)</span></div>
     <div style="margin-left:auto;font-size:.7rem;color:var(--text3);font-family:var(--mono)" id="capLabel"></div>
   </div>
 
@@ -408,6 +410,8 @@ function loadCapacity() {
   } catch {}
   const lbl = document.getElementById('capLabel');
   if (lbl) lbl.textContent = `capacity: ${capacity} concurrent`;
+  const wkLeg = document.getElementById('legendWeekend');
+  if (wkLeg) wkLeg.style.display = localStorage.getItem(WEEKEND_POLICY_KEY) !== 'true' ? '' : 'none';
 }
 
 // ── DAY STATE ─────────────────────────────────────
@@ -546,7 +550,7 @@ function renderMonth(monthDate) {
     const isPast   = ds < todayStr;
     const isLocked = !isPast && ds < minDate;
     const isWkBlocked = !isPast && !isLocked && isWeekend && weekendsBlocked;
-    const state    = isPast ? 'past' : isLocked ? 'locked' : isWkBlocked ? 'locked' : dayState(ds);
+    const state    = isPast ? 'past' : isLocked ? 'locked' : isWkBlocked ? 'weekend' : dayState(ds);
     const isSE     = ds === selStart || ds === selEnd;
     const isIn     = selStart && selEnd && ds > selStart && ds < selEnd;
     const isToday  = ds === todayStr;
@@ -562,7 +566,7 @@ function renderMonth(monthDate) {
     else if (state==='tentative') title = isUrgTen ? 'Request pending (includes urgent)' : 'Request pending';
     else if (isPast)              title = '';
     else                          title = 'Click to select';
-    const click = (!isPast && !isLocked && !isWkBlocked && state==='available') ? ` onclick="selectDay('${ds}')"` : '';
+    const click = (!isPast && !isLocked && !isWkBlocked && state === 'available') ? ` onclick="selectDay('${ds}')"` : '';
     const urgDot = isUrgTen ? '<span class="cal-urg-dot"></span>' : '';
     cells += `<div class="${cls}"${click}${title?` title="${escH(title)}"`:''} >${d}${urgDot}</div>`;
   }
