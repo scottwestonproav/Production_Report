@@ -669,6 +669,8 @@ import * as htmlToImage from 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 const SUPABASE_URL = 'https://ykttrpmdytpvkpfuqvza.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrdHRycG1keXRwdmtwZnVxdnphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTAyNTAsImV4cCI6MjA5NDc2NjI1MH0.moNeSzhjYHGf9DBb3pWwQ_AxiIp0xxeOkV1jaXmAKjg';
+// Power Automate HTTP trigger — leave empty to disable PM notifications
+const NOTIFY_WEBHOOK_URL = '';
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 // ── ONSITE CAPACITY ───────────────────────────────
@@ -2821,6 +2823,7 @@ async function doReview(id, status) {
       reviewed_at: new Date().toISOString(),
     }).eq('id', id);
     if (error) throw error;
+    notifyPM(requests.find(r => String(r.id) === String(id)), [], status);
     closeRequestReview();
     showToast(status === 'Approved' ? 'Approved. Remember to add to production master.' : 'Request rejected.', 'ok');
   } catch(e) {
@@ -2932,12 +2935,42 @@ async function doSystemReview(sysId, reqId, status, rejNotes = null, sugStart = 
   }
 }
 
+async function notifyPM(req, systems, finalStatus) {
+  if (!NOTIFY_WEBHOOK_URL || !req?.project_manager) return;
+  try {
+    await fetch(NOTIFY_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to:            req.project_manager,
+        project_name:  req.project_name  || '',
+        seqf:          req.seqf          || '',
+        client_name:   req.client_name   || '',
+        site_location: req.site_location || '',
+        final_status:  finalStatus,
+        urgent:        req.urgent || false,
+        reviewed_by:   currentUser?.email || '',
+        systems: (systems || []).map(s => ({
+          system_room_name: s.system_room_name || '',
+          rack_type:        s.rack_type        || '',
+          requested_start:  s.requested_start  || '',
+          requested_end:    s.requested_end    || '',
+          system_status:    s.system_status    || '',
+          review_notes:     s.review_notes     || '',
+          suggested_start:  s.suggested_start  || '',
+          suggested_end:    s.suggested_end    || '',
+        })),
+      }),
+    });
+  } catch {}
+}
+
 window.processDecisions = async function(reqId) {
   const btn = document.getElementById('processBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; }
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/request_systems?request_id=eq.${reqId}&select=system_status`,
+      `${SUPABASE_URL}/rest/v1/request_systems?request_id=eq.${reqId}&select=id,system_room_name,rack_type,requested_start,requested_end,system_status,review_notes,suggested_start,suggested_end`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -2954,6 +2987,7 @@ window.processDecisions = async function(reqId) {
       reviewed_at:    new Date().toISOString(),
     }).eq('id', reqId);
     if (error) throw error;
+    notifyPM(requests.find(r => String(r.id) === String(reqId)), sysList, finalStatus);
     closeRequestReview();
     showToast(
       finalStatus === 'Approved'
