@@ -135,6 +135,26 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .sys-weekend-warn { display:none; margin-top:.38rem; font-size:.72rem; color:var(--amber); background:var(--amber-dim); border:1px solid rgba(245,158,11,.3); border-radius:var(--radius); padding:.28rem .6rem; }
 #weekendBanner { font-size:.78rem; border-radius:var(--radius); padding:.5rem .75rem; line-height:1.45; margin-bottom:.3rem; }
 
+/* ── STATUS VIEW ── */
+.status-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1.25rem 1.5rem; margin-bottom:1rem; }
+.status-meta { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:.45rem .85rem; margin-bottom:1rem; }
+.status-lbl { font-size:.6rem; font-weight:500; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:.12rem; }
+.status-val { font-size:.82rem; color:var(--text); }
+.sb { display:inline-flex; align-items:center; font-size:.7rem; font-weight:600; padding:.18rem .55rem; border-radius:10px; white-space:nowrap; }
+.sb-pending  { background:var(--amber-dim); color:var(--amber); border:1px solid rgba(245,158,11,.3); }
+.sb-approved { background:var(--green-dim); color:var(--green); border:1px solid rgba(16,185,129,.3); }
+.sb-rejected { background:var(--red-dim); color:var(--red); border:1px solid rgba(239,68,68,.3); }
+.sb-removed  { background:var(--bg3); color:var(--text3); border:1px solid var(--border2); }
+.sys-sr { background:var(--bg3); border:1px solid var(--border); border-left:3px solid var(--border2); border-radius:var(--radius); padding:.85rem 1rem; margin-bottom:.5rem; }
+.sys-sr.dec-approved { border-left-color:var(--green); }
+.sys-sr.dec-rejected { border-left-color:var(--red); }
+.sys-sr.dec-pending  { border-left-color:var(--amber); }
+.sys-sr.dec-removed  { opacity:.5; }
+.suggest-box { background:rgba(122,184,0,.07); border:1px solid rgba(122,184,0,.22); border-radius:var(--radius); padding:.55rem .75rem; margin-top:.5rem; font-size:.78rem; color:var(--text2); line-height:1.55; }
+.propose-panel { display:none; background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius); padding:.65rem .85rem; margin-top:.5rem; }
+.propose-panel.open { display:block; }
+.status-act-bar { display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.6rem; }
+
 @media (max-width:640px) {
   .req-form-grid { grid-template-columns:1fr; }
   .req-form-field.full { grid-column:1; }
@@ -180,7 +200,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
     </div>
   </div>
 
-  <div style="font-size:.83rem;color:var(--text2);line-height:1.65;margin-bottom:1.25rem">
+  <div id="introText" style="font-size:.83rem;color:var(--text2);line-height:1.65;margin-bottom:1.25rem">
     Select available dates on the calendar, add your systems below, then submit. The build team will review and confirm or reject the request.
   </div>
 
@@ -220,6 +240,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
     <div style="margin-top:1.1rem;display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-ghost" onclick="resetForm()">Submit another request</button>
     </div>
+  </div>
+
+  <div id="statusView" style="display:none">
+    <div id="statusContent"></div>
   </div>
 
   <div id="formWrap">
@@ -338,6 +362,8 @@ let systems   = [];
 let nextSysId = 1;
 let sameDates = false;
 
+const _statusReqId = new URLSearchParams(location.search).get('id');
+
 // ── HELPERS ──────────────────────────────────────
 const toDay = d => new Date(d + 'T00:00:00');
 function addDays(dateStr, n) { const d = toDay(dateStr); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); }
@@ -354,6 +380,16 @@ function showFieldError(msg) {
   el.textContent = msg; el.style.display = '';
   clearTimeout(showFieldError._t);
   showFieldError._t = setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function showToast(msg, type) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = `toast${type === 'error' ? ' toast-error' : type === 'ok' ? ' toast-ok' : ''}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
 }
 
 function setConn(state, msg) {
@@ -884,27 +920,222 @@ window.resetForm = function() {
   renderCalendar();
 };
 
-// ── INIT ─────────────────────────────────────────
-document.getElementById('calendar')?.addEventListener('scroll', () => requestAnimationFrame(updateCalNav), { passive: true });
-loadCapacity();
-(function() {
-  const md = getMinDate();
-  const s = document.getElementById('sd_start');
-  const e = document.getElementById('sd_end');
-  if (s) s.min = md;
-  if (e) e.min = md;
-  const lbl = document.getElementById('minDateLabel');
-  if (lbl) lbl.textContent = fmtMed(md);
-}());
-systems = [makeSys()];
-renderSystems();
+// ── STATUS VIEW ──────────────────────────────────
+function initStatusMode() {
+  document.getElementById('formWrap').style.display     = 'none';
+  document.getElementById('successPanel').style.display = 'none';
+  document.getElementById('introText').style.display    = 'none';
+  document.getElementById('statusView').style.display   = '';
+  const cal = document.querySelector('.cal-scroll-wrap');
+  const leg = document.querySelector('.legend-bar');
+  if (cal) cal.style.display = 'none';
+  if (leg) leg.style.display = 'none';
+  const hTitle = document.querySelector('.header-title');
+  const hSub   = document.querySelector('.header-sub');
+  if (hTitle) hTitle.textContent = 'Request Status';
+  if (hSub)   hSub.textContent   = 'View & respond to decisions';
+}
 
+async function loadStatusView(reqId) {
+  setConn('loading', 'Loading request…');
+  const content = document.getElementById('statusContent');
+  if (!content) return;
+  content.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3);font-size:.85rem">Loading…</div>';
+  try {
+    const h = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
+    const [reqRes, sysRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/requests?id=eq.${reqId}&select=*&limit=1`, { headers: h }),
+      fetch(`${SUPABASE_URL}/rest/v1/request_systems?request_id=eq.${reqId}&select=*&order=id.asc`, { headers: h }),
+    ]);
+    if (!reqRes.ok) throw new Error(`HTTP ${reqRes.status}`);
+    const reqList = await reqRes.json() || [];
+    if (!reqList.length) {
+      content.innerHTML = `<div class="status-card" style="text-align:center;color:var(--text3);padding:2.5rem 1rem">Request not found — please check the link in your email.</div>`;
+      setConn('err', 'Request not found');
+      return;
+    }
+    const req     = reqList[0];
+    const systems = sysRes.ok ? (await sysRes.json() || []) : [];
+    setConn('ok', 'Connected');
+    renderStatusView(req, systems);
+  } catch(e) {
+    setConn('err', e.message);
+    content.innerHTML = `<div class="status-card" style="color:var(--red);padding:1rem">⚠ Could not load: ${escH(e.message)}</div>`;
+  }
+}
+window.loadStatusView = loadStatusView;
+
+function renderStatusView(req, systems) {
+  const content   = document.getElementById('statusContent');
+  const st        = req.request_status || 'Pending';
+  const stBadge   = { Approved:'sb-approved', Scheduled:'sb-approved', Rejected:'sb-rejected' }[st] || 'sb-pending';
+  const fld = (label, val) => val
+    ? `<div><div class="status-lbl">${escH(label)}</div><div class="status-val">${escH(String(val))}</div></div>`
+    : '';
+
+  const sysRows = systems.map(s => {
+    const dec      = s.system_status || 'Pending';
+    const decCls   = { Approved:'dec-approved', Scheduled:'dec-approved', Rejected:'dec-rejected', Removed:'dec-removed' }[dec] || 'dec-pending';
+    const decBadge = { Approved:'sb-approved', Scheduled:'sb-approved', Rejected:'sb-rejected', Removed:'sb-removed' }[dec] || 'sb-pending';
+
+    const rejNote = dec === 'Rejected' && s.review_notes
+      ? `<div style="margin-top:.4rem;font-size:.75rem;color:var(--red);background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:var(--radius);padding:.35rem .55rem;line-height:1.45">${escH(s.review_notes)}</div>`
+      : '';
+
+    const hasSuggested = dec === 'Rejected' && s.suggested_start && s.suggested_end;
+    const suggestBox = hasSuggested
+      ? `<div class="suggest-box"><span style="font-weight:600;color:var(--blue)">Alternative suggested: </span>${fmtMed(s.suggested_start)} → ${fmtMed(s.suggested_end)}</div>`
+      : '';
+
+    const sid  = escH(String(s.id));
+    const rid  = escH(String(req.id));
+    const ss   = escH(s.suggested_start || '');
+    const se   = escH(s.suggested_end   || '');
+    const actions = dec === 'Rejected' ? `
+      <div class="status-act-bar">
+        ${hasSuggested ? `<button class="btn btn-primary btn-sm" data-sstart="${ss}" data-send="${se}" onclick="acceptSuggested('${sid}','${rid}',this)">✓ Accept suggested dates</button>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="togglePropose('${sid}')">Propose new dates</button>
+        <button class="btn btn-ghost btn-sm" style="border-color:var(--red);color:var(--red)" onclick="cancelSystem('${sid}','${rid}')">Remove this system</button>
+      </div>
+      <div class="propose-panel" id="propose-${sid}">
+        <div style="font-size:.72rem;font-weight:500;color:var(--text2);margin-bottom:.45rem">Propose new dates for this system:</div>
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+          <input type="date" id="ps-${sid}" class="req-form-input" style="width:140px" min="${getMinDate()}">
+          <span style="color:var(--text3);font-size:.75rem">→</span>
+          <input type="date" id="pe-${sid}" class="req-form-input" style="width:140px">
+        </div>
+        <div style="display:flex;gap:.4rem">
+          <button class="btn btn-primary btn-sm" onclick="confirmPropose('${sid}','${rid}')">Submit new dates</button>
+          <button class="btn btn-ghost btn-sm" onclick="togglePropose('${sid}')">Cancel</button>
+        </div>
+      </div>` : '';
+
+    return `<div class="sys-sr ${decCls}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;flex-wrap:wrap">
+        <div>
+          <span style="font-weight:500;font-size:.82rem;color:var(--text)">${escH(s.system_room_name || '—')}</span>
+          ${s.rack_type ? `<span style="font-size:.72rem;color:var(--text3);margin-left:.4rem">${escH(s.rack_type)}</span>` : ''}
+        </div>
+        <span class="sb ${decBadge}">${escH(dec)}</span>
+      </div>
+      <div style="font-size:.75rem;color:var(--text3);font-family:var(--mono);margin-top:.25rem">${fmtMed(s.requested_start)} → ${fmtMed(s.requested_end)}</div>
+      ${rejNote}${suggestBox}${actions}
+    </div>`;
+  }).join('');
+
+  const hasActionable = systems.some(s => (s.system_status || 'Pending') === 'Rejected');
+  const infoNote = hasActionable
+    ? `<div style="font-size:.78rem;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .75rem;margin-bottom:.85rem;line-height:1.5">
+        One or more systems were rejected. Accept the suggested dates, propose your own, or remove the system. Any change puts the request back in the review queue.
+      </div>` : '';
+
+  content.innerHTML = `
+    <div class="status-card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;margin-bottom:.85rem;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:600;font-size:1rem;color:var(--text);margin-bottom:.2rem">${escH(req.project_name || '—')}</div>
+          ${req.seqf ? `<div style="font-size:.72rem;color:var(--text3);font-family:var(--mono)">${escH(req.seqf)}</div>` : ''}
+        </div>
+        <span class="sb ${stBadge}">${escH(st)}</span>
+      </div>
+      <div class="status-meta">
+        ${fld('Client', req.client_name)}
+        ${fld('Site', req.site_location)}
+        ${fld('Project Manager', req.project_manager)}
+        ${req.created_at ? fld('Submitted', fmtMed(req.created_at.slice(0, 10))) : ''}
+        ${req.reviewed_by ? fld('Reviewed by', req.reviewed_by) : ''}
+      </div>
+      ${req.scope ? `<div style="font-size:.78rem;color:var(--text2);line-height:1.55;padding-top:.75rem;border-top:1px solid var(--border)">${escH(req.scope)}</div>` : ''}
+    </div>
+    ${infoNote}
+    <div style="font-size:.68rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.45rem">Systems (${systems.length})</div>
+    ${sysRows || '<div style="color:var(--text3);font-size:.83rem;padding:.5rem 0">No systems found.</div>'}
+    <div style="margin-top:1rem">
+      <button class="btn btn-ghost btn-sm" onclick="loadStatusView('${escH(String(req.id))}')">↻ Refresh</button>
+    </div>`;
+}
+
+window.acceptSuggested = async function(sysId, reqId, btn) {
+  const start = btn?.dataset?.sstart;
+  const end   = btn?.dataset?.send;
+  if (!start || !end) { showToast('No suggested dates found.', 'error'); return; }
+  await doSystemUpdate(sysId, reqId, {
+    requested_start: start, requested_end: end,
+    suggested_start: null, suggested_end: null,
+    system_status: 'Pending', review_notes: null,
+    reviewed_by: null, reviewed_at: null,
+  });
+};
+
+window.togglePropose = function(sysId) {
+  const panel = document.getElementById(`propose-${sysId}`);
+  if (panel) panel.classList.toggle('open');
+};
+
+window.confirmPropose = async function(sysId, reqId) {
+  const start = document.getElementById(`ps-${sysId}`)?.value;
+  const end   = document.getElementById(`pe-${sysId}`)?.value;
+  if (!start || !end) { showToast('Enter both start and end dates.', 'error'); return; }
+  if (end < start)    { showToast('End must be on or after start.', 'error'); return; }
+  if (start < getMinDate()) { showToast('Dates must be at least 30 days from today.', 'error'); return; }
+  await doSystemUpdate(sysId, reqId, {
+    requested_start: start, requested_end: end,
+    suggested_start: null, suggested_end: null,
+    system_status: 'Pending', review_notes: null,
+    reviewed_by: null, reviewed_at: null,
+  });
+};
+
+window.cancelSystem = async function(sysId, reqId) {
+  if (!confirm('Remove this system from the request? This cannot be undone.')) return;
+  await doSystemUpdate(sysId, reqId, { system_status: 'Removed' });
+};
+
+async function doSystemUpdate(sysId, reqId, updates) {
+  try {
+    const { error: sysErr } = await supabase.from('request_systems').update(updates).eq('id', sysId);
+    if (sysErr) throw sysErr;
+    // Re-fetch all systems to recalculate parent status
+    const h = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
+    const sysRes = await fetch(`${SUPABASE_URL}/rest/v1/request_systems?request_id=eq.${reqId}&select=system_status`, { headers: h });
+    const allSys = sysRes.ok ? (await sysRes.json() || []) : [];
+    const hasPending  = allSys.some(s => !s.system_status || s.system_status === 'Pending');
+    const hasApproved = allSys.some(s => s.system_status === 'Approved' || s.system_status === 'Scheduled');
+    const newStatus   = hasPending ? 'Pending' : hasApproved ? 'Approved' : 'Rejected';
+    const { error: reqErr } = await supabase.from('requests').update({ request_status: newStatus }).eq('id', reqId);
+    if (reqErr) throw reqErr;
+    showToast('Saved — request is back in the review queue.', 'ok');
+    loadStatusView(reqId);
+  } catch(e) {
+    showToast(`Failed: ${e.message}`, 'error');
+  }
+}
+
+// ── INIT ─────────────────────────────────────────
+if (_statusReqId) {
+  initStatusMode();
+} else {
+  document.getElementById('calendar')?.addEventListener('scroll', () => requestAnimationFrame(updateCalNav), { passive: true });
+  loadCapacity();
+  (function() {
+    const md = getMinDate();
+    const s = document.getElementById('sd_start');
+    const e = document.getElementById('sd_end');
+    if (s) s.min = md;
+    if (e) e.min = md;
+    const lbl = document.getElementById('minDateLabel');
+    if (lbl) lbl.textContent = fmtMed(md);
+  }());
+  systems = [makeSys()];
+  renderSystems();
+}
 try {
   supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: false },
     realtime: { timeout: 10000 },
   });
-  loadData();
+  if (_statusReqId) loadStatusView(_statusReqId);
+  else loadData();
 } catch(e) {
   setConn('err', `Init failed: ${e.message}`);
 }

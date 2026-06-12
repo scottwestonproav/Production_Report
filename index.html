@@ -2950,6 +2950,7 @@ async function notifyPM(req, systems, finalStatus) {
         final_status:  finalStatus,
         urgent:        req.urgent || false,
         reviewed_by:   currentUser?.email || '',
+        request_url:   `${window.location.href.replace(/[^/]*$/, '')}request.html?id=${req.id}`,
         systems: (systems || []).map(s => ({
           system_room_name: s.system_room_name || '',
           rack_type:        s.rack_type        || '',
