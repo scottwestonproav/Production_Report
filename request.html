@@ -1000,9 +1000,9 @@ function renderStatusView(req, systems) {
       <div class="propose-panel" id="propose-${sid}">
         <div style="font-size:.72rem;font-weight:500;color:var(--text2);margin-bottom:.45rem">Propose new dates for this system:</div>
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
-          <input type="date" id="ps-${sid}" class="req-form-input" style="width:140px" min="${getMinDate()}">
+          <input type="date" id="ps-${sid}" class="req-form-input" style="width:140px" min="${getMinDate()}" oninput="document.getElementById('pe-${sid}').min=this.value||'${getMinDate()}'">
           <span style="color:var(--text3);font-size:.75rem">→</span>
-          <input type="date" id="pe-${sid}" class="req-form-input" style="width:140px">
+          <input type="date" id="pe-${sid}" class="req-form-input" style="width:140px" min="${getMinDate()}">
         </div>
         <div style="display:flex;gap:.4rem">
           <button class="btn btn-primary btn-sm" onclick="confirmPropose('${sid}','${rid}')">Submit new dates</button>
@@ -1134,8 +1134,15 @@ try {
     auth: { persistSession: false },
     realtime: { timeout: 10000 },
   });
-  if (_statusReqId) loadStatusView(_statusReqId);
-  else loadData();
+  if (_statusReqId) {
+    loadStatusView(_statusReqId);
+    supabase.channel('status-rt')
+      .on('postgres_changes', {event:'*',schema:'public',table:'requests'}, () => loadStatusView(_statusReqId))
+      .on('postgres_changes', {event:'*',schema:'public',table:'request_systems'}, () => loadStatusView(_statusReqId))
+      .subscribe();
+  } else {
+    loadData();
+  }
 } catch(e) {
   setConn('err', `Init failed: ${e.message}`);
 }

@@ -2823,6 +2823,14 @@ async function doReview(id, status) {
       reviewed_at: new Date().toISOString(),
     }).eq('id', id);
     if (error) throw error;
+    if (status === 'Rejected') {
+      await supabase.from('request_systems').update({
+        system_status: 'Rejected',
+        review_notes:  notes || 'Whole request rejected.',
+        reviewed_by:   currentUser?.email || null,
+        reviewed_at:   new Date().toISOString(),
+      }).eq('request_id', id);
+    }
     notifyPM(requests.find(r => String(r.id) === String(id)), [], status);
     closeRequestReview();
     showToast(status === 'Approved' ? 'Approved. Remember to add to production master.' : 'Request rejected.', 'ok');
