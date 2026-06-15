@@ -58,22 +58,39 @@ Confirm requested_start/requested_end reuse is correct, vs adding dedicated
 agreed_start/agreed_end columns. requested_* reuse is preferred for v1 (no
 schema or downstream changes). PLACEHOLDER — to be confirmed.
 
-## Pushing it into Excel — re-fire the sync (Q4, OPEN — confirm before building)
-After the row update succeeds, the system is system_status=Approved but nothing
-has re-triggered the Excel sync (processDecisions already ran for this request
-earlier and is not involved here). The accept handler must explicitly re-fire
-the same sync processDecisions uses for approved systems.
+## Q4 (RESOLVED): How the accepted system reaches Excel
 
-PLACEHOLDER — pending investigation of processDecisions' sync POST:
-  - which flow URL it posts to (same as APPROVAL_EMAIL_FLOW_URL or a separate
-    sync flow URL)
-  - the exact payload shape
-  - whether it's per-request or per-system, and whether it carries request_id +
-    per-system id
-  - whether a re-fire is idempotent (dedupe via RequestSystemID) or would
-    duplicate already-synced rows
-Reuse the existing endpoint and payload shape — do NOT invent a new URL. Fill
-this section in once the investigation findings are confirmed.
+The Supabase->Excel sync is the `request_approved_to_excel` flow, fired by a
+Supabase webhook on UPDATE to the requests (parent) table. It has a TRANSITION
+GUARD: it only runs when request_status crosses INTO 'Approved'
+(record.request_status == 'Approved' AND old_record.request_status != 'Approved'),
+then immediately PATCHes the request to 'Scheduled'. It GETs ALL approved systems
+for the request and appends them to Excel via the Append_Approved_Requests Office
+Script, then triggers the tasks-sync.
+
+Therefore the accept handler must:
+1. Update the child request_systems row (status Approved, suggested->requested
+   dates, reviewed_by = PM email, reviewed_at = now, clear suggested_*).
+2. Update the parent requests row to request_status = 'Approved'. This trips the
+   transition guard and fires the sync. (The flow flips it back to 'Scheduled'
+   itself; do not manage that.) Note the parent is normally sitting at 'Scheduled'
+   after the original approval, so Scheduled->Approved correctly trips the guard.
+3. POST the confirmation email to APPROVAL_EMAIL_FLOW_URL (final_status Approved,
+   single-system systems array, to = current `to`/PM email).
+
+PREREQUISITE (now satisfied): Append_Approved_Requests must dedupe on
+RequestSystemID so the re-fire's GET (which returns ALL approved systems, not
+just the new one) does not duplicate already-synced rows. The script has been
+updated to skip any system whose RequestSystemID is already in the
+ProductionReport table. Without this, a PM-accept on a mixed request would
+duplicate the originally-approved systems in Excel and in tasks.
+
+This makes the accept handler safe for both cases:
+- All-rejected request -> accept one: parent Rejected->Approved, guard fires,
+  GET returns the one system, appended once.
+- Mixed request -> accept a previously-rejected system: parent Scheduled->
+  Approved, guard fires, GET returns all approved, dedupe skips the already-synced
+  ones, only the newly-accepted system is appended.
 
 ## After accept — UI feedback
 - Replace the button with a confirmation state ("Dates accepted — scheduled")
