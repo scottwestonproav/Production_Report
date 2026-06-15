@@ -699,6 +699,7 @@ let tasks     = [];
 let visibleTasks = [];
 let currentView        = 'gantt'; // 'gantt' | 'onsite'
 let _deepLinkReqId     = null;   // ?request=<uuid> URL param
+let _deepLinkSysId     = null;   // ?system=<id> URL param
 let _deepLinkDone      = false;  // true once scroll+highlight has fired
 let onsiteSettings     = loadOnsiteSettings(); // { engineerCapacity, defaultDays, daysPerType }
 let onsiteSettingsOpen = false;
@@ -820,9 +821,10 @@ if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
     loadTasks();
     loadLeaveData();
     loadRequests();
-    // URL deep-link: ?view=onsite switches view; ?request=<uuid> highlights a request row
+    // URL deep-link: ?view=onsite switches view; ?request=<uuid> highlights a request row; ?system=<id> auto-opens that request's modal
     const _urlP = new URLSearchParams(window.location.search);
     if (_urlP.get('request')) _deepLinkReqId = _urlP.get('request');
+    if (_urlP.get('system'))  _deepLinkSysId = _urlP.get('system');
   } catch(initErr) {
     setConn('err', `Client init failed: ${initErr.message}`);
   }
@@ -2359,6 +2361,7 @@ function renderOnsiteView() {
       _deepLinkDone = true;
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       el.classList.add('req-row-hl');
+      if (_deepLinkSysId) openRequestReview(_deepLinkReqId);
     }
   }
 }
@@ -2719,7 +2722,7 @@ window.openRequestReview = async function(id) {
       const canActOnSys = canReview && st !== 'Completed' && st !== 'Removed';
       const rejInfo = st === 'Rejected' ? [
         s.review_notes ? `<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:var(--radius);padding:.35rem .55rem;margin-top:.3rem;font-size:.75rem;color:#f08080;line-height:1.45">${escH(s.review_notes)}</div>` : '',
-        (s.suggested_start && s.suggested_end) ? `<div style="background:var(--amber-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:.35rem .55rem;margin-top:.25rem;font-size:.75rem;color:var(--amber);font-weight:500">Suggested alternative: ${fmtShort(s.suggested_start)} – ${fmtShort(s.suggested_end)}</div>` : '',
+        (s.suggested_start && s.suggested_end) ? `<div style="background:var(--amber-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:.35rem .55rem;margin-top:.25rem;font-size:.75rem;color:var(--amber);font-weight:500">Suggested alternative: ${fmtShort(s.suggested_start)} – ${fmtShort(s.suggested_end)}<div style="margin-top:.4rem"><button id="accept-${s.id}" class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;border-color:var(--amber);color:var(--amber)" onclick="pmAcceptSuggestedDates('${s.id}','${id}','${s.suggested_start}','${s.suggested_end}')">✓ Accept suggested dates</button></div></div>` : '',
       ].filter(Boolean).join('') : '';
       const btns = canActOnSys ? `
         <div id="sysbtns-${s.id}" style="display:flex;gap:.4rem;margin-top:.45rem;flex-wrap:wrap">
@@ -2741,7 +2744,7 @@ window.openRequestReview = async function(id) {
           </div>
         </div>` : '';
       return `
-        <div class="sys-review-row">
+        <div id="sys-row-${s.id}" class="sys-review-row">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;flex-wrap:wrap">
             <div>
               <span style="font-weight:500;font-size:.8rem;color:var(--text)">${escH(s.system_room_name||'—')}</span>
@@ -2805,6 +2808,10 @@ window.openRequestReview = async function(id) {
       </div>
     </div>` : ''}
     ${needsSignIn ? `<div style="border-top:1px solid var(--border);padding-top:.85rem;margin-top:.5rem"><button class="btn btn-ghost" style="font-size:.75rem;padding:.3rem .7rem" onclick="closeRequestReview();openSignIn()">Sign in to review</button></div>` : ''}`;
+  if (_deepLinkSysId) {
+    const sysEl = document.getElementById(`sys-row-${_deepLinkSysId}`);
+    if (sysEl) sysEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 };
 window.closeRequestReview = function() { document.getElementById('requestReviewModal').style.display = 'none'; };
 
@@ -2942,6 +2949,77 @@ async function doSystemReview(sysId, reqId, status, rejNotes = null, sugStart = 
     showToast(`Update failed: ${e.message}`, 'error');
   }
 }
+
+window.pmAcceptSuggestedDates = async function(sysId, reqId, sugStart, sugEnd) {
+  const btn = document.getElementById(`accept-${sysId}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Accepting…'; }
+  try {
+    const req = requests.find(r => String(r.id) === String(reqId));
+    // reviewed_by: PM email from the request's project_manager field (no sign-in required on this path)
+    const pmEmail = req?.project_manager || 'PM (email link)';
+
+    // 1. Update child request_systems row: approve with suggested dates, clear suggested_*
+    const { error: sysErr } = await supabase.from('request_systems').update({
+      system_status:   'Approved',
+      requested_start: sugStart,
+      requested_end:   sugEnd,
+      reviewed_by:     pmEmail,
+      reviewed_at:     new Date().toISOString(),
+      suggested_start: null,
+      suggested_end:   null,
+    }).eq('id', sysId);
+    if (sysErr) throw sysErr;
+
+    // 2. Flip parent to 'Approved' — trips the Supabase→Excel webhook transition guard,
+    //    which GETs all approved systems and appends them to Excel (the flow resets to 'Scheduled' itself)
+    const { error: reqErr } = await supabase.from('requests').update({
+      request_status: 'Approved',
+    }).eq('id', reqId);
+    if (reqErr) throw reqErr;
+
+    // 3. POST confirmation email to PM with the updated system row
+    if (req && APPROVAL_EMAIL_FLOW_URL) {
+      const sysRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/request_systems?id=eq.${sysId}&select=*`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+      );
+      const [sys] = sysRes.ok ? (await sysRes.json()) : [{}];
+      fetch(APPROVAL_EMAIL_FLOW_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to:            req.project_manager,
+          request_id:    req.id             || '',
+          project_name:  req.project_name  || '',
+          seqf:          req.seqf          || '',
+          client_name:   req.client_name   || '',
+          site_location: req.site_location || '',
+          final_status:  'Approved',
+          urgent:        req.urgent || false,
+          reviewed_by:   pmEmail,
+          request_url:   `${window.location.href.replace(/[^/]*$/, '')}request.html?id=${req.id}`,
+          systems: [{
+            system_id:        sys.id               || sysId,
+            system_room_name: sys.system_room_name || '',
+            rack_type:        sys.rack_type        || '',
+            requested_start:  sys.requested_start  || sugStart,
+            requested_end:    sys.requested_end    || sugEnd,
+            system_status:    'Approved',
+            review_notes:     sys.review_notes     || '',
+            suggested_start:  '',
+            suggested_end:    '',
+          }],
+        }),
+      }).catch(() => {});
+    }
+
+    showToast('Suggested dates accepted — re-queued for Excel sync.', 'ok');
+    await openRequestReview(reqId);
+  } catch(e) {
+    showToast(`Accept failed: ${e.message}`, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Accept suggested dates'; }
+  }
+};
 
 async function notifyPM(req, systems, finalStatus) {
   if (!APPROVAL_EMAIL_FLOW_URL || !req?.project_manager) return;
