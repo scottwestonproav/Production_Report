@@ -2951,6 +2951,7 @@ async function notifyPM(req, systems, finalStatus) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         to:            req.project_manager,
+        request_id:    req.id             || '',
         project_name:  req.project_name  || '',
         seqf:          req.seqf          || '',
         client_name:   req.client_name   || '',
@@ -2960,6 +2961,7 @@ async function notifyPM(req, systems, finalStatus) {
         reviewed_by:   currentUser?.email || '',
         request_url:   `${window.location.href.replace(/[^/]*$/, '')}request.html?id=${req.id}`,
         systems: (systems || []).map(s => ({
+          system_id:        s.id               || '',
           system_room_name: s.system_room_name || '',
           rack_type:        s.rack_type        || '',
           requested_start:  s.requested_start  || '',
