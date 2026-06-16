@@ -2533,7 +2533,11 @@ async function loadCapacityFromDb() {
 async function saveCapacityToDb(cap) {
   if (!supabase) return;
   try {
-    await supabase.from('app_settings').upsert({ id: 1, engineer_capacity: cap });
+    await supabase.from('app_settings').upsert({
+      id: 1,
+      engineer_capacity: cap,
+      engineer_roster: onsiteSettings.engineers,
+    });
   } catch(e) { console.warn('[Settings] could not save capacity to DB:', e.message); }
 }
 

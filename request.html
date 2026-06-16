@@ -352,6 +352,7 @@ let tasks      = [];
 let requests   = [];
 let reqSysData = []; // all request_systems rows (request_id, system_status, requested_start, requested_end)
 let capacity   = 1;
+let roster     = []; // available engineer names from app_settings
 let selStart   = '';
 let selEnd     = '';
 let supabase   = null;
@@ -474,10 +475,24 @@ function effectiveSpan(r) {
 }
 
 function dayState(dateStr) {
-  let confirmed = 0, pending = 0;
-  tasks.forEach(t => {
-    if (t.projStart <= dateStr && t.projEnd >= dateStr) confirmed++;
-  });
+  // Count occupied slots from tasks.
+  // When a roster is set, deduplicate by engineer name so one person on two
+  // overlapping tasks only consumes one slot, and non-roster engineers are ignored.
+  let confirmed = 0;
+  if (roster.length > 0) {
+    const occupied = new Set();
+    tasks.forEach(t => {
+      if (t.projStart > dateStr || t.projEnd < dateStr) return;
+      if (roster.includes(t.wireman)) occupied.add(t.wireman);
+    });
+    confirmed = occupied.size;
+  } else {
+    tasks.forEach(t => {
+      if (t.projStart <= dateStr && t.projEnd >= dateStr) confirmed++;
+    });
+  }
+
+  let pending = 0;
   requests.forEach(r => {
     const span = effectiveSpan(r);
     if (!span || span.start > dateStr || span.end < dateStr) return;
@@ -758,7 +773,7 @@ async function loadData() {
       fetch(`${SUPABASE_URL}/rest/v1/tasks?select=id,status,wireman,rack_build_start,rack_build_end`, { headers:h }),
       fetch(`${SUPABASE_URL}/rest/v1/requests?select=id,requested_start,requested_end,request_status,urgent`, { headers:h }),
       fetch(`${SUPABASE_URL}/rest/v1/request_systems?select=request_id,system_status,requested_start,requested_end`, { headers:h }),
-      fetch(`${SUPABASE_URL}/rest/v1/app_settings?id=eq.1&select=engineer_capacity`, { headers:h }),
+      fetch(`${SUPABASE_URL}/rest/v1/app_settings?id=eq.1&select=engineer_capacity,engineer_roster`, { headers:h }),
     ]);
     if (!tr.ok) throw new Error(`Tasks HTTP ${tr.status}`);
     if (!rr.ok) throw new Error(`Requests HTTP ${rr.status}`);
@@ -778,6 +793,7 @@ async function loadData() {
     if (settRes.ok) {
       const settData = await settRes.json();
       if (settData?.[0]?.engineer_capacity) capacity = Math.max(1, settData[0].engineer_capacity);
+      if (Array.isArray(settData?.[0]?.engineer_roster)) roster = settData[0].engineer_roster;
     }
     setConn('ok', `Connected · ${tasks.length} onsite build${tasks.length!==1?'s':''} loaded`);
     renderCalendar();
