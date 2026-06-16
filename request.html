@@ -558,22 +558,38 @@ function dayHasUrgent(dateStr) {
 }
 
 // ── CALENDAR ─────────────────────────────────────
+function getFirstAvailableDate() {
+  const minDate = getMinDate();
+  const weekendsBlocked = localStorage.getItem(WEEKEND_POLICY_KEY) !== 'true';
+  let d = toDay(minDate);
+  for (let i = 0; i < 180; i++) {
+    const dow = d.getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    if (!isWeekend || !weekendsBlocked) {
+      if (dayState(fmtISO(d)) === 'available') return fmtISO(d);
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return minDate;
+}
+
 function renderCalendar() {
   const cal = document.getElementById('calendar');
   if (!cal) return;
   const today = new Date();
-  cal.innerHTML = [0,1,2,3,4,5].map(o => renderMonth(new Date(today.getFullYear(), today.getMonth()+o, 1))).join('');
+  const firstAvail = getFirstAvailableDate();
+  cal.innerHTML = [0,1,2,3,4,5].map(o => renderMonth(new Date(today.getFullYear(), today.getMonth()+o, 1), firstAvail)).join('');
   setTimeout(updateCalNav, 0);
 }
 
-function renderMonth(monthDate) {
+function renderMonth(monthDate, firstAvail) {
   const year  = monthDate.getFullYear();
   const month = monthDate.getMonth();
   const name  = monthDate.toLocaleString('en-GB', { month:'long', year:'numeric' });
   const days  = new Date(year, month+1, 0).getDate();
   const firstDow = new Date(year, month, 1).getDay();
   const offset   = firstDow === 0 ? 6 : firstDow - 1;
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = fmtISO(new Date());
   const minDate  = getMinDate();
 
   const weekendsBlocked = localStorage.getItem(WEEKEND_POLICY_KEY) !== 'true';
@@ -596,7 +612,7 @@ function renderMonth(monthDate) {
     if (isToday) cls += ' cal-today';
     let title;
     if (isWkBlocked)              title = 'Weekends are not available';
-    else if (isLocked)            title = `Available from ${toDay(minDate).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+    else if (isLocked)            title = `First available: ${toDay(firstAvail).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
     else if (state==='booked')    title = 'Fully booked';
     else if (state==='tentative') title = isUrgTen ? 'Request pending (includes urgent)' : 'Request pending';
     else if (isPast)              title = '';
