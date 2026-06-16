@@ -2512,9 +2512,9 @@ window.showOnsiteDetail = async function(id) {
 function loadOnsiteSettings() {
   try {
     const s = JSON.parse(localStorage.getItem(ONSITE_CAP_KEY) || 'null');
-    if (s && typeof s === 'object') return { engineerCapacity:1, defaultDays:5, daysPerType:{}, engineers:[], ...s };
+    if (s && typeof s === 'object') return { engineerCapacity:1, defaultDays:5, daysPerType:{}, engineers:[], roster:[], ...s };
   } catch {}
-  return { engineerCapacity:1, defaultDays:5, daysPerType:{}, engineers:[] };
+  return { engineerCapacity:1, defaultDays:5, daysPerType:{}, engineers:[], roster:[] };
 }
 function saveOnsiteSettings() {
   localStorage.setItem(ONSITE_CAP_KEY, JSON.stringify(onsiteSettings));
@@ -2544,31 +2544,45 @@ function renderOnsiteSettingsPanel() {
     tasks.filter(t => t.status === ONSITE_STATUS && t.rack_type).map(t => t.rack_type)
   )].sort();
 
-  // Build engineer list from all unique wiremen across tasks + Contractor option
+  // Seed roster on first open from task wiremen; after that the roster is fully managed
   const wiremen = [...new Set(tasks.filter(t => t.wireman).map(t => t.wireman))].sort();
-  const allEngineers = [...wiremen, 'Contractor'];
-
-  // First open: pre-select all current wiremen
-  if (onsiteSettings.engineers.length === 0 && wiremen.length > 0) {
-    onsiteSettings.engineers = [...wiremen];
-    onsiteSettings.engineerCapacity = wiremen.length;
+  if (onsiteSettings.roster.length === 0) {
+    onsiteSettings.roster = [...wiremen, 'Contractor'];
+    if (onsiteSettings.engineers.length === 0)
+      onsiteSettings.engineers = [...wiremen];
+    onsiteSettings.engineerCapacity = onsiteSettings.engineers.length || 1;
     saveOnsiteSettings();
     saveCapacityToDb(onsiteSettings.engineerCapacity);
   }
 
   const cap = onsiteSettings.engineerCapacity;
-  const engineerRows = allEngineers.map(name => {
+  const canEdit = !!currentUser;
+  const engineerRows = onsiteSettings.roster.map(name => {
     const checked = onsiteSettings.engineers.includes(name);
     return `<div class="onsite-settings-field">
       <span class="onsite-settings-label">${escH(name)}</span>
-      <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;flex-shrink:0">
-        <input type="checkbox" ${checked ? 'checked' : ''}
-          style="accent-color:var(--blue);width:14px;height:14px"
-          onchange="toggleOnsiteEngineer('${escH(name)}',this.checked)">
-        <span class="onsite-settings-unit">${checked ? 'Available' : 'Unavailable'}</span>
-      </label>
+      <div style="display:flex;align-items:center;gap:.55rem;flex-shrink:0">
+        <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer">
+          <input type="checkbox" ${checked ? 'checked' : ''}
+            style="accent-color:var(--blue);width:14px;height:14px"
+            onchange="toggleOnsiteEngineer('${escH(name)}',this.checked)">
+          <span class="onsite-settings-unit">${checked ? 'Available' : 'Unavailable'}</span>
+        </label>
+        ${canEdit ? `<button class="btn btn-ghost" title="Remove ${escH(name)}"
+          style="font-size:.65rem;padding:.1rem .4rem;border-color:var(--red);color:var(--red);line-height:1"
+          onclick="removeOnsiteEngineer('${escH(name)}')">✕</button>` : ''}
+      </div>
     </div>`;
   }).join('');
+
+  const addRow = canEdit ? `
+    <div class="onsite-settings-field" style="margin-top:.35rem;gap:.4rem">
+      <input id="newEngineerName" class="req-form-input" type="text" placeholder="Engineer name"
+        style="flex:1;font-size:.75rem;padding:.25rem .5rem;min-width:0"
+        onkeydown="if(event.key==='Enter')addOnsiteEngineer()">
+      <button class="btn btn-ghost" style="font-size:.72rem;padding:.2rem .55rem;flex-shrink:0"
+        onclick="addOnsiteEngineer()">+ Add</button>
+    </div>` : `<div style="font-size:.72rem;color:var(--text3);font-style:italic;margin-top:.3rem">Sign in to add or remove engineers</div>`;
 
   const typeRows = rackTypes.map(rt => `
     <div class="onsite-settings-field">
@@ -2587,6 +2601,7 @@ function renderOnsiteSettingsPanel() {
     </div>
     <div class="onsite-settings-section">Onsite engineers</div>
     ${engineerRows}
+    ${addRow}
     <div class="onsite-settings-field" style="margin-top:.3rem;padding-top:.4rem;border-top:1px solid var(--border)">
       <span class="onsite-settings-label" style="color:var(--text2)">Concurrent capacity</span>
       <span class="onsite-settings-unit" style="color:var(--blue);font-weight:600">${cap} engineer${cap !== 1 ? 's' : ''}</span>
@@ -2642,6 +2657,33 @@ window.toggleOnsiteEngineer = function(name, checked) {
   } else {
     onsiteSettings.engineers = onsiteSettings.engineers.filter(e => e !== name);
   }
+  onsiteSettings.engineerCapacity = Math.max(1, onsiteSettings.engineers.length);
+  saveOnsiteSettings();
+  saveCapacityToDb(onsiteSettings.engineerCapacity);
+  renderOnsiteSettingsPanel();
+  renderOnsiteView();
+};
+
+window.addOnsiteEngineer = function() {
+  if (!currentUser) return;
+  const input = document.getElementById('newEngineerName');
+  const name = input?.value.trim();
+  if (!name) return;
+  if (onsiteSettings.roster.includes(name)) { input.value = ''; return; }
+  onsiteSettings.roster.push(name);
+  onsiteSettings.engineers.push(name);
+  onsiteSettings.engineerCapacity = Math.max(1, onsiteSettings.engineers.length);
+  saveOnsiteSettings();
+  saveCapacityToDb(onsiteSettings.engineerCapacity);
+  renderOnsiteSettingsPanel();
+  renderOnsiteView();
+};
+
+window.removeOnsiteEngineer = function(name) {
+  if (!currentUser) return;
+  if (!confirm(`Remove ${name} from the engineer roster?`)) return;
+  onsiteSettings.roster    = onsiteSettings.roster.filter(e => e !== name);
+  onsiteSettings.engineers = onsiteSettings.engineers.filter(e => e !== name);
   onsiteSettings.engineerCapacity = Math.max(1, onsiteSettings.engineers.length);
   saveOnsiteSettings();
   saveCapacityToDb(onsiteSettings.engineerCapacity);
