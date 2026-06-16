@@ -2421,7 +2421,7 @@ window.switchView = function(view) {
   document.getElementById('onsiteSettingsPanel').style.display  = isGantt ? 'none' : (onsiteSettingsOpen ? '' : 'none');
   document.getElementById('onsiteView').style.display           = isGantt ? 'none' : '';
   const gearBtn = document.getElementById('tabOnsiteSettings');
-  if (gearBtn) gearBtn.style.display = isGantt ? 'none' : '';
+  if (gearBtn) gearBtn.style.display = isGantt ? 'none' : (currentUser ? '' : 'none');
   if (isGantt) { onsiteSettingsOpen = false; if (gearBtn) gearBtn.classList.remove('active'); render(); }
   else renderOnsiteView();
 };
@@ -2951,19 +2951,26 @@ async function doReview(id, status) {
 
 // ── AUTH ──────────────────────────────────────────
 function updateAuthUI() {
-  const userEl = document.getElementById('authUser');
-  const btn    = document.getElementById('authBtn');
+  const userEl  = document.getElementById('authUser');
+  const btn     = document.getElementById('authBtn');
+  const gearBtn = document.getElementById('tabOnsiteSettings');
   if (!userEl || !btn) return;
   if (currentUser) {
     userEl.textContent   = currentUser.email;
     userEl.style.display = '';
     btn.textContent      = 'Sign out';
     btn.onclick          = () => supabase.auth.signOut();
+    // Show gear only when on Onsite view
+    const onOnsite = document.getElementById('onsiteView')?.style.display !== 'none';
+    if (gearBtn) gearBtn.style.display = onOnsite ? '' : 'none';
   } else {
     userEl.textContent   = '';
     userEl.style.display = 'none';
     btn.textContent      = 'Sign in';
     btn.onclick          = openSignIn;
+    // Hide gear and close settings panel on sign-out
+    if (gearBtn) gearBtn.style.display = 'none';
+    if (onsiteSettingsOpen) toggleOnsiteSettings();
   }
 }
 window.openSignIn = function() {
