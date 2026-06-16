@@ -428,15 +428,13 @@ function updateWeekendWarnings() {
     if (btn) btn.disabled = false;
     return;
   }
+  banner.style.cssText = 'display:block;background:var(--amber-dim);border:1px solid rgba(245,158,11,.4);color:var(--amber);font-size:.78rem;border-radius:var(--radius);padding:.5rem .75rem;line-height:1.45;margin-bottom:.3rem';
   if (allowed) {
-    banner.style.cssText = 'display:block;background:var(--amber-dim);border:1px solid rgba(245,158,11,.4);color:var(--amber);font-size:.78rem;border-radius:var(--radius);padding:.5rem .75rem;line-height:1.45;margin-bottom:.3rem';
     banner.textContent = '⚠ Your selected dates include weekend days. The build team will be notified.';
-    if (btn) btn.disabled = false;
   } else {
-    banner.style.cssText = 'display:block;background:var(--red-dim);border:1px solid rgba(239,68,68,.4);color:var(--red);font-size:.78rem;border-radius:var(--radius);padding:.5rem .75rem;line-height:1.45;margin-bottom:.3rem';
-    banner.textContent = '⚠ Weekend dates are not currently permitted. Please adjust your dates to weekdays only.';
-    if (btn) btn.disabled = true;
+    banner.textContent = '⚠ Your date range includes weekend days — these are non-working days and won\'t count toward team capacity.';
   }
+  if (btn) btn.disabled = false;
 }
 
 // ── CAPACITY ─────────────────────────────────────
@@ -722,7 +720,7 @@ function renderSystems() {
             oninput="onSysField(${s.id},'notes',this.value)">
         </div>
       </div>
-      <div class="sys-weekend-warn" data-sys-weekend="${s.id}">⚠ This system's dates include weekend days</div>
+      <div class="sys-weekend-warn" data-sys-weekend="${s.id}">⚠ This date range includes weekend days — these will be treated as non-working days</div>
     </div>`).join('');
   updateWeekendWarnings();
 }
@@ -830,13 +828,8 @@ window.submitForm = async function() {
 
   if (errs.length) { errEl.textContent = errs[0]; errEl.style.display = ''; return; }
 
-  // Weekend policy check
   const weekendsAllowed = localStorage.getItem(WEEKEND_POLICY_KEY) === 'true';
   const anyWeekends     = systems.some(s => s.start && s.end && rangeHasWeekend(s.start, s.end));
-  if (anyWeekends && !weekendsAllowed) {
-    errEl.textContent = 'Weekend dates are not currently permitted — please choose weekday-only dates.';
-    errEl.style.display = ''; return;
-  }
 
   // Compute job span (min start / max end across all systems)
   const jobStart = systems.reduce((m,s) => (!m||s.start<m) ? s.start : m, '');
@@ -872,7 +865,7 @@ window.submitForm = async function() {
         scope:           g('rf_scope').value.trim() || null,
         notes:           g('rf_notes').value.trim() || null,
         urgent:            g('rf_urgent').checked,
-        includes_weekends: anyWeekends,
+        includes_weekends: anyWeekends && weekendsAllowed,
         request_status:    'Pending',
         requested_start: jobStart,
         requested_end:   jobEnd,
