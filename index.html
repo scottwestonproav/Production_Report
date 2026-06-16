@@ -1088,12 +1088,13 @@ function dbToRequest(r) {
 
 // ── DATE UTILS ────────────────────────────────────
 const toDay       = d => new Date(d + 'T00:00:00');
+const fmtISO      = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const daysBetween = (a, b) => Math.round((toDay(b) - toDay(a)) / 864e5);
 const fmtShort    = d => { if (!d) return '—'; const p = d.split('-'); return `${p[2]}/${p[1]}`; };
 const fmtPerson   = e => { if (!e) return ''; const local = e.includes('@') ? e.split('@')[0] : e; return local.split('.').map(w => w.charAt(0).toUpperCase()+w.slice(1)).join(' '); };
 const fmtLong     = d => d ? toDay(d).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—';
 const fmtMonth    = d => d.toLocaleString('en-GB', {month:'short', year:'2-digit'});
-function addDays(d, n) { const x = toDay(d); x.setDate(x.getDate() + n); return x.toISOString().slice(0,10); }
+function addDays(d, n) { const x = toDay(d); x.setDate(x.getDate() + n); return fmtISO(x); }
 
 // Excel serial date → ISO string (handles all formats Excel/XLSX may produce)
 function excelDateToISO(v) {
@@ -1162,7 +1163,7 @@ function getRange() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
   const end   = new Date(now.getFullYear(), now.getMonth() + 2, now.getDate());
-  return { min: start.toISOString().slice(0,10), max: end.toISOString().slice(0,10) };
+  return { min: fmtISO(start), max: fmtISO(end) };
 }
 
 function barPct(start, end, rMin, total) {
@@ -1179,9 +1180,9 @@ function monthTicks(rMin, total) {
   const ticks = []; let cur = toDay(rMin);
   const end = toDay(addDays(rMin, total));
   while (cur <= end) {
-    const off  = daysBetween(rMin, cur.toISOString().slice(0,10));
+    const off  = daysBetween(rMin, fmtISO(cur));
     const next = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
-    const nextOff = Math.min(total, daysBetween(rMin, next.toISOString().slice(0,10)));
+    const nextOff = Math.min(total, daysBetween(rMin, fmtISO(next)));
     ticks.push({ label: fmtMonth(cur), left:(off/total*100).toFixed(2), width:((nextOff-off)/total*100).toFixed(2) });
     cur = next;
   }
@@ -1195,14 +1196,14 @@ const BUILT_STATUSES = new Set(['Ready To Send', 'Test Department Working On Rac
 const SENT_STATUSES  = new Set(['Ready To Send']);
 
 function getConflicts() {
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = fmtISO(new Date());
   const map = {};
   tasks.forEach(t => {
     if (!t.projStart || !t.projEnd) return;
     if (BUILT_STATUSES.has(t.status)) return;
     let d = toDay(t.projStart), e = toDay(t.projEnd);
     while (d <= e) {
-      const k = d.toISOString().slice(0,10);
+      const k = fmtISO(d);
       if (k < todayStr) { d.setDate(d.getDate()+1); continue; } // past days never generate conflicts
       if (!map[k]) map[k] = new Set();
       map[k].add(t.wireman || `__u_${t.id}`);
@@ -1225,7 +1226,7 @@ function taskInConflict(task, conflicts) {
 }
 
 function getTestConflicts() {
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = fmtISO(new Date());
   const map = {};           // day → Set of slot keys
   const projDateCount = {}; // "name|start|end" → system count (for advisory)
 
@@ -1243,7 +1244,7 @@ function getTestConflicts() {
 
     let d = toDay(t.testStart), e = toDay(t.testEnd);
     while (d <= e) {
-      const k = d.toISOString().slice(0,10);
+      const k = fmtISO(d);
       if (k < todayStr) { d.setDate(d.getDate()+1); continue; } // past days never generate conflicts
       if (!map[k]) map[k] = new Set();
       map[k].add(slotKey);
@@ -1498,7 +1499,7 @@ window.render = function() {
   const total2 = Math.max(1, daysBetween(range.min, range.max));
   currentRange = range; currentTotal = total2;
   const ticks      = monthTicks(range.min, total2);
-  const todayStr   = new Date().toISOString().slice(0, 10);
+  const todayStr   = fmtISO(new Date());
   const todayOff   = daysBetween(range.min, todayStr);
   const todayInRange = todayOff >= 0 && todayOff <= total2;
   const todayPct   = (todayOff / total2 * 100).toFixed(3);
@@ -2089,7 +2090,7 @@ function onsiteEngStyle(name) {
 }
 
 function getOnsiteWeeks(extraItems = []) {
-  const today = new Date().toISOString().slice(0,10);
+  const today = fmtISO(new Date());
   const onsiteTasks = tasks.filter(t => t.status === ONSITE_STATUS && t.projStart && t.projEnd);
   let minD = addDays(today, -28), maxD = addDays(today, 112);
   onsiteTasks.forEach(t => {
@@ -2108,9 +2109,9 @@ function getOnsiteWeeks(extraItems = []) {
   const endBound = toDay(addDays(maxD, 7));
   let cur = new Date(startDate);
   while (cur < endBound) {
-    const ws = cur.toISOString().slice(0,10);
+    const ws = fmtISO(cur);
     const we = new Date(cur); we.setDate(we.getDate() + 6);
-    weeks.push({ start: ws, end: we.toISOString().slice(0,10) });
+    weeks.push({ start: ws, end: fmtISO(we) });
     cur.setDate(cur.getDate() + 7);
   }
   return weeks;
