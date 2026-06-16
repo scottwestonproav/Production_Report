@@ -768,13 +768,7 @@ async function loadData() {
         if (t.status === ONSITE_STATUS) return true;
         return t.wireman === ANDREW_NAME && ANDREW_STATUSES.has(t.status);
       })
-      .map(t => {
-        // Extend Andrew's In Build / blank tasks by the slippage buffer
-        if (t.wireman === ANDREW_NAME && t.status !== ONSITE_STATUS) {
-          return { ...t, projEnd: addDays(t.projEnd, ANDREW_BUFFER_AFTER) };
-        }
-        return t;
-      });
+      ;
     requests   = (await rr.json()||[]).map(dbToRequest).filter(r => ['Pending','Approved','Scheduled'].includes(r.request_status));
     reqSysData = sr.ok ? (await sr.json()||[]) : [];
     if (settRes.ok) {
