@@ -348,6 +348,18 @@ const ANDREW_NAME         = 'Andrew Bradley';
 const ANDREW_BUFFER_AFTER = 2; // buffer days added after his build end to absorb slippage
 const ANDREW_STATUSES     = new Set(['In Build', '']); // '' covers null/blank
 
+// Statuses where the engineer's commitment is over — exclude from capacity blocking
+const EXCLUDED_STATUSES = new Set([
+  'Built and waiting testing',
+  'Test Department Working On Rack',
+  'Ready To Send',
+  'Canceled',
+  'DSP Only System',
+  'Loose Kit Systems',
+  'Parked (work stopped on it - build/test)',
+  'On Hold',
+]);
+
 let tasks      = [];
 let requests   = [];
 let reqSysData = []; // all request_systems rows (request_id, system_status, requested_start, requested_end)
@@ -777,9 +789,21 @@ async function loadData() {
     ]);
     if (!tr.ok) throw new Error(`Tasks HTTP ${tr.status}`);
     if (!rr.ok) throw new Error(`Requests HTTP ${rr.status}`);
+
+    // Parse settings before task filtering so roster is ready
+    if (settRes.ok) {
+      const settData = await settRes.json();
+      if (settData?.[0]?.engineer_capacity) capacity = Math.max(1, settData[0].engineer_capacity);
+      if (Array.isArray(settData?.[0]?.engineer_roster)) roster = settData[0].engineer_roster;
+    }
+
     tasks = (await tr.json()||[]).map(dbToTask)
       .filter(t => {
         if (!t.projStart || !t.projEnd) return false;
+        if (EXCLUDED_STATUSES.has(t.status)) return false;
+        // Roster-based: any roster engineer on a non-excluded status blocks those dates
+        if (roster.length > 0) return roster.includes(t.wireman);
+        // Fallback when roster not yet saved to DB
         if (t.status === ONSITE_STATUS) return true;
         return t.wireman === ANDREW_NAME && ANDREW_STATUSES.has(t.status);
       })
@@ -790,11 +814,6 @@ async function loadData() {
       });
     requests   = (await rr.json()||[]).map(dbToRequest).filter(r => ['Pending','Approved','Scheduled'].includes(r.request_status));
     reqSysData = sr.ok ? (await sr.json()||[]) : [];
-    if (settRes.ok) {
-      const settData = await settRes.json();
-      if (settData?.[0]?.engineer_capacity) capacity = Math.max(1, settData[0].engineer_capacity);
-      if (Array.isArray(settData?.[0]?.engineer_roster)) roster = settData[0].engineer_roster;
-    }
     setConn('ok', `Connected · ${tasks.length} onsite build${tasks.length!==1?'s':''} loaded`);
     renderCalendar();
     subscribeRealtime();
