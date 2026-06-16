@@ -366,7 +366,8 @@ const _statusReqId = new URLSearchParams(location.search).get('id');
 
 // ── HELPERS ──────────────────────────────────────
 const toDay = d => new Date(d + 'T00:00:00');
-function addDays(dateStr, n) { const d = toDay(dateStr); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); }
+const fmtISO = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function addDays(dateStr, n) { const d = toDay(dateStr); d.setDate(d.getDate() + n); return fmtISO(d); }
 function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 const fmtMed = d => d ? toDay(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—';
 function getMinDate() {
@@ -845,7 +846,7 @@ window.submitForm = async function() {
   if (jobStart && jobEnd) {
     let cur = toDay(jobStart), endD = toDay(jobEnd);
     while (cur <= endD) {
-      const ds = cur.toISOString().slice(0,10);
+      const ds = fmtISO(cur);
       if (dayState(ds) === 'booked') {
         errEl.textContent = `${fmtMed(ds)} is fully booked — please choose different dates.`;
         errEl.style.display = ''; return;
