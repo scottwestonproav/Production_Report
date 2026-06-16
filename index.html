@@ -821,6 +821,7 @@ if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
     loadTasks();
     loadLeaveData();
     loadRequests();
+    loadCapacityFromDb();
     // URL deep-link: ?view=onsite switches view; ?request=<uuid> highlights a request row; ?system=<id> auto-opens that request's modal
     const _urlP = new URLSearchParams(window.location.search);
     if (_urlP.get('request')) _deepLinkReqId = _urlP.get('request');
@@ -2518,6 +2519,23 @@ function loadOnsiteSettings() {
 function saveOnsiteSettings() {
   localStorage.setItem(ONSITE_CAP_KEY, JSON.stringify(onsiteSettings));
 }
+async function loadCapacityFromDb() {
+  if (!supabase) return;
+  try {
+    const { data } = await supabase.from('app_settings').select('engineer_capacity').eq('id', 1).single();
+    if (data && typeof data.engineer_capacity === 'number') {
+      onsiteSettings.engineerCapacity = Math.max(1, data.engineer_capacity);
+      saveOnsiteSettings();
+      renderOnsiteView();
+    }
+  } catch(e) { console.warn('[Settings] could not load capacity from DB:', e.message); }
+}
+async function saveCapacityToDb(cap) {
+  if (!supabase) return;
+  try {
+    await supabase.from('app_settings').upsert({ id: 1, engineer_capacity: cap });
+  } catch(e) { console.warn('[Settings] could not save capacity to DB:', e.message); }
+}
 
 function renderOnsiteSettingsPanel() {
   const panel = document.getElementById('onsiteSettingsPanel');
@@ -2595,8 +2613,10 @@ window.toggleWeekendsAllowed = function(checked) {
 
 window.onsiteSettingChange = function(key, rawVal) {
   const val = parseFloat(rawVal);
-  if (key === 'cap')          onsiteSettings.engineerCapacity = Math.max(1, isNaN(val) ? 1 : Math.round(val));
-  else if (key === 'default') onsiteSettings.defaultDays      = Math.max(1, isNaN(val) ? 5 : Math.round(val));
+  if (key === 'cap') {
+    onsiteSettings.engineerCapacity = Math.max(1, isNaN(val) ? 1 : Math.round(val));
+    saveCapacityToDb(onsiteSettings.engineerCapacity);
+  } else if (key === 'default') onsiteSettings.defaultDays    = Math.max(1, isNaN(val) ? 5 : Math.round(val));
   else if (key.startsWith('type:')) {
     const type = key.slice(5);
     if (!rawVal || isNaN(val) || val <= 0) delete onsiteSettings.daysPerType[type];

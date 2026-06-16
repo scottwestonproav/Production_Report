@@ -754,10 +754,11 @@ async function loadData() {
   setConn('loading', 'Loading availability…');
   try {
     const h = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
-    const [tr, rr, sr] = await Promise.all([
+    const [tr, rr, sr, settRes] = await Promise.all([
       fetch(`${SUPABASE_URL}/rest/v1/tasks?select=id,status,wireman,rack_build_start,rack_build_end`, { headers:h }),
       fetch(`${SUPABASE_URL}/rest/v1/requests?select=id,requested_start,requested_end,request_status,urgent`, { headers:h }),
       fetch(`${SUPABASE_URL}/rest/v1/request_systems?select=request_id,system_status,requested_start,requested_end`, { headers:h }),
+      fetch(`${SUPABASE_URL}/rest/v1/app_settings?id=eq.1&select=engineer_capacity`, { headers:h }),
     ]);
     if (!tr.ok) throw new Error(`Tasks HTTP ${tr.status}`);
     if (!rr.ok) throw new Error(`Requests HTTP ${rr.status}`);
@@ -776,6 +777,10 @@ async function loadData() {
       });
     requests   = (await rr.json()||[]).map(dbToRequest).filter(r => ['Pending','Approved','Scheduled'].includes(r.request_status));
     reqSysData = sr.ok ? (await sr.json()||[]) : [];
+    if (settRes.ok) {
+      const settData = await settRes.json();
+      if (settData?.[0]?.engineer_capacity) capacity = Math.max(1, settData[0].engineer_capacity);
+    }
     setConn('ok', `Connected · ${tasks.length} onsite build${tasks.length!==1?'s':''} loaded`);
     renderCalendar();
     subscribeRealtime();
