@@ -105,7 +105,7 @@ select:focus { border-color: var(--blue); }
 .table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
 .table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; min-width: 900px; }
-thead th { font-size: .65rem; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; padding: .6rem .75rem; background: var(--bg3); border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; cursor: pointer; user-select: none; }
+thead th { font-size: .65rem; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; padding: .6rem .75rem; background: var(--bg3); border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; cursor: pointer; user-select: none; position: sticky; top: 0; z-index: 3; }
 thead th:hover { color: var(--text2); }
 thead th.sort-asc::after { content: ' ↑'; color: var(--blue); }
 thead th.sort-desc::after { content: ' ↓'; color: var(--blue); }
@@ -312,7 +312,7 @@ tbody tr { cursor: default; }
 .cap-cell-ok  { background: var(--green-dim); color: var(--green); }
 .cap-cell-warn { background: var(--amber-dim); color: var(--amber); }
 .cap-cell-bad { background: var(--red-dim);   color: var(--red); }
-.onsite-row-label { padding: .45rem .75rem; border-right: 1px solid var(--border2); flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: var(--bg2); min-height: 36px; }
+.onsite-row-label { padding: .45rem .75rem; border-right: 1px solid var(--border2); flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: var(--bg2); min-height: 36px; position: sticky; left: 0; z-index: 2; }
 .onsite-task-cell { flex-shrink: 0; display: flex; align-items: center; border-right: 1px solid var(--border); box-sizing: border-box; height: 36px; }
 .onsite-block { height: 12px; display: flex; align-items: center; overflow: hidden; cursor: pointer; transition: filter .15s; box-sizing: border-box; width: 100%; }
 .onsite-block:hover { filter: brightness(1.15); }
@@ -343,7 +343,7 @@ tbody tr { cursor: default; }
 .req-filter-pill.on-Rejected  { background:rgba(239,68,68,.12);  color:var(--red);   border-color:rgba(239,68,68,.3); }
 .req-filter-pill.off { color:var(--text3); border-color:var(--border2); }
 .req-filter-pill.off:hover { color:var(--text2); background:var(--bg2); }
-.req-row-label { padding:.45rem .75rem; border-right:1px solid var(--border2); flex-shrink:0; display:flex; flex-direction:column; justify-content:center; min-height:42px; background:rgba(245,158,11,.04); cursor:pointer; }
+.req-row-label { padding:.45rem .75rem; border-right:1px solid var(--border2); flex-shrink:0; display:flex; flex-direction:column; justify-content:center; min-height:42px; background:rgba(245,158,11,.04); cursor:pointer; position:sticky; left:0; z-index:2; }
 .req-row-label:hover { background:rgba(245,158,11,.10); }
 .req-block-pending  { height:28px; display:flex; align-items:center; overflow:hidden; cursor:pointer; box-sizing:border-box; width:100%; opacity:.5; transition:filter .15s; }
 .req-block-pending:hover  { filter:brightness(1.25); opacity:.75; }
@@ -2347,11 +2347,11 @@ function renderOnsiteView() {
 
   container.innerHTML = `${filterBar}<div class="onsite-view"><div class="onsite-scroll" style="min-width:0">
     <div style="display:flex;min-width:${totalW}px;background:var(--bg3);border-bottom:1px solid var(--border)">
-      <div style="width:${LCOL}px;min-width:${LCOL}px;padding:.4rem .75rem;font-size:.65rem;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-right:1px solid var(--border2)">Project / Engineer / Request</div>
+      <div style="width:${LCOL}px;min-width:${LCOL}px;padding:.4rem .75rem;font-size:.65rem;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);border-right:1px solid var(--border2);position:sticky;left:0;z-index:3;background:var(--bg3)">Project / Engineer / Request</div>
       <div style="display:flex">${weekHdrHtml}</div>
     </div>
     <div style="display:flex;min-width:${totalW}px;background:var(--bg3);border-bottom:1px solid var(--border)">
-      <div style="width:${LCOL}px;min-width:${LCOL}px;padding:.4rem .75rem;font-size:.68rem;color:var(--text2);border-right:1px solid var(--border2)">Capacity (max ${cap} concurrent)</div>
+      <div style="width:${LCOL}px;min-width:${LCOL}px;padding:.4rem .75rem;font-size:.68rem;color:var(--text2);border-right:1px solid var(--border2);position:sticky;left:0;z-index:3;background:var(--bg3)">Capacity (max ${cap} concurrent)</div>
       <div style="display:flex">${capRowHtml}</div>
     </div>
     ${pendingSection}${confirmedSection}
