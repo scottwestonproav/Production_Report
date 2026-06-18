@@ -2523,9 +2523,20 @@ function saveOnsiteSettings() {
 async function loadCapacityFromDb() {
   if (!supabase) return;
   try {
-    const { data } = await supabase.from('app_settings').select('engineer_capacity').eq('id', 1).single();
-    if (data && typeof data.engineer_capacity === 'number') {
-      onsiteSettings.engineerCapacity = Math.max(1, data.engineer_capacity);
+    const { data } = await supabase.from('app_settings').select('engineer_capacity,engineer_roster').eq('id', 1).single();
+    if (data) {
+      if (typeof data.engineer_capacity === 'number')
+        onsiteSettings.engineerCapacity = Math.max(1, data.engineer_capacity);
+      const r = data.engineer_roster;
+      if (r) {
+        if (Array.isArray(r)) {
+          // legacy format: flat array of checked engineers only
+          onsiteSettings.engineers = r;
+        } else if (typeof r === 'object') {
+          if (Array.isArray(r.roster))    onsiteSettings.roster    = r.roster;
+          if (Array.isArray(r.engineers)) onsiteSettings.engineers = r.engineers;
+        }
+      }
       saveOnsiteSettings();
       renderOnsiteView();
     }
@@ -2537,7 +2548,7 @@ async function saveCapacityToDb(cap) {
     await supabase.from('app_settings').upsert({
       id: 1,
       engineer_capacity: cap,
-      engineer_roster: onsiteSettings.engineers,
+      engineer_roster: { roster: onsiteSettings.roster, engineers: onsiteSettings.engineers },
     });
   } catch(e) { console.warn('[Settings] could not save capacity to DB:', e.message); }
 }
