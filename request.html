@@ -198,6 +198,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
         <div class="header-sub">Availability &amp; booking</div>
       </div>
     </div>
+    <button class="btn btn-ghost btn-sm" id="myReqBtn" onclick="enterLookupMode()" style="flex-shrink:0">My Requests</button>
   </div>
 
   <div id="introText" style="font-size:.83rem;color:var(--text2);line-height:1.65;margin-bottom:1.25rem">
@@ -239,6 +240,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
     <div class="success-sub">Your request has been sent to the build team for review.<br>You'll see it appear on the calendar as a pending block shortly.</div>
     <div style="margin-top:1.1rem;display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap">
       <button class="btn btn-ghost" onclick="resetForm()">Submit another request</button>
+      <button class="btn btn-primary" onclick="enterLookupMode()">Check my requests →</button>
     </div>
   </div>
 
@@ -942,6 +944,8 @@ window.submitForm = async function() {
       })));
     if (sysErr) throw sysErr;
 
+    const pmEmail = g('rf_pm').value.trim();
+    if (pmEmail) sessionStorage.setItem('pm_lookup_email', pmEmail);
     g('formWrap').style.display = 'none';
     g('successPanel').style.display = '';
   } catch(e) {
@@ -978,10 +982,153 @@ function initStatusMode() {
   const leg = document.querySelector('.legend-bar');
   if (cal) cal.style.display = 'none';
   if (leg) leg.style.display = 'none';
+  const btn = document.getElementById('myReqBtn');
+  if (btn) btn.style.display = 'none';
   const hTitle = document.querySelector('.header-title');
   const hSub   = document.querySelector('.header-sub');
   if (hTitle) hTitle.textContent = 'Request Status';
   if (hSub)   hSub.textContent   = 'View & respond to decisions';
+}
+
+// ── MY REQUESTS LOOKUP ───────────────────────────
+window.enterLookupMode = function() {
+  ['formWrap','successPanel'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  document.getElementById('introText').style.display = 'none';
+  document.querySelector('.cal-scroll-wrap').style.display = 'none';
+  document.querySelector('.legend-bar').style.display = 'none';
+  document.getElementById('myReqBtn').style.display = 'none';
+  document.getElementById('statusView').style.display = '';
+  document.querySelector('.header-title').textContent = 'My Requests';
+  document.querySelector('.header-sub').textContent   = 'Check the status of your submissions';
+
+  const saved = sessionStorage.getItem('pm_lookup_email') || '';
+  document.getElementById('statusContent').innerHTML = `
+    <div class="form-card" style="margin-bottom:1rem">
+      <div style="font-size:.82rem;color:var(--text2);line-height:1.55;margin-bottom:.85rem">
+        Enter the email address you used when submitting your request.
+      </div>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:1;min-width:180px">
+          <div class="req-form-label" style="margin-bottom:.28rem">Your email</div>
+          <input class="req-form-input" id="lookupEmail" type="email" placeholder="first.last@proav.com"
+            value="${escH(saved)}" style="width:100%"
+            onkeydown="if(event.key==='Enter')lookupByEmail()">
+        </div>
+        <button class="btn btn-primary" onclick="lookupByEmail()">Find my requests</button>
+      </div>
+      <div id="lookupErr" style="display:none;font-size:.78rem;color:var(--red);margin-top:.45rem"></div>
+    </div>
+    <div id="lookupResults"></div>
+    <div style="margin-top:1.25rem">
+      <button class="btn btn-ghost btn-sm" onclick="exitLookupMode()">← Back to submission form</button>
+    </div>`;
+
+  if (saved) lookupByEmail();
+};
+
+window.exitLookupMode = function() {
+  document.getElementById('formWrap').style.display   = '';
+  document.getElementById('introText').style.display  = '';
+  document.getElementById('statusView').style.display = 'none';
+  document.querySelector('.cal-scroll-wrap').style.display = '';
+  document.querySelector('.legend-bar').style.display = '';
+  document.getElementById('myReqBtn').style.display   = '';
+  document.querySelector('.header-title').textContent = 'Request Onsite Build';
+  document.querySelector('.header-sub').textContent   = 'Availability & booking';
+};
+
+window.lookupByEmail = async function() {
+  const emailEl   = document.getElementById('lookupEmail');
+  const errEl     = document.getElementById('lookupErr');
+  const resultsEl = document.getElementById('lookupResults');
+  const email = (emailEl?.value || '').trim();
+
+  if (!email || !email.includes('@')) {
+    if (errEl) { errEl.textContent = 'Please enter a valid email address.'; errEl.style.display = ''; }
+    return;
+  }
+  if (errEl) errEl.style.display = 'none';
+  sessionStorage.setItem('pm_lookup_email', email);
+  resultsEl.innerHTML = '<div style="color:var(--text3);font-size:.85rem;padding:.75rem 0">Searching…</div>';
+
+  try {
+    const h = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
+    const reqRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/requests?project_manager=ilike.${encodeURIComponent(email)}&order=created_at.desc&select=*`,
+      { headers: h }
+    );
+    if (!reqRes.ok) throw new Error(`HTTP ${reqRes.status}`);
+    const reqs = await reqRes.json() || [];
+
+    if (!reqs.length) {
+      resultsEl.innerHTML = `<div class="status-card" style="text-align:center;padding:2rem 1rem">
+        <div style="color:var(--text3);font-size:.85rem">No requests found for <strong style="color:var(--text)">${escH(email)}</strong>.</div>
+        <div style="font-size:.75rem;color:var(--text3);margin-top:.4rem">Make sure this matches the email you submitted with.</div>
+      </div>`;
+      return;
+    }
+
+    const ids    = reqs.map(r => r.id).join(',');
+    const sysRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/request_systems?request_id=in.(${ids})&select=*&order=id.asc`,
+      { headers: h }
+    );
+    const allSystems = sysRes.ok ? (await sysRes.json() || []) : [];
+    const sysMap = {};
+    allSystems.forEach(s => { const k = String(s.request_id); (sysMap[k] = sysMap[k] || []).push(s); });
+
+    resultsEl.innerHTML = reqs.map(req => buildRequestSummaryCard(req, sysMap[String(req.id)] || [])).join('');
+  } catch(e) {
+    resultsEl.innerHTML = `<div class="status-card" style="color:var(--red);padding:1rem">⚠ Could not load: ${escH(e.message)}</div>`;
+  }
+};
+
+function buildRequestSummaryCard(req, systems) {
+  const st      = req.request_status || 'Pending';
+  const stBadge = { Approved:'sb-approved', Scheduled:'sb-approved', Rejected:'sb-rejected' }[st] || 'sb-pending';
+
+  const sysRows = systems.map(s => {
+    const dec      = s.system_status || 'Pending';
+    const decCls   = { Approved:'dec-approved', Scheduled:'dec-approved', Rejected:'dec-rejected', Removed:'dec-removed' }[dec] || 'dec-pending';
+    const decBadge = { Approved:'sb-approved', Scheduled:'sb-approved', Rejected:'sb-rejected', Removed:'sb-removed' }[dec] || 'sb-pending';
+    const rejNote  = dec === 'Rejected' && s.review_notes
+      ? `<div style="margin-top:.35rem;font-size:.73rem;color:var(--red);line-height:1.4">${escH(s.review_notes)}</div>` : '';
+    const suggestBox = dec === 'Rejected' && s.suggested_start && s.suggested_end
+      ? `<div class="suggest-box" style="margin-top:.4rem"><span style="font-weight:600;color:var(--blue)">Alternative suggested: </span>${fmtMed(s.suggested_start)} → ${fmtMed(s.suggested_end)}</div>` : '';
+    return `<div class="sys-sr ${decCls}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;flex-wrap:wrap">
+        <div>
+          <span style="font-weight:500;font-size:.8rem;color:var(--text)">${escH(s.system_room_name || '—')}</span>
+          ${s.rack_type ? `<span style="font-size:.7rem;color:var(--text3);margin-left:.35rem">${escH(s.rack_type)}</span>` : ''}
+        </div>
+        <span class="sb ${decBadge}">${escH(dec)}</span>
+      </div>
+      <div style="font-size:.73rem;color:var(--text3);font-family:var(--mono);margin-top:.2rem">${fmtMed(s.requested_start)} → ${fmtMed(s.requested_end)}</div>
+      ${rejNote}${suggestBox}
+    </div>`;
+  }).join('');
+
+  const needsAction = systems.some(s => (s.system_status || 'Pending') === 'Rejected');
+  const rid = escH(String(req.id));
+
+  return `<div class="status-card" style="margin-bottom:.85rem">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;margin-bottom:.85rem;flex-wrap:wrap">
+      <div>
+        <div style="font-weight:600;font-size:.95rem;color:var(--text);margin-bottom:.15rem">${escH(req.project_name || '—')}</div>
+        ${req.seqf ? `<div style="font-size:.7rem;color:var(--text3);font-family:var(--mono)">${escH(req.seqf)}</div>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+        <span class="sb ${stBadge}">${escH(st)}</span>
+        ${req.created_at ? `<span style="font-size:.7rem;color:var(--text3)">Submitted ${fmtMed(req.created_at.slice(0,10))}</span>` : ''}
+      </div>
+    </div>
+    ${systems.length ? `
+      <div style="font-size:.62rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem">Systems (${systems.length})</div>
+      ${sysRows}` : ''}
+    ${needsAction ? `<div style="margin-top:.75rem"><a href="?id=${rid}" class="btn btn-primary btn-sm" style="text-decoration:none">Respond to decisions →</a></div>` : ''}
+  </div>`;
 }
 
 async function loadStatusView(reqId) {
