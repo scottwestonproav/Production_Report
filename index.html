@@ -312,9 +312,9 @@ tbody tr { cursor: default; }
 .cap-cell-ok  { background: var(--green-dim); color: var(--green); }
 .cap-cell-warn { background: var(--amber-dim); color: var(--amber); }
 .cap-cell-bad { background: var(--red-dim);   color: var(--red); }
-.onsite-row-label { padding: .45rem .75rem; border-right: 1px solid var(--border2); flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: var(--bg2); min-height: 42px; }
-.onsite-task-cell { flex-shrink: 0; display: flex; align-items: center; border-right: 1px solid var(--border); box-sizing: border-box; height: 42px; }
-.onsite-block { height: 28px; display: flex; align-items: center; overflow: hidden; cursor: pointer; transition: filter .15s; box-sizing: border-box; width: 100%; }
+.onsite-row-label { padding: .45rem .75rem; border-right: 1px solid var(--border2); flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; background: var(--bg2); min-height: 36px; }
+.onsite-task-cell { flex-shrink: 0; display: flex; align-items: center; border-right: 1px solid var(--border); box-sizing: border-box; height: 36px; }
+.onsite-block { height: 12px; display: flex; align-items: center; overflow: hidden; cursor: pointer; transition: filter .15s; box-sizing: border-box; width: 100%; }
 .onsite-block:hover { filter: brightness(1.15); }
 .onsite-block-label { font-size: .7rem; font-weight: 500; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 6px; }
 .onsite-empty { padding: 2.5rem 1rem; text-align: center; color: var(--text3); font-size: .85rem; }
@@ -2266,7 +2266,7 @@ function renderOnsiteView() {
       const isFirst = t.projStart >= w.start, isLast = t.projEnd <= w.end;
       const rL = isFirst ? '5px' : '0', rR = isLast ? '5px' : '0';
       const shadow = hasClash ? 'box-shadow:0 0 0 2px var(--red);' : isTight ? 'box-shadow:0 0 0 2px var(--amber);' : '';
-      const label = isFirst ? `<span class="onsite-block-label" style="color:#000">${escH(t.name||'')}${t.seqf?' · '+escH(t.seqf):''}${est?' · ~'+est+'d':''}</span>` : '';
+      const label = '';
       return `<div class="onsite-task-cell" style="width:${WCOL}px;padding-left:${isFirst?'4px':'0'};padding-right:${isLast?'4px':'0'}">
         <div class="onsite-block" ondblclick="showOnsiteDetail(${JSON.stringify(t.id)})"
           style="background:#eab308;opacity:.9;border-radius:${rL} ${rR} ${rR} ${rL};${shadow}"
