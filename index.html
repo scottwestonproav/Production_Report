@@ -2834,14 +2834,28 @@ window.openRequestReview = async function(id) {
       const appSty = st === 'Approved' ? 'border-color:var(--green);color:var(--green);background:var(--green-dim)' : '';
       const rejSty = st === 'Rejected' ? 'border-color:var(--red);color:var(--red);background:var(--red-dim)' : '';
       const canActOnSys = canReview && st !== 'Completed' && st !== 'Removed';
+      const appInfo = st === 'Approved' && s.assigned_engineer
+        ? `<div style="font-size:.72rem;color:var(--green);margin-top:.25rem">&#128100; Engineer: ${escH(s.assigned_engineer)}</div>` : '';
       const rejInfo = st === 'Rejected' ? [
         s.review_notes ? `<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:var(--radius);padding:.35rem .55rem;margin-top:.3rem;font-size:.75rem;color:#f08080;line-height:1.45">${escH(s.review_notes)}</div>` : '',
         (s.suggested_start && s.suggested_end) ? `<div style="background:var(--amber-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:.35rem .55rem;margin-top:.25rem;font-size:.75rem;color:var(--amber);font-weight:500">Suggested alternative: ${fmtShort(s.suggested_start)} – ${fmtShort(s.suggested_end)}<div style="margin-top:.4rem"><button id="accept-${s.id}" class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;border-color:var(--amber);color:var(--amber)" onclick="pmAcceptSuggestedDates('${s.id}','${id}','${s.suggested_start}','${s.suggested_end}')">✓ Accept suggested dates</button></div></div>` : '',
       ].filter(Boolean).join('') : '';
+      const rosterOpts = (onsiteSettings.roster||[]).map(n=>`<option value="${escH(n)}" ${s.assigned_engineer===n?'selected':''}>${escH(n)}</option>`).join('');
       const btns = canActOnSys ? `
         <div id="sysbtns-${s.id}" style="display:flex;gap:.4rem;margin-top:.45rem;flex-wrap:wrap">
-          <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${appSty}" onclick="approveSystem('${s.id}','${id}')">✓ Approve</button>
+          <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${appSty}" onclick="showSysApprovePanel('${s.id}','${id}')">✓ Approve</button>
           <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${rejSty}" onclick="showSysRejectPanel('${s.id}','${id}')">✕ Reject</button>
+        </div>
+        <div id="sysap-${s.id}" style="display:none;margin-top:.5rem;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:.65rem .75rem">
+          <div style="font-size:.7rem;font-weight:500;color:var(--text2);margin-bottom:.35rem">Assign engineer <span style="color:var(--text3);font-weight:400">(optional)</span></div>
+          <select id="sysae-${s.id}" class="req-form-input" style="margin-bottom:.5rem;width:100%">
+            <option value="">— Unassigned —</option>
+            ${rosterOpts}
+          </select>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+            <button class="btn btn-primary" style="font-size:.7rem;padding:.2rem .55rem" onclick="confirmSysApprove('${s.id}','${id}')">Confirm approval</button>
+            <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem" onclick="cancelSysApprove('${s.id}')">Cancel</button>
+          </div>
         </div>
         <div id="sysrp-${s.id}" style="display:none;margin-top:.5rem;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:.65rem .75rem">
           <div style="font-size:.7rem;font-weight:500;color:var(--text2);margin-bottom:.35rem">Reason for rejection <span style="color:var(--red)">*</span></div>
@@ -2871,6 +2885,7 @@ window.openRequestReview = async function(id) {
             ${s.notes?`<span style="font-family:var(--font);color:var(--text3);margin-left:.6rem">${escH(s.notes)}</span>`:''}
           </div>
           ${s.reviewed_by?`<div style="font-size:.65rem;color:var(--text3);margin-top:.2rem">reviewed by ${escH(s.reviewed_by)}</div>`:''}
+          ${appInfo}
           ${rejInfo}
           ${btns}
         </div>`;
@@ -3012,8 +3027,28 @@ window.submitSignIn = async function() {
 };
 
 // ── PER-SYSTEM REVIEW ─────────────────────────────
-window.approveSystem = async function(sysId, reqId) { await doSystemReview(sysId, reqId, 'Approved'); };
 window.rejectSystem  = function(sysId, reqId) { showSysRejectPanel(String(sysId), String(reqId)); };
+
+window.showSysApprovePanel = function(sysId) {
+  const btns  = document.getElementById(`sysbtns-${sysId}`);
+  const panel = document.getElementById(`sysap-${sysId}`);
+  if (btns)  btns.style.display  = 'none';
+  if (panel) panel.style.display = '';
+};
+
+window.cancelSysApprove = function(sysId) {
+  const btns  = document.getElementById(`sysbtns-${sysId}`);
+  const panel = document.getElementById(`sysap-${sysId}`);
+  if (btns)  btns.style.display  = '';
+  if (panel) panel.style.display = 'none';
+};
+
+window.confirmSysApprove = async function(sysId, reqId) {
+  const engineer = document.getElementById(`sysae-${sysId}`)?.value || null;
+  const btn = document.querySelector(`#sysap-${sysId} .btn-primary`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Approving…'; }
+  await doSystemReview(sysId, reqId, 'Approved', null, null, null, engineer || null);
+};
 
 window.showSysRejectPanel = function(sysId, reqId) {
   const btns  = document.getElementById(`sysbtns-${sysId}`);
@@ -3051,7 +3086,7 @@ window.confirmSysReject = async function(sysId, reqId) {
   await doSystemReview(sysId, reqId, 'Rejected', notes, sugStart || null, sugEnd || null);
 };
 
-async function doSystemReview(sysId, reqId, status, rejNotes = null, sugStart = null, sugEnd = null) {
+async function doSystemReview(sysId, reqId, status, rejNotes = null, sugStart = null, sugEnd = null, assignedEngineer = null) {
   try {
     const updateData = {
       system_status: status,
@@ -3062,6 +3097,9 @@ async function doSystemReview(sysId, reqId, status, rejNotes = null, sugStart = 
       updateData.review_notes    = rejNotes;
       updateData.suggested_start = sugStart;
       updateData.suggested_end   = sugEnd;
+    }
+    if (status === 'Approved') {
+      updateData.assigned_engineer = assignedEngineer;
     }
     const { error } = await supabase.from('request_systems').update(updateData).eq('id', sysId);
     if (error) throw error;
