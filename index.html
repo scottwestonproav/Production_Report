@@ -2266,17 +2266,18 @@ function renderOnsiteView() {
       const isFirst = t.projStart >= w.start, isLast = t.projEnd <= w.end;
       const rL = isFirst ? '5px' : '0', rR = isLast ? '5px' : '0';
       const shadow = hasClash ? 'box-shadow:0 0 0 2px var(--red);' : isTight ? 'box-shadow:0 0 0 2px var(--amber);' : '';
-      const label = isFirst ? `<span class="onsite-block-label" style="color:${style.text}">${escH(t.name||'')}${t.seqf?' · '+escH(t.seqf):''}${est?' · ~'+est+'d':''}</span>` : '';
+      const label = isFirst ? `<span class="onsite-block-label" style="color:#000">${escH(t.name||'')}${t.seqf?' · '+escH(t.seqf):''}${est?' · ~'+est+'d':''}</span>` : '';
       return `<div class="onsite-task-cell" style="width:${WCOL}px;padding-left:${isFirst?'4px':'0'};padding-right:${isLast?'4px':'0'}">
-        <div class="onsite-block" onclick="showOnsiteDetail(${JSON.stringify(t.id)})"
-          style="background:${style.bg};border-radius:${rL} ${rR} ${rR} ${rL};${shadow}"
-          title="${escH(t.name)} · ${fmtShort(t.projStart)}–${fmtShort(t.projEnd)}${eng?' · '+escH(eng):''} · ~${est}d est · ${schDays}d scheduled${isTight?' ⚠ tight':''}${hasClash?' ⚠ clash':''}">
+        <div class="onsite-block" ondblclick="showOnsiteDetail(${JSON.stringify(t.id)})"
+          style="background:#eab308;opacity:.9;border-radius:${rL} ${rR} ${rR} ${rL};${shadow}"
+          title="${escH(t.name)} · ${fmtShort(t.projStart)}–${fmtShort(t.projEnd)}${eng?' · '+escH(eng):''} · ~${est}d est · ${schDays}d scheduled${isTight?' ⚠ tight':''}${hasClash?' ⚠ clash':''}&#10;Double-click for details">
           ${label}</div></div>`;
     }).join('');
 
     const flags = [hasClash?`<span class="onsite-clash-note">⚠ clash</span>`:'', isTight?`<span class="onsite-clash-note" style="color:var(--amber)">⚠ tight</span>`:''].filter(Boolean).join('');
     return `<div style="display:flex;align-items:stretch;border-bottom:1px solid var(--border)">
-      <div class="onsite-row-label" style="width:${LCOL}px">
+      <div class="onsite-row-label" style="width:${LCOL}px;border-left:3px solid ${style.bg};cursor:pointer"
+        ondblclick="showOnsiteDetail(${JSON.stringify(t.id)})" title="Double-click for full details">
         <div style="font-weight:500;font-size:.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(t.name||'—')}${flags}</div>
         ${t.seqf?`<div style="font-size:.68rem;color:var(--text3);font-family:var(--mono)">${escH(t.seqf)}</div>`:''}
         ${eng?`<div style="font-size:.68rem;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(eng)}</div>`:''}
