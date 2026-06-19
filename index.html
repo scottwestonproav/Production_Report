@@ -2592,35 +2592,31 @@ function renderOnsiteSettingsPanel() {
   const engineerRows = onsiteSettings.roster.map(name => {
     const checked = onsiteSettings.engineers.includes(name);
     const win = (onsiteSettings.engineerWindows || {})[name] || {};
-    const winRow = canEdit
-      ? `<div style="display:flex;align-items:center;gap:.35rem;font-size:.67rem;color:var(--text3);padding-left:.1rem;flex-wrap:wrap">
-          <span>Avail window:</span>
+    const winInputs = canEdit
+      ? `<div style="display:flex;align-items:center;gap:.25rem;flex-shrink:0">
           <input type="date" value="${escH(win.from||'')}" title="Available from"
-            class="req-form-input" style="font-size:.67rem;padding:.15rem .35rem;width:118px"
+            class="req-form-input" style="font-size:.65rem;padding:.1rem .25rem;width:100px"
             onchange="setEngineerWindow('${escH(name)}','from',this.value)">
-          <span>→</span>
+          <span style="font-size:.65rem;color:var(--text3)">→</span>
           <input type="date" value="${escH(win.to||'')}" title="Available to"
-            class="req-form-input" style="font-size:.67rem;padding:.15rem .35rem;width:118px"
+            class="req-form-input" style="font-size:.65rem;padding:.1rem .25rem;width:100px"
             onchange="setEngineerWindow('${escH(name)}','to',this.value)">
-          <span style="font-style:italic">(optional)</span>
         </div>`
-      : (win.from || win.to ? `<div style="font-size:.67rem;color:var(--text3);padding-left:.1rem">Window: ${escH(win.from||'—')} → ${escH(win.to||'—')}</div>` : '');
-    return `<div class="onsite-settings-field" style="flex-direction:column;align-items:stretch;gap:.25rem;padding:.3rem 0">
-      <div style="display:flex;align-items:center;gap:.6rem">
-        <span class="onsite-settings-label">${escH(name)}</span>
-        <div style="display:flex;align-items:center;gap:.55rem;flex-shrink:0">
-          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer">
-            <input type="checkbox" ${checked ? 'checked' : ''}
-              style="accent-color:var(--blue);width:14px;height:14px"
-              onchange="toggleOnsiteEngineer('${escH(name)}',this.checked)">
-            <span class="onsite-settings-unit">${checked ? 'Available' : 'Unavailable'}</span>
-          </label>
-          ${canEdit ? `<button class="btn btn-ghost" title="Remove ${escH(name)}"
-            style="font-size:.65rem;padding:.1rem .4rem;border-color:var(--red);color:var(--red);line-height:1"
-            onclick="removeOnsiteEngineer('${escH(name)}')">✕</button>` : ''}
-        </div>
+      : (win.from || win.to ? `<span style="font-size:.65rem;color:var(--text3);white-space:nowrap">${escH(win.from||'—')} → ${escH(win.to||'—')}</span>` : '');
+    return `<div class="onsite-settings-field">
+      <span class="onsite-settings-label">${escH(name)}</span>
+      ${winInputs}
+      <div style="display:flex;align-items:center;gap:.55rem;flex-shrink:0">
+        <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer">
+          <input type="checkbox" ${checked ? 'checked' : ''}
+            style="accent-color:var(--blue);width:14px;height:14px"
+            onchange="toggleOnsiteEngineer('${escH(name)}',this.checked)">
+          <span class="onsite-settings-unit">${checked ? 'Available' : 'Unavailable'}</span>
+        </label>
+        ${canEdit ? `<button class="btn btn-ghost" title="Remove ${escH(name)}"
+          style="font-size:.65rem;padding:.1rem .4rem;border-color:var(--red);color:var(--red);line-height:1"
+          onclick="removeOnsiteEngineer('${escH(name)}')">✕</button>` : ''}
       </div>
-      ${winRow}
     </div>`;
   }).join('');
 
