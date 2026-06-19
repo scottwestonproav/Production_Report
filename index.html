@@ -753,6 +753,13 @@ document.getElementById('teamSlider').value     = teamSize;
 document.getElementById('teamLabel').textContent = teamSize;
 document.getElementById('testSlider').value     = testSize;
 document.getElementById('testLabel').textContent = testSize;
+// Re-apply after browser session-restore, which can overwrite range inputs to their HTML default
+setTimeout(() => {
+  document.getElementById('teamSlider').value     = teamSize;
+  document.getElementById('teamLabel').textContent = teamSize;
+  document.getElementById('testSlider').value     = testSize;
+  document.getElementById('testLabel').textContent = testSize;
+}, 0);
 
 // ── BAMBOOHR LEAVE ────────────────────────────────
 async function loadLeaveData() {
