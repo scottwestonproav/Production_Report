@@ -727,6 +727,20 @@ let offsiteLeave   = {}; // { 'YYYY-MM-DD': { count: number, names: string[] } }
 let upcomingLeaveRecords = []; // [{ name, dates: string[], team: 'rackbuild'|'offsite' }]
 let leaveDataLoaded = false;
 
+function getLeaveInRange(engineerName, startISO, endISO) {
+  if (!engineerName || !startISO || !endISO || !leaveDataLoaded) return [];
+  const days = [];
+  let cur = startISO;
+  while (cur <= endISO) {
+    if (rackbuildLeave[cur]?.names.includes(engineerName) || offsiteLeave[cur]?.names.includes(engineerName))
+      days.push(cur);
+    const d = new Date(cur + 'T12:00:00');
+    d.setDate(d.getDate() + 1);
+    cur = d.toISOString().slice(0, 10);
+  }
+  return days;
+}
+
 let sortCol   = 'earliestDate', sortDir = 1;
 const filterSets = { project: new Set(), pm: new Set(), wireman: new Set(), commissioner: new Set(), status: new Set() };
 let dateFrom = '', dateTo = '', searchText = '';
@@ -2515,7 +2529,7 @@ function loadOnsiteSettings() {
     const s = JSON.parse(localStorage.getItem(ONSITE_CAP_KEY) || 'null');
     if (s && typeof s === 'object') return { engineerCapacity:1, defaultDays:5, daysPerType:{}, engineers:[], roster:[], ...s };
   } catch {}
-  return { engineerCapacity:1, defaultDays:5, daysPerType:{}, engineers:[], roster:[] };
+  return { engineerCapacity:1, defaultDays:5, daysPerType:{}, engineers:[], roster:[], engineerWindows:{} };
 }
 function saveOnsiteSettings() {
   localStorage.setItem(ONSITE_CAP_KEY, JSON.stringify(onsiteSettings));
@@ -2535,6 +2549,8 @@ async function loadCapacityFromDb() {
         } else if (typeof r === 'object') {
           if (Array.isArray(r.roster))    onsiteSettings.roster    = r.roster;
           if (Array.isArray(r.engineers)) onsiteSettings.engineers = r.engineers;
+          if (r.engineerWindows && typeof r.engineerWindows === 'object' && !Array.isArray(r.engineerWindows))
+            onsiteSettings.engineerWindows = r.engineerWindows;
         }
       }
       saveOnsiteSettings();
@@ -2548,7 +2564,7 @@ async function saveCapacityToDb(cap) {
     await supabase.from('app_settings').upsert({
       id: 1,
       engineer_capacity: cap,
-      engineer_roster: { roster: onsiteSettings.roster, engineers: onsiteSettings.engineers },
+      engineer_roster: { roster: onsiteSettings.roster, engineers: onsiteSettings.engineers, engineerWindows: onsiteSettings.engineerWindows || {} },
     });
   } catch(e) { console.warn('[Settings] could not save capacity to DB:', e.message); }
 }
@@ -2575,19 +2591,36 @@ function renderOnsiteSettingsPanel() {
   const canEdit = !!currentUser;
   const engineerRows = onsiteSettings.roster.map(name => {
     const checked = onsiteSettings.engineers.includes(name);
-    return `<div class="onsite-settings-field">
-      <span class="onsite-settings-label">${escH(name)}</span>
-      <div style="display:flex;align-items:center;gap:.55rem;flex-shrink:0">
-        <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer">
-          <input type="checkbox" ${checked ? 'checked' : ''}
-            style="accent-color:var(--blue);width:14px;height:14px"
-            onchange="toggleOnsiteEngineer('${escH(name)}',this.checked)">
-          <span class="onsite-settings-unit">${checked ? 'Available' : 'Unavailable'}</span>
-        </label>
-        ${canEdit ? `<button class="btn btn-ghost" title="Remove ${escH(name)}"
-          style="font-size:.65rem;padding:.1rem .4rem;border-color:var(--red);color:var(--red);line-height:1"
-          onclick="removeOnsiteEngineer('${escH(name)}')">✕</button>` : ''}
+    const win = (onsiteSettings.engineerWindows || {})[name] || {};
+    const winRow = canEdit
+      ? `<div style="display:flex;align-items:center;gap:.35rem;font-size:.67rem;color:var(--text3);padding-left:.1rem;flex-wrap:wrap">
+          <span>Avail window:</span>
+          <input type="date" value="${escH(win.from||'')}" title="Available from"
+            class="req-form-input" style="font-size:.67rem;padding:.15rem .35rem;width:118px"
+            onchange="setEngineerWindow('${escH(name)}','from',this.value)">
+          <span>→</span>
+          <input type="date" value="${escH(win.to||'')}" title="Available to"
+            class="req-form-input" style="font-size:.67rem;padding:.15rem .35rem;width:118px"
+            onchange="setEngineerWindow('${escH(name)}','to',this.value)">
+          <span style="font-style:italic">(optional)</span>
+        </div>`
+      : (win.from || win.to ? `<div style="font-size:.67rem;color:var(--text3);padding-left:.1rem">Window: ${escH(win.from||'—')} → ${escH(win.to||'—')}</div>` : '');
+    return `<div class="onsite-settings-field" style="flex-direction:column;align-items:stretch;gap:.25rem;padding:.3rem 0">
+      <div style="display:flex;align-items:center;gap:.6rem">
+        <span class="onsite-settings-label">${escH(name)}</span>
+        <div style="display:flex;align-items:center;gap:.55rem;flex-shrink:0">
+          <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer">
+            <input type="checkbox" ${checked ? 'checked' : ''}
+              style="accent-color:var(--blue);width:14px;height:14px"
+              onchange="toggleOnsiteEngineer('${escH(name)}',this.checked)">
+            <span class="onsite-settings-unit">${checked ? 'Available' : 'Unavailable'}</span>
+          </label>
+          ${canEdit ? `<button class="btn btn-ghost" title="Remove ${escH(name)}"
+            style="font-size:.65rem;padding:.1rem .4rem;border-color:var(--red);color:var(--red);line-height:1"
+            onclick="removeOnsiteEngineer('${escH(name)}')">✕</button>` : ''}
+        </div>
       </div>
+      ${winRow}
     </div>`;
   }).join('');
 
@@ -2700,11 +2733,27 @@ window.removeOnsiteEngineer = function(name) {
   if (!confirm(`Remove ${name} from the engineer roster?`)) return;
   onsiteSettings.roster    = onsiteSettings.roster.filter(e => e !== name);
   onsiteSettings.engineers = onsiteSettings.engineers.filter(e => e !== name);
+  if (onsiteSettings.engineerWindows) delete onsiteSettings.engineerWindows[name];
   onsiteSettings.engineerCapacity = Math.max(1, onsiteSettings.engineers.length);
   saveOnsiteSettings();
   saveCapacityToDb(onsiteSettings.engineerCapacity);
   renderOnsiteSettingsPanel();
   renderOnsiteView();
+};
+
+window.setEngineerWindow = function(name, field, value) {
+  if (!currentUser) return;
+  if (!onsiteSettings.engineerWindows) onsiteSettings.engineerWindows = {};
+  if (!onsiteSettings.engineerWindows[name]) onsiteSettings.engineerWindows[name] = {};
+  if (value) {
+    onsiteSettings.engineerWindows[name][field] = value;
+  } else {
+    delete onsiteSettings.engineerWindows[name][field];
+    if (!Object.keys(onsiteSettings.engineerWindows[name]).length)
+      delete onsiteSettings.engineerWindows[name];
+  }
+  saveOnsiteSettings();
+  saveCapacityToDb(onsiteSettings.engineerCapacity);
 };
 
 window.onsiteSettingChange = function(key, rawVal) {
@@ -2840,7 +2889,28 @@ window.openRequestReview = async function(id) {
         s.review_notes ? `<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:var(--radius);padding:.35rem .55rem;margin-top:.3rem;font-size:.75rem;color:#f08080;line-height:1.45">${escH(s.review_notes)}</div>` : '',
         (s.suggested_start && s.suggested_end) ? `<div style="background:var(--amber-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius);padding:.35rem .55rem;margin-top:.25rem;font-size:.75rem;color:var(--amber);font-weight:500">Suggested alternative: ${fmtShort(s.suggested_start)} – ${fmtShort(s.suggested_end)}<div style="margin-top:.4rem"><button id="accept-${s.id}" class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;border-color:var(--amber);color:var(--amber)" onclick="pmAcceptSuggestedDates('${s.id}','${id}','${s.suggested_start}','${s.suggested_end}')">✓ Accept suggested dates</button></div></div>` : '',
       ].filter(Boolean).join('') : '';
-      const rosterOpts = (onsiteSettings.roster||[]).map(n=>`<option value="${escH(n)}" ${s.assigned_engineer===n?'selected':''}>${escH(n)}</option>`).join('');
+      const _sysStart = s.requested_start || null;
+      const _sysEnd   = s.requested_end   || null;
+      const _ticked   = new Set(onsiteSettings.engineers || []);
+      const _wins     = onsiteSettings.engineerWindows || {};
+      const _filtered = (onsiteSettings.roster || []).filter(n => {
+        if (!_ticked.has(n)) return false;
+        const w = _wins[n] || {};
+        if (w.from && _sysEnd   && _sysEnd   < w.from) return false;
+        if (w.to   && _sysStart && _sysStart > w.to)   return false;
+        return true;
+      });
+      const _avail = [], _onLeave = [];
+      for (const n of _filtered) {
+        const lv = getLeaveInRange(n, _sysStart, _sysEnd);
+        (lv.length ? _onLeave : _avail).push({ n, lv });
+      }
+      const rosterOpts = [
+        ...(_avail.length === 0 && _onLeave.length === 0 ? [`<option disabled>No available engineers</option>`] : []),
+        ..._avail.map(({ n }) => `<option value="${escH(n)}" ${s.assigned_engineer===n?'selected':''}>${escH(n)}</option>`),
+        ...(_onLeave.length ? [`<option disabled>── On leave during this period ──</option>`] : []),
+        ..._onLeave.map(({ n, lv }) => `<option value="${escH(n)}" ${s.assigned_engineer===n?'selected':''}>${escH(n)} (${lv.length} day${lv.length>1?'s':''} leave)</option>`),
+      ].join('');
       const btns = canActOnSys ? `
         <div id="sysbtns-${s.id}" style="display:flex;gap:.4rem;margin-top:.45rem;flex-wrap:wrap">
           <button class="btn btn-ghost" style="font-size:.7rem;padding:.2rem .55rem;${appSty}" onclick="showSysApprovePanel('${s.id}','${id}')">✓ Approve</button>
