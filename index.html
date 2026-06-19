@@ -465,7 +465,7 @@ tbody tr { cursor: default; }
         <div class="divider"></div>
         <button class="btn btn-ghost" onclick="openLeaveModal()" style="font-size:.75rem;padding:.3rem .75rem;white-space:nowrap;flex-shrink:0">Leave ↗</button>
       </div>
-      <script>(function(){var t=localStorage.getItem('gantt_team_v1'),s=localStorage.getItem('gantt_test_v1');if(t){document.getElementById('teamSlider').value=t;document.getElementById('teamLabel').textContent=t;}if(s){document.getElementById('testSlider').value=s;document.getElementById('testLabel').textContent=s;}}());</script>
+      <script>(function(){var t=localStorage.getItem('gantt_team_v1'),s=localStorage.getItem('gantt_test_v1');if(t){document.getElementById('teamSlider').value=t;document.getElementById('teamLabel').textContent=t;}if(s){document.getElementById('testSlider').value=s;document.getElementById('testLabel').textContent=s;}var si=document.getElementById('searchInput');if(si)si.value='';})();</script>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
         <span class="cap-badge" id="capBadge"></span>
         <span class="cap-badge" id="capBadgeTest"></span>
