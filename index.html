@@ -834,6 +834,14 @@ setTimeout(_resetInputs, 0);
 setTimeout(_resetInputs, 150);
 setTimeout(_resetInputs, 500);
 window.addEventListener('pageshow', _resetInputs);
+// Poll for 3 s to catch writes that land after our fixed-delay timeouts.
+// Only acts when the input has a value but searchText is still '' — the exact
+// invariant that a session-restore write without an oninput event produces.
+const _srPoll = setInterval(() => {
+  const si = document.getElementById('searchInput');
+  if (si && si.value !== '' && searchText === '') { si.value = ''; render(); }
+}, 100);
+setTimeout(() => clearInterval(_srPoll), 3000);
 
 // ── BAMBOOHR LEAVE ────────────────────────────────
 async function loadLeaveData() {
