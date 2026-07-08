@@ -836,8 +836,16 @@ window.addEventListener('pageshow', _resetSliders);
     _inp.className   = 'text-search-input';
     _inp.placeholder = 'Search…';
     _inp.setAttribute('autocomplete', 'off');
+    _inp.setAttribute('readonly', '');
     _inp.addEventListener('input', e => { searchText = e.target.value.trim(); render(); });
     _wrap.appendChild(_inp);
+    // Extensions fill fields during page load; readonly blocks them. Remove after
+    // load so normal typing works. If an extension wrote a value before we got here,
+    // clear it when we lift readonly.
+    setTimeout(() => {
+      _inp.removeAttribute('readonly');
+      if (_inp.value !== '') { _inp.value = ''; searchText = ''; }
+    }, 1500);
   }
 }
 
