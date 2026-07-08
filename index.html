@@ -482,7 +482,7 @@ tbody tr { cursor: default; }
         <div class="divider"></div>
         <button class="btn btn-ghost" onclick="openLeaveModal()" style="font-size:.75rem;padding:.3rem .75rem;white-space:nowrap;flex-shrink:0">Leave ↗</button>
       </div>
-      <script>(function(){var t=localStorage.getItem('gantt_team_v1'),s=localStorage.getItem('gantt_test_v1');if(t){document.getElementById('teamSlider').value=t;document.getElementById('teamLabel').textContent=t;}if(s){document.getElementById('testSlider').value=s;document.getElementById('testLabel').textContent=s;}var si=document.getElementById('searchInput');if(si)si.value='';})();</script>
+      <script>(function(){var t=localStorage.getItem('gantt_team_v1'),s=localStorage.getItem('gantt_test_v1');if(t){document.getElementById('teamSlider').value=t;document.getElementById('teamLabel').textContent=t;}if(s){document.getElementById('testSlider').value=s;document.getElementById('testLabel').textContent=s;}})();</script>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
         <span class="cap-badge" id="capBadge"></span>
         <span class="cap-badge" id="capBadgeTest"></span>
@@ -507,9 +507,9 @@ tbody tr { cursor: default; }
     </div>
     <div class="divider"></div>
     <div id="searchGroup" class="ctrl-group" style="gap:.4rem">
-      <div class="search-wrap">
+      <div class="search-wrap" id="searchWrap">
         <svg style="width:12px;height:12px;stroke:var(--text3);fill:none;stroke-width:2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="searchInput" class="text-search-input" placeholder="Search…" autocomplete="off" oninput="onSearchChange(this.value)">
+        <!-- search input injected by JS so browser session-restore cannot target it -->
       </div>
     </div>
     <button class="btn btn-ghost" id="clearFiltersBtn" onclick="clearAllFilters()" style="display:none;font-size:.75rem;padding:.3rem .7rem">✕ Clear filters</button>
@@ -813,54 +813,33 @@ document.getElementById('teamSlider').value     = teamSize;
 document.getElementById('teamLabel').textContent = teamSize;
 document.getElementById('testSlider').value     = testSize;
 document.getElementById('testLabel').textContent = testSize;
-// Re-apply after browser session-restore, which can overwrite form inputs to stale/default values.
-// Run at 0ms, 150ms, and 500ms — Chrome's session-restore fires asynchronously and can land after
-// a single setTimeout(0), so the backstop timeouts catch later writes. Also hook `pageshow` for
-// the bfcache case. Each pass clears both the visual value and the searchText filter state so a
-// session-restore-triggered `oninput` doesn't leave a stale filter active after the visual is cleared.
-function _resetInputs() {
+// Sliders can still be overwritten by session-restore; re-apply from localStorage.
+function _resetSliders() {
   document.getElementById('teamSlider').value     = teamSize;
   document.getElementById('teamLabel').textContent = teamSize;
   document.getElementById('testSlider').value     = testSize;
   document.getElementById('testLabel').textContent = testSize;
-  const _si = document.getElementById('searchInput');
-  if (_si && _si.value !== '') {
-    _si.value  = '';
-    searchText = '';
-    render();
-  }
 }
-setTimeout(_resetInputs, 0);
-setTimeout(_resetInputs, 150);
-setTimeout(_resetInputs, 500);
-window.addEventListener('pageshow', _resetInputs);
-// Edge fires oninput during session-restore (Chrome does not). Guard onSearchChange so it
-// requires a real user gesture (keydown or pointerdown on the input) before processing a value.
-// Session-restore triggers oninput but never keydown/pointerdown, so stale values are rejected.
+setTimeout(_resetSliders, 0);
+setTimeout(_resetSliders, 500);
+window.addEventListener('pageshow', _resetSliders);
+
+// Create the search input dynamically so Edge/Chrome session-restore has no
+// HTML element to target — browsers can only restore values to elements that
+// existed in the original parsed HTML. A JS-created node has no prior state.
 {
-  let _siUserReady = false;
-  const _siEl = document.getElementById('searchInput');
-  if (_siEl) {
-    const _markReady = () => { _siUserReady = true; };
-    _siEl.addEventListener('keydown',     _markReady, { once: true, capture: true });
-    _siEl.addEventListener('pointerdown', _markReady, { once: true, capture: true });
+  const _wrap = document.getElementById('searchWrap');
+  if (_wrap) {
+    const _inp = document.createElement('input');
+    _inp.type = 'text';
+    _inp.id   = 'searchInput';
+    _inp.className   = 'text-search-input';
+    _inp.placeholder = 'Search…';
+    _inp.setAttribute('autocomplete', 'off');
+    _inp.addEventListener('input', e => { searchText = e.target.value.trim(); render(); });
+    _wrap.appendChild(_inp);
   }
-  const _origSearch = window.onSearchChange;
-  window.onSearchChange = function(val) {
-    if (!_siUserReady) {
-      if (_siEl) _siEl.value = '';
-      searchText = '';
-      return;
-    }
-    _origSearch.call(this, val);
-  };
 }
-// Poll for 3 s as a fallback for Chrome's silent value-restore (no oninput fired).
-const _srPoll = setInterval(() => {
-  const si = document.getElementById('searchInput');
-  if (si && si.value !== '' && searchText === '') { si.value = ''; render(); }
-}, 100);
-setTimeout(() => clearInterval(_srPoll), 3000);
 
 // ── BAMBOOHR LEAVE ────────────────────────────────
 async function loadLeaveData() {
