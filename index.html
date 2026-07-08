@@ -834,9 +834,28 @@ setTimeout(_resetInputs, 0);
 setTimeout(_resetInputs, 150);
 setTimeout(_resetInputs, 500);
 window.addEventListener('pageshow', _resetInputs);
-// Poll for 3 s to catch writes that land after our fixed-delay timeouts.
-// Only acts when the input has a value but searchText is still '' — the exact
-// invariant that a session-restore write without an oninput event produces.
+// Edge fires oninput during session-restore (Chrome does not). Guard onSearchChange so it
+// requires a real user gesture (keydown or pointerdown on the input) before processing a value.
+// Session-restore triggers oninput but never keydown/pointerdown, so stale values are rejected.
+{
+  let _siUserReady = false;
+  const _siEl = document.getElementById('searchInput');
+  if (_siEl) {
+    const _markReady = () => { _siUserReady = true; };
+    _siEl.addEventListener('keydown',     _markReady, { once: true, capture: true });
+    _siEl.addEventListener('pointerdown', _markReady, { once: true, capture: true });
+  }
+  const _origSearch = window.onSearchChange;
+  window.onSearchChange = function(val) {
+    if (!_siUserReady) {
+      if (_siEl) _siEl.value = '';
+      searchText = '';
+      return;
+    }
+    _origSearch.call(this, val);
+  };
+}
+// Poll for 3 s as a fallback for Chrome's silent value-restore (no oninput fired).
 const _srPoll = setInterval(() => {
   const si = document.getElementById('searchInput');
   if (si && si.value !== '' && searchText === '') { si.value = ''; render(); }
