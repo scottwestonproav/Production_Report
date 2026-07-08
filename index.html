@@ -378,6 +378,19 @@ tbody tr { cursor: default; }
 
 /* ── AUTH ── */
 .auth-user { font-size:.72rem; color:var(--green); font-family:var(--mono); max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ── REPORT CONFIG MODAL ── */
+.rpt-field { display:flex; flex-direction:column; gap:.28rem; margin-bottom:.75rem; }
+.rpt-label { font-size:.62rem; font-weight:500; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; }
+.rpt-date-row { display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; }
+.rpt-check-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:.18rem .5rem; max-height:120px; overflow-y:auto; padding:.1rem 0; }
+.rpt-check-item { display:flex; align-items:center; gap:.4rem; font-size:.77rem; color:var(--text2); cursor:pointer; padding:.12rem 0; line-height:1.3; }
+.rpt-check-item:hover { color:var(--text); }
+.rpt-check-item input[type=checkbox] { accent-color:var(--blue); cursor:pointer; flex-shrink:0; }
+.rpt-section-hdr { font-size:.62rem; font-weight:500; color:var(--text3); text-transform:uppercase; letter-spacing:.07em; padding:.55rem 0 .3rem; border-top:1px solid var(--border); margin-top:.15rem; }
+.rpt-toggle-row { display:flex; gap:.4rem; margin-bottom:.4rem; }
+.rpt-toggle { font-size:.7rem; color:var(--text3); cursor:pointer; padding:.1rem .4rem; border-radius:4px; background:none; border:none; font-family:var(--font); }
+.rpt-toggle:hover { color:var(--blue); background:var(--blue-dim); }
 </style>
 </head>
 <body>
@@ -430,6 +443,10 @@ tbody tr { cursor: default; }
       <button class="btn btn-ghost" id="exportBtn" onclick="exportPNG()">
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         Export PNG
+      </button>
+      <button class="btn btn-ghost" id="reportBtn" onclick="openReportModal()" style="display:none;font-size:.75rem;padding:.3rem .7rem;white-space:nowrap" title="Generate executive PDF report">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Report
       </button>
       <div style="width:1px;height:20px;background:var(--border2);flex-shrink:0"></div>
       <span id="authUser" class="auth-user" style="display:none"></span>
@@ -612,6 +629,49 @@ tbody tr { cursor: default; }
         <div style="display:flex;gap:.6rem;align-items:center">
           <button class="btn btn-primary" id="si_btn" onclick="submitSignIn()">Sign in</button>
           <button class="btn btn-ghost" onclick="closeSignIn()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REPORT CONFIG MODAL ── -->
+  <div id="reportModal" class="detail-overlay" style="display:none" onclick="if(event.target===this)closeReportModal()">
+    <div class="detail-box" onclick="event.stopPropagation()" style="width:min(520px,100%);max-height:90vh">
+      <div class="detail-header">
+        <div>
+          <div class="detail-title">Generate Executive Report</div>
+          <div class="detail-sub">PDF-ready production summary for the selected period</div>
+        </div>
+        <button class="detail-close" onclick="closeReportModal()">✕</button>
+      </div>
+      <div class="detail-body" style="display:flex;flex-direction:column;gap:0">
+        <div class="rpt-field">
+          <div class="rpt-label">Report period</div>
+          <div class="rpt-date-row">
+            <span style="font-size:.78rem;color:var(--text2)">From</span>
+            <input type="date" id="rptFrom" class="date-filter-input" style="width:140px">
+            <span style="font-size:.78rem;color:var(--text2)">To</span>
+            <input type="date" id="rptTo" class="date-filter-input" style="width:140px">
+          </div>
+        </div>
+        <div class="rpt-section-hdr">Rack Builders to include</div>
+        <div class="rpt-toggle-row">
+          <button class="rpt-toggle" onclick="rptToggleAll('rpt-wb-check',true)">All</button>
+          <button class="rpt-toggle" onclick="rptToggleAll('rpt-wb-check',false)">None</button>
+        </div>
+        <div class="rpt-check-grid" id="rptWiremanList"></div>
+        <div class="rpt-section-hdr">Test Engineers to include</div>
+        <div class="rpt-toggle-row">
+          <button class="rpt-toggle" onclick="rptToggleAll('rpt-comm-check',true)">All</button>
+          <button class="rpt-toggle" onclick="rptToggleAll('rpt-comm-check',false)">None</button>
+        </div>
+        <div class="rpt-check-grid" id="rptCommList"></div>
+        <div class="req-form-actions" style="margin-top:1rem">
+          <button class="btn btn-primary" onclick="generateReport()">
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Generate Report
+          </button>
+          <button class="btn btn-ghost" onclick="closeReportModal()">Cancel</button>
         </div>
       </div>
     </div>
@@ -3074,6 +3134,8 @@ function updateAuthUI() {
     if (gearBtn) gearBtn.style.display = 'none';
     if (onsiteSettingsOpen) toggleOnsiteSettings();
   }
+  const reportBtn = document.getElementById('reportBtn');
+  if (reportBtn) reportBtn.style.display = (currentUser?.email === 'scott.weston@proav.com') ? '' : 'none';
 }
 window.openSignIn = function() {
   const m = document.getElementById('signInModal');
@@ -3352,6 +3414,362 @@ document.addEventListener('click', () => {
 // Apply ?view= deep-link here, after all window.X assignments are in place
 { const _vp = new URLSearchParams(window.location.search).get('view');
   if (_vp === 'onsite') switchView('onsite'); }
+
+// ── REPORT GENERATION ─────────────────────────────
+window.openReportModal = function() {
+  if (currentUser?.email !== 'scott.weston@proav.com') return;
+  const modal = document.getElementById('reportModal');
+  if (!modal) return;
+  const today      = fmtISO(new Date());
+  const threeMonths = fmtISO(new Date(Date.now() + 90 * 864e5));
+  document.getElementById('rptFrom').value = today;
+  document.getElementById('rptTo').value   = threeMonths;
+  const wiremen = [...new Set(tasks.map(t => t.wireman).filter(Boolean))].sort();
+  const comms   = [...new Set(tasks.map(t => t.test_engineer).filter(Boolean))].sort();
+  document.getElementById('rptWiremanList').innerHTML = wiremen.length
+    ? wiremen.map(w => `<label class="rpt-check-item"><input type="checkbox" value="${escH(w)}" class="rpt-wb-check" checked> ${escH(w)}</label>`).join('')
+    : '<span style="font-size:.75rem;color:var(--text3)">No rack builders found</span>';
+  document.getElementById('rptCommList').innerHTML = comms.length
+    ? comms.map(c => `<label class="rpt-check-item"><input type="checkbox" value="${escH(c)}" class="rpt-comm-check" checked> ${escH(fmtPerson(c))}</label>`).join('')
+    : '<span style="font-size:.75rem;color:var(--text3)">No commissioners found</span>';
+  modal.style.display = 'flex';
+};
+
+window.closeReportModal = function() {
+  const m = document.getElementById('reportModal'); if (m) m.style.display = 'none';
+};
+
+window.rptToggleAll = function(cls, checked) {
+  document.querySelectorAll('.' + cls).forEach(cb => { cb.checked = checked; });
+};
+
+window.generateReport = function() {
+  const from = document.getElementById('rptFrom').value;
+  const to   = document.getElementById('rptTo').value;
+  if (!from || !to || from > to) { showToast('Please set a valid date range', 'error'); return; }
+  const wiremen = [...document.querySelectorAll('.rpt-wb-check:checked')].map(i => i.value);
+  const comms   = [...document.querySelectorAll('.rpt-comm-check:checked')].map(i => i.value);
+  const html    = buildReportHtml({ from, to, wiremen, comms });
+  const win     = window.open('', '_blank');
+  if (!win) { showToast('Pop-up blocked — allow pop-ups and try again', 'error'); return; }
+  win.document.write(html);
+  win.document.close();
+  closeReportModal();
+};
+
+function rptWeeklyDemand(filteredTasks, from, to) {
+  const startD = toDay(from);
+  const dow    = startD.getDay();
+  const monday = new Date(startD);
+  monday.setDate(startD.getDate() - (dow === 0 ? 6 : dow - 1));
+  const endDate = toDay(to);
+  const weeks   = [];
+  let ws = monday;
+  while (ws <= endDate) {
+    const we = new Date(ws); we.setDate(ws.getDate() + 6);
+    const wsStr = fmtISO(ws), weStr = fmtISO(we);
+    let peakBuild = 0, peakLeave = 0;
+    let cur = new Date(ws);
+    while (cur <= we) {
+      const d = fmtISO(cur);
+      if (d >= from && d <= to) {
+        const builders = new Set();
+        filteredTasks.forEach(t => {
+          if (!t.projStart || !t.projEnd || BUILT_STATUSES.has(t.status)) return;
+          if (d >= t.projStart && d <= t.projEnd) builders.add(t.wireman || `__u_${t.id}`);
+        });
+        if (builders.size > peakBuild) peakBuild = builders.size;
+        const lv = rackbuildLeave[d]?.count || 0;
+        if (lv > peakLeave) peakLeave = lv;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    weeks.push({ ws: wsStr, we: weStr, peakBuild, peakLeave });
+    ws = new Date(ws); ws.setDate(ws.getDate() + 7);
+  }
+  return weeks;
+}
+
+function rptWeeklyChartSVG(weeks, capacity) {
+  if (!weeks.length) return '<svg width="100%" height="120"><text x="50%" y="60" text-anchor="middle" fill="#9ca3af" font-size="11" font-family="sans-serif">No data in range</text></svg>';
+  const W = 600, H = 160;
+  const PAD = { t: 16, r: 16, b: 40, l: 38 };
+  const cW = W - PAD.l - PAD.r, cH = H - PAD.t - PAD.b;
+  const maxVal = Math.max(capacity * 1.35, ...weeks.map(w => w.peakBuild), 1);
+  const barStep = cW / weeks.length;
+  const barW    = Math.max(3, barStep * 0.6);
+  const yS      = v => PAD.t + cH - (v / maxVal) * cH;
+  let bars = '', labels = '', yTicks = '';
+  weeks.forEach((w, i) => {
+    const x  = PAD.l + i * barStep + (barStep - barW) / 2;
+    const bH = (w.peakBuild / maxVal) * cH;
+    const y  = PAD.t + cH - bH;
+    const effCap = Math.max(0, capacity - w.peakLeave);
+    const color  = w.peakBuild > capacity ? '#dc2626' : (w.peakBuild > effCap || w.peakBuild > capacity * 0.85) ? '#d97706' : '#7ab800';
+    if (bH > 0) bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bH.toFixed(1)}" fill="${color}" opacity="0.88" rx="2"/>`;
+    if (weeks.length <= 14 || i % 2 === 0) {
+      const d = toDay(w.ws);
+      labels += `<text x="${(x + barW/2).toFixed(1)}" y="${H - PAD.b + 14}" fill="#9ca3af" font-size="8" text-anchor="middle" font-family="monospace">${d.getDate()}/${d.getMonth()+1}</text>`;
+    }
+  });
+  for (let i = 0; i <= 4; i++) {
+    const val = Math.round(maxVal * i / 4);
+    const y   = yS(val);
+    yTicks += `<text x="${PAD.l - 4}" y="${(y + 3).toFixed(1)}" fill="#9ca3af" font-size="8" text-anchor="end" font-family="monospace">${val}</text><line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${(W - PAD.r).toFixed(1)}" y2="${y.toFixed(1)}" stroke="#f3f4f6" stroke-width="1"/>`;
+  }
+  const capY    = yS(capacity);
+  const capLine = `<line x1="${PAD.l}" y1="${capY.toFixed(1)}" x2="${(W-PAD.r).toFixed(1)}" y2="${capY.toFixed(1)}" stroke="#7ab800" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.75"/>`;
+  const axLabel = `<text x="${(PAD.l - 24)}" y="${(PAD.t + cH/2)}" fill="#9ca3af" font-size="8" text-anchor="middle" font-family="sans-serif" transform="rotate(-90,${PAD.l - 24},${PAD.t + cH/2})">Builders</text>`;
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${yTicks}${bars}${capLine}${labels}${axLabel}</svg>`;
+}
+
+function rptDonutSVG(taskList) {
+  const SEGS = [
+    { key: 'In Build',                                 color: '#f97316' },
+    { key: 'Test Department Working On Rack',          color: '#8b5cf6' },
+    { key: 'Onsite build',                             color: '#f59e0b' },
+    { key: 'Ready To Send',                            color: '#ec4899' },
+    { key: 'Built and waiting testing',                color: '#3b82f6' },
+    { key: 'Dates Required',                           color: '#ef4444' },
+    { key: 'OTHER',                                    color: '#9ca3af' },
+  ];
+  const counts = {};
+  taskList.forEach(t => {
+    const key = SEGS.find(s => s.key === t.status) ? t.status : 'OTHER';
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  const total = taskList.length;
+  if (!total) return `<svg width="140" height="140" viewBox="0 0 140 140"><text x="70" y="75" text-anchor="middle" fill="#9ca3af" font-size="11" font-family="sans-serif">No data</text></svg>`;
+  const R = 55, cx = 70, cy = 70, ir = 34;
+  let angle = -Math.PI / 2, paths = '';
+  SEGS.forEach(({ key, color }) => {
+    const n = counts[key] || 0; if (!n) return;
+    const sweep = (n / total) * Math.PI * 2, end = angle + sweep;
+    const x1 = cx + R*Math.cos(angle), y1 = cy + R*Math.sin(angle);
+    const x2 = cx + R*Math.cos(end),   y2 = cy + R*Math.sin(end);
+    const i1 = cx + ir*Math.cos(end),  j1 = cy + ir*Math.sin(end);
+    const i2 = cx + ir*Math.cos(angle),j2 = cy + ir*Math.sin(angle);
+    const lg = sweep > Math.PI ? 1 : 0;
+    paths += `<path d="M${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${lg},1 ${x2.toFixed(2)},${y2.toFixed(2)} L${i1.toFixed(2)},${j1.toFixed(2)} A${ir},${ir} 0 ${lg},0 ${i2.toFixed(2)},${j2.toFixed(2)} Z" fill="${color}" opacity="0.9"/>`;
+    angle = end;
+  });
+  return `<svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">${paths}<text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#1a1a2e" font-size="20" font-weight="600" font-family="sans-serif">${total}</text><text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="#9ca3af" font-size="8.5" font-family="sans-serif" letter-spacing=".05em">PROJECTS</text></svg>`;
+}
+
+function rptDonutLegend(taskList) {
+  const SEGS = [
+    { key: 'In Build',                                 color: '#f97316', label: 'In Build' },
+    { key: 'Test Department Working On Rack',          color: '#8b5cf6', label: 'Testing' },
+    { key: 'Onsite build',                             color: '#f59e0b', label: 'Onsite' },
+    { key: 'Ready To Send',                            color: '#ec4899', label: 'Ready to Send' },
+    { key: 'Built and waiting testing',                color: '#3b82f6', label: 'Built / Waiting' },
+    { key: 'Dates Required',                           color: '#ef4444', label: 'Dates Required' },
+    { key: 'OTHER',                                    color: '#9ca3af', label: 'Other' },
+  ];
+  const counts = {};
+  taskList.forEach(t => {
+    const key = SEGS.find(s => s.key === t.status) ? t.status : 'OTHER';
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return SEGS.filter(s => counts[s.key]).map(s =>
+    `<div style="display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:#4b5563;padding:.1rem 0"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${s.color};flex-shrink:0"></span><span style="flex:1">${s.label}</span><span style="font-family:monospace;font-weight:600;color:#1a1a2e">${counts[s.key]}</span></div>`
+  ).join('');
+}
+
+function buildReportHtml({ from, to, wiremen, comms }) {
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Filter tasks overlapping the date range, then by selected people
+  const inRange = tasks.filter(t => {
+    const spans = [[t.projStart,t.projEnd],[t.testStart,t.testEnd],[t.fat_date,t.fat_date],[t.site_date,t.site_date]];
+    const overlaps = spans.some(([s,e]) => { if (!s&&!e) return false; const rs=s||e,re=e||s; return re>=from && rs<=to; });
+    if (!overlaps) return false;
+    if (wiremen.length && t.wireman && !wiremen.includes(t.wireman)) return false;
+    if (comms.length   && t.test_engineer && !comms.includes(t.test_engineer)) return false;
+    return true;
+  });
+
+  const onsiteTasks = inRange.filter(t => t.status === 'Onsite build').sort((a,b) => (a.projStart||'').localeCompare(b.projStart||''));
+  const mainTasks   = inRange.filter(t => t.status !== 'Onsite build').sort((a,b) => (a.projStart||'').localeCompare(b.projStart||''));
+  const conflictsInRange     = lastConflicts.filter(c => c.day >= from && c.day <= to);
+  const testConflictsInRange = lastTestConflicts.filter(c => c.day >= from && c.day <= to);
+
+  // Leave summary for the period
+  const leaveSummary = {};
+  let lcur = from;
+  while (lcur <= to) {
+    (rackbuildLeave[lcur]?.names||[]).forEach(n => { if (!leaveSummary[n]) leaveSummary[n]={team:'Rack Build',days:0}; leaveSummary[n].days++; });
+    (offsiteLeave[lcur]?.names||[]).forEach(n => {  if (!leaveSummary[n]) leaveSummary[n]={team:'Offsite',days:0};    leaveSummary[n].days++; });
+    const ld = toDay(lcur); ld.setDate(ld.getDate()+1); lcur = fmtISO(ld);
+  }
+  const leaveEntries = Object.entries(leaveSummary).sort((a,b)=>a[0].localeCompare(b[0]));
+
+  const weeklyData   = rptWeeklyDemand(inRange, from, to);
+  const chartSvg     = rptWeeklyChartSVG(weeklyData, teamSize);
+  const donutSvg     = rptDonutSVG(inRange);
+  const donutLegend  = rptDonutLegend(inRange);
+
+  const fmtRange = (s,e) => (s&&e) ? `${fmtShort(s)} – ${fmtShort(e)}` : (s ? fmtShort(s) : '—');
+  const sColor   = s => ({ 'In Build':'#f97316','Test Department Working On Rack':'#8b5cf6','Onsite build':'#f59e0b','Ready To Send':'#ec4899','Built and waiting testing':'#3b82f6','Canceled':'#ef4444','On Hold':'#9ca3af' }[s]||'#6b7280');
+  const sPill    = s => `<span style="display:inline-block;font-size:9px;font-weight:600;padding:2px 7px;border-radius:20px;background:${sColor(s)}22;color:${sColor(s)};white-space:nowrap">${esc(s||'—')}</span>`;
+
+  const periodLabel  = `${fmtLong(from)} – ${fmtLong(to)}`;
+  const generatedBy  = currentUser?.email ? fmtPerson(currentUser.email) : '';
+  const todayLabel   = fmtLong(fmtISO(new Date()));
+
+  const mainRows = mainTasks.map(t => `<tr>
+    <td><strong>${esc(t.name)}</strong>${t.room?`<br><span style="font-size:9px;color:#6b7280">${esc(t.room)}</span>`:''}</td>
+    <td style="font-family:monospace;font-size:10px;white-space:nowrap">${esc(t.seqf)}</td>
+    <td style="font-family:monospace;font-size:10px;white-space:nowrap">${esc(t.rack_pa)}</td>
+    <td style="white-space:nowrap">${esc(t.wireman)}</td>
+    <td style="font-family:monospace;font-size:10px;white-space:nowrap">${fmtRange(t.projStart,t.projEnd)}</td>
+    <td style="font-family:monospace;font-size:10px;white-space:nowrap">${fmtRange(t.testStart,t.testEnd)}</td>
+    <td>${sPill(t.status)}</td>
+  </tr>`).join('') || `<tr><td colspan="7" style="text-align:center;color:#9ca3af;font-style:italic;padding:1.5rem 1rem">No main builds in this period</td></tr>`;
+
+  const onsiteRows = onsiteTasks.map(t => `<tr>
+    <td><strong>${esc(t.name)}</strong>${t.room?`<br><span style="font-size:9px;color:#6b7280">${esc(t.room)}</span>`:''}</td>
+    <td style="font-family:monospace;font-size:10px;white-space:nowrap">${esc(t.seqf)}</td>
+    <td style="font-family:monospace;font-size:10px;white-space:nowrap">${fmtRange(t.projStart,t.projEnd)}</td>
+    <td style="white-space:nowrap">${esc(t.wireman)}</td>
+    <td style="white-space:nowrap">${esc(fmtPerson(t.project_manager))}</td>
+    <td>${sPill(t.status)}</td>
+  </tr>`).join('') || `<tr><td colspan="6" style="text-align:center;color:#9ca3af;font-style:italic;padding:1.5rem 1rem">No onsite builds in this period</td></tr>`;
+
+  const leaveRows = leaveEntries.map(([name,info]) =>
+    `<tr><td>${esc(name)}</td><td style="color:#6b7280">${esc(info.team)}</td><td style="text-align:right;font-family:monospace">${info.days}</td></tr>`
+  ).join('') || `<tr><td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic;padding:1rem">No leave recorded in this period</td></tr>`;
+
+  const conflictChips = (arr, cls) => arr.slice(0,24).map(c => `<span style="font-size:10px;font-family:monospace;padding:2px 6px;border-radius:4px;${cls}">${fmtShort(c.day)} (${c.count})</span>`).join(' ') + (arr.length > 24 ? ` <span style="font-size:10px;color:#6b7280">+${arr.length-24} more</span>` : '');
+
+  // proAV logo SVG (inline copy, consistent with main app)
+  const logo = `<svg xmlns="http://www.w3.org/2000/svg" width="110" height="26" viewBox="0 0 165 38.343"><g transform="translate(-192.662 -398.538)"><g transform="translate(283.839 398.538)"><path d="M305.921,428.649l13.742-23.8c.072-.121.139-.217.195-.294a2.422,2.422,0,0,1,.2.3l13.743,23.8h6.72L325.1,401.935a5.736,5.736,0,0,0-10.475,0L299.2,428.649Z" transform="translate(-299.199 -398.538)" fill="#7ab800"/></g><g transform="translate(316.34 399.47)"><path d="M371.776,399.628l-13.744,23.8a2.8,2.8,0,0,1-.195.3,2.782,2.782,0,0,1-.2-.3l-13.743-23.8h-6.72L352.6,426.342a5.736,5.736,0,0,0,10.475,0L378.5,399.628Z" transform="translate(-337.176 -399.628)" fill="#7ab800"/></g><g transform="translate(192.662 398.671)"><path d="M198.483,437.037h-5.821V409.521a9.911,9.911,0,0,1,9.9-9.9h8.053a14.608,14.608,0,0,1,0,29.216h-8.538v-5.826h8.538a8.782,8.782,0,0,0,0-17.564h-8.053a4.081,4.081,0,0,0-4.075,4.078v27.516Z" transform="translate(-192.662 -398.828)" fill="#b0b0b0"/><g transform="translate(35.513 0.789)"><path d="M259.588,402.722a14.5,14.5,0,0,0-9-3.1h-6.5a9.909,9.909,0,0,0-9.9,9.9V428.8h5.821V409.515a4.081,4.081,0,0,1,4.076-4.075h6.5a8.714,8.714,0,0,1,5.979,2.363A18.432,18.432,0,0,1,259.588,402.722Z" transform="translate(-234.193 -399.617)" fill="#b0b0b0"/></g><path d="M279.622,429.48c-8.972,0-16.268-6.906-16.268-15.392s7.3-15.393,16.268-15.393,16.27,6.9,16.27,15.393-7.3,15.392-16.27,15.392Zm0-24.965c-5.76,0-10.446,4.294-10.446,9.573s4.686,9.573,10.446,9.573,10.448-4.3,10.448-9.573-4.688-9.573-10.448-9.573Z" transform="translate(-202.906 -398.694)" fill="#b0b0b0"/></g></g></svg>`;
+
+  return `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>proAV Production Report — ${esc(periodLabel)}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#fff;color:#1a1a2e;font-size:12px;-webkit-font-smoothing:antialiased;line-height:1.5}
+.rpt{max-width:960px;margin:0 auto;padding:2rem}
+.rpt-hdr{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:1.25rem;border-bottom:3px solid #7ab800;margin-bottom:1.75rem}
+.rpt-title{font-size:1.5rem;font-weight:600;letter-spacing:-.02em;color:#1a1a2e}
+.rpt-period{font-size:.8rem;color:#6b7280;font-family:'DM Mono',monospace;margin-top:.3rem}
+.rpt-meta{font-size:.7rem;color:#9ca3af;margin-top:.2rem}
+.rpt-sec{margin-bottom:2rem}
+.rpt-sec-title{font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#7ab800;padding-bottom:.35rem;border-bottom:1px solid #e5e7eb;margin-bottom:1rem}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.5rem}
+.card{border:1px solid #e5e7eb;border-radius:8px;padding:.85rem 1rem}
+.card-lbl{font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#9ca3af;margin-bottom:.35rem}
+.card-val{font-size:1.8rem;font-weight:600;font-family:'DM Mono',monospace;line-height:1}
+.card-sub{font-size:.65rem;color:#9ca3af;margin-top:.2rem}
+.ok{color:#16a34a}.warn{color:#d97706}.bad{color:#dc2626}.neu{color:#1a1a2e}.amber{color:#b45309}
+.charts-row{display:grid;grid-template-columns:1fr 200px;gap:1.25rem;margin-bottom:1.5rem}
+.chart-box,.donut-box{border:1px solid #e5e7eb;border-radius:8px;padding:1rem}
+.chart-lbl{font-size:.6rem;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:.65rem}
+.donut-box{display:flex;flex-direction:column;align-items:center}
+.chart-legend{display:flex;gap:.85rem;margin-top:.5rem;justify-content:center;flex-wrap:wrap}
+.chart-legend span{display:flex;align-items:center;gap:.3rem;font-size:.62rem;color:#6b7280}
+.alert-box{border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem}
+.alert-box.red{border:1px solid #fecaca;background:#fef2f2}
+.alert-box.amber{border:1px solid #fde68a;background:#fffbeb}
+.alert-box-title{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem}
+.alert-box.red .alert-box-title{color:#dc2626}.alert-box.amber .alert-box-title{color:#d97706}
+.chip-list{display:flex;flex-wrap:wrap;gap:.3rem}
+.chip{font-size:10px;font-family:monospace;padding:2px 6px;border-radius:4px}
+.chip.red{background:#fee2e2;color:#dc2626}.chip.amber{background:#fef3c7;color:#d97706}
+.onsite-banner{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem;display:flex;align-items:center;gap:.75rem}
+.onsite-banner strong{font-size:.88rem;color:#92400e;display:block;font-weight:600}
+.onsite-banner span{font-size:.72rem;color:#b45309}
+table.rt{width:100%;border-collapse:collapse;font-size:11px}
+table.rt th{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;padding:.5rem .65rem;background:#f9fafb;border-bottom:2px solid #e5e7eb;text-align:left;white-space:nowrap}
+table.rt td{padding:.45rem .65rem;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+table.rt tbody tr:last-child td{border-bottom:none}
+.tbl-wrap{border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}
+.tbl-wrap.onsite-tbl{border-color:#fde68a}
+.leave-empty{text-align:center;color:#9ca3af;font-style:italic;padding:1rem}
+.rpt-footer{text-align:center;padding-top:1rem;border-top:1px solid #e5e7eb;color:#d1d5db;font-size:.6rem;font-family:monospace;margin-top:1rem}
+.print-btn{position:fixed;bottom:1.5rem;right:1.5rem;background:#7ab800;color:#fff;border:none;border-radius:8px;padding:.65rem 1.1rem;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:500;cursor:pointer;box-shadow:0 4px 16px rgba(122,184,0,.4);display:flex;align-items:center;gap:.4rem}
+.print-btn:hover{background:#639600}
+@page{margin:15mm;size:A4}
+@media print{.print-btn{display:none!important}.rpt{padding:0;max-width:none}}
+</style></head><body>
+<div class="rpt">
+  <div class="rpt-hdr">
+    <div>
+      <div class="rpt-title">Production Report</div>
+      <div class="rpt-period">${esc(periodLabel)}</div>
+      <div class="rpt-meta">Generated ${todayLabel}${generatedBy ? ' · ' + esc(generatedBy) : ''}</div>
+    </div>
+    ${logo}
+  </div>
+
+  <div class="rpt-sec">
+    <div class="rpt-sec-title">Executive Summary</div>
+    <div class="cards">
+      <div class="card"><div class="card-lbl">Total Projects</div><div class="card-val neu">${inRange.length}</div><div class="card-sub">in period</div></div>
+      <div class="card"><div class="card-lbl">Main Builds</div><div class="card-val neu">${mainTasks.length}</div><div class="card-sub">rack build &amp; test</div></div>
+      <div class="card"><div class="card-lbl">Onsite Builds</div><div class="card-val amber">${onsiteTasks.length}</div><div class="card-sub">installation projects</div></div>
+      <div class="card"><div class="card-lbl">Capacity Alerts</div><div class="card-val ${conflictsInRange.length ? 'bad' : 'ok'}">${conflictsInRange.length || '✓'}</div><div class="card-sub">${conflictsInRange.length ? `days over capacity` : 'all clear'}</div></div>
+    </div>
+  </div>
+
+  ${conflictsInRange.length || testConflictsInRange.length ? `
+  <div class="rpt-sec">
+    <div class="rpt-sec-title">Capacity Issues</div>
+    ${conflictsInRange.length ? `<div class="alert-box red"><div class="alert-box-title">⚠ Rack Builder over-capacity — ${conflictsInRange.length} day${conflictsInRange.length>1?'s':''} (capacity: ${teamSize} builders)</div><div class="chip-list">${conflictChips(conflictsInRange,'background:#fee2e2;color:#dc2626')}</div></div>` : ''}
+    ${testConflictsInRange.length ? `<div class="alert-box amber"><div class="alert-box-title">⚠ Test Commissioner over-capacity — ${testConflictsInRange.length} day${testConflictsInRange.length>1?'s':''} (capacity: ${testSize} commissioners)</div><div class="chip-list">${conflictChips(testConflictsInRange,'background:#fef3c7;color:#d97706')}</div></div>` : ''}
+  </div>` : ''}
+
+  <div class="rpt-sec">
+    <div class="rpt-sec-title">Build Demand &amp; Status Overview</div>
+    <div class="charts-row">
+      <div class="chart-box">
+        <div class="chart-lbl">Weekly rack builder demand vs capacity (${teamSize} builders) — red = over, amber = high, green = ok</div>
+        ${chartSvg}
+        <div class="chart-legend">
+          <span><span style="display:inline-block;width:10px;height:3px;background:#7ab800;border-radius:1px"></span>Within capacity</span>
+          <span><span style="display:inline-block;width:10px;height:3px;background:#d97706;border-radius:1px"></span>High demand</span>
+          <span><span style="display:inline-block;width:10px;height:3px;background:#dc2626;border-radius:1px"></span>Over capacity</span>
+          <span><span style="display:inline-block;width:12px;height:0;border-top:2px dashed #7ab800"></span>Capacity line</span>
+        </div>
+      </div>
+      <div class="donut-box">
+        <div class="chart-lbl">Status breakdown</div>
+        ${donutSvg}
+        <div style="width:100%;margin-top:.5rem">${donutLegend}</div>
+      </div>
+    </div>
+  </div>
+
+  ${leaveEntries.length ? `
+  <div class="rpt-sec">
+    <div class="rpt-sec-title">Leave Impact — ${leaveEntries.length} engineer${leaveEntries.length>1?'s':''} in period</div>
+    <div class="tbl-wrap"><table class="rt"><thead><tr><th>Engineer</th><th>Team</th><th style="text-align:right">Days on Leave</th></tr></thead><tbody>${leaveRows}</tbody></table></div>
+  </div>` : ''}
+
+  <div class="rpt-sec">
+    <div class="rpt-sec-title">Rack Builds &amp; Test Schedule <span style="font-size:.65rem;font-weight:400;font-family:'DM Mono',monospace;color:#9ca3af;margin-left:.4rem">${mainTasks.length} project${mainTasks.length!==1?'s':''}</span></div>
+    <div class="tbl-wrap"><table class="rt"><thead><tr><th>Project / Room</th><th>SEQF</th><th>PA No.</th><th>Rack Builder</th><th>Build Window</th><th>Test Window</th><th>Status</th></tr></thead><tbody>${mainRows}</tbody></table></div>
+  </div>
+
+  <div class="rpt-sec">
+    <div class="onsite-banner">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <div><strong>Onsite Builds</strong><span>${onsiteTasks.length} project${onsiteTasks.length!==1?'s':''} — installation phase, delivered to client sites</span></div>
+    </div>
+    <div class="tbl-wrap onsite-tbl"><table class="rt"><thead><tr><th>Project / Room</th><th>SEQF</th><th>Onsite Window</th><th>Engineer</th><th>Project Manager</th><th>Status</th></tr></thead><tbody>${onsiteRows}</tbody></table></div>
+  </div>
+
+  <div class="rpt-footer">proAV Production Report &nbsp;·&nbsp; ${esc(periodLabel)} &nbsp;·&nbsp; Generated ${todayLabel}</div>
+</div>
+<button class="print-btn" onclick="window.print()">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+  Save as PDF
+</button>
+</body></html>`;
+}
 
 </script>
 </body>
