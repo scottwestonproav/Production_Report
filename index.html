@@ -813,15 +813,27 @@ document.getElementById('teamSlider').value     = teamSize;
 document.getElementById('teamLabel').textContent = teamSize;
 document.getElementById('testSlider').value     = testSize;
 document.getElementById('testLabel').textContent = testSize;
-// Re-apply after browser session-restore, which can overwrite form inputs to stale/default values
-setTimeout(() => {
+// Re-apply after browser session-restore, which can overwrite form inputs to stale/default values.
+// Run at 0ms, 150ms, and 500ms — Chrome's session-restore fires asynchronously and can land after
+// a single setTimeout(0), so the backstop timeouts catch later writes. Also hook `pageshow` for
+// the bfcache case. Each pass clears both the visual value and the searchText filter state so a
+// session-restore-triggered `oninput` doesn't leave a stale filter active after the visual is cleared.
+function _resetInputs() {
   document.getElementById('teamSlider').value     = teamSize;
   document.getElementById('teamLabel').textContent = teamSize;
   document.getElementById('testSlider').value     = testSize;
   document.getElementById('testLabel').textContent = testSize;
   const _si = document.getElementById('searchInput');
-  if (_si) _si.value = '';
-}, 0);
+  if (_si && _si.value !== '') {
+    _si.value  = '';
+    searchText = '';
+    render();
+  }
+}
+setTimeout(_resetInputs, 0);
+setTimeout(_resetInputs, 150);
+setTimeout(_resetInputs, 500);
+window.addEventListener('pageshow', _resetInputs);
 
 // ── BAMBOOHR LEAVE ────────────────────────────────
 async function loadLeaveData() {
