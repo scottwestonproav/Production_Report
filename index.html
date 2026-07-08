@@ -3576,6 +3576,23 @@ function rptDonutLegend(taskList) {
   ).join('');
 }
 
+function rptDatesToRanges(dates) {
+  if (!dates.length) return [];
+  const sorted = [...dates].sort();
+  const ranges = [];
+  let rStart = sorted[0], rPrev = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    const cur = sorted[i];
+    // Advance past weekends so Mon–Fri blocks merge into one range
+    const next = toDay(rPrev);
+    do { next.setDate(next.getDate() + 1); } while (next.getDay() === 0 || next.getDay() === 6);
+    if (fmtISO(next) === cur) { rPrev = cur; }
+    else { ranges.push({ start: rStart, end: rPrev }); rStart = cur; rPrev = cur; }
+  }
+  ranges.push({ start: rStart, end: rPrev });
+  return ranges;
+}
+
 function buildReportHtml({ from, to, wiremen, comms }) {
   const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
@@ -3594,15 +3611,21 @@ function buildReportHtml({ from, to, wiremen, comms }) {
   const conflictsInRange     = lastConflicts.filter(c => c.day >= from && c.day <= to);
   const testConflictsInRange = lastTestConflicts.filter(c => c.day >= from && c.day <= to);
 
-  // Leave summary for the period
-  const leaveSummary = {};
+  // Leave summary for the period — collect all dates per person, split by team
+  const leaveRbDates  = {}; // name → [ISO dates] for rack builders
+  const leaveOsDates  = {}; // name → [ISO dates] for offsite commissioners
   let lcur = from;
   while (lcur <= to) {
-    (rackbuildLeave[lcur]?.names||[]).forEach(n => { if (!leaveSummary[n]) leaveSummary[n]={team:'Rack Build',days:0}; leaveSummary[n].days++; });
-    (offsiteLeave[lcur]?.names||[]).forEach(n => {  if (!leaveSummary[n]) leaveSummary[n]={team:'Offsite',days:0};    leaveSummary[n].days++; });
+    (rackbuildLeave[lcur]?.names||[]).forEach(n => { if (!leaveRbDates[n]) leaveRbDates[n]=[]; leaveRbDates[n].push(lcur); });
+    (offsiteLeave[lcur]?.names||[]).forEach(n  => { if (!leaveOsDates[n]) leaveOsDates[n]=[]; leaveOsDates[n].push(lcur); });
     const ld = toDay(lcur); ld.setDate(ld.getDate()+1); lcur = fmtISO(ld);
   }
-  const leaveEntries = Object.entries(leaveSummary).sort((a,b)=>a[0].localeCompare(b[0]));
+  const rbLeaveEntries = Object.entries(leaveRbDates).sort((a,b)=>a[0].localeCompare(b[0]));
+  const osLeaveEntries = Object.entries(leaveOsDates).sort((a,b)=>a[0].localeCompare(b[0]));
+  const hasLeave = rbLeaveEntries.length || osLeaveEntries.length;
+  // Format a list of ISO dates into human-readable ranges e.g. "14 Jul – 18 Jul, 28 Jul"
+  const fmtMD = d => { const dt = toDay(d); return `${dt.getDate()} ${dt.toLocaleString('en-GB',{month:'short'})}`; };
+  const fmtLeaveRanges = dates => rptDatesToRanges(dates).map(r => r.start === r.end ? fmtMD(r.start) : `${fmtMD(r.start)} – ${fmtMD(r.end)}`).join(',&nbsp; ');
 
   const weeklyData   = rptWeeklyDemand(inRange, from, to);
   const chartSvg     = rptWeeklyChartSVG(weeklyData, teamSize);
@@ -3636,9 +3659,9 @@ function buildReportHtml({ from, to, wiremen, comms }) {
     <td>${sPill(t.status)}</td>
   </tr>`).join('') || `<tr><td colspan="6" style="text-align:center;color:#9ca3af;font-style:italic;padding:1.5rem 1rem">No onsite builds in this period</td></tr>`;
 
-  const leaveRows = leaveEntries.map(([name,info]) =>
-    `<tr><td>${esc(name)}</td><td style="color:#6b7280">${esc(info.team)}</td><td style="text-align:right;font-family:monospace">${info.days}</td></tr>`
-  ).join('') || `<tr><td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic;padding:1rem">No leave recorded in this period</td></tr>`;
+  const mkLeaveRows = entries => entries.map(([name, dates]) =>
+    `<tr><td style="white-space:nowrap;font-weight:500;vertical-align:top;padding-top:.5rem">${esc(name)}</td><td style="color:#374151;line-height:1.8">${fmtLeaveRanges(dates)}</td></tr>`
+  ).join('') || `<tr><td colspan="2" style="text-align:center;color:#9ca3af;font-style:italic;padding:.75rem">None in this period</td></tr>`;
 
   const conflictChips = (arr, cls) => arr.slice(0,24).map(c => `<span style="font-size:10px;font-family:monospace;padding:2px 6px;border-radius:4px;${cls}">${fmtShort(c.day)} (${c.count})</span>`).join(' ') + (arr.length > 24 ? ` <span style="font-size:10px;color:#6b7280">+${arr.length-24} more</span>` : '');
 
@@ -3743,10 +3766,19 @@ table.rt tbody tr:last-child td{border-bottom:none}
     </div>
   </div>
 
-  ${leaveEntries.length ? `
+  ${hasLeave ? `
   <div class="rpt-sec">
-    <div class="rpt-sec-title">Leave Impact — ${leaveEntries.length} engineer${leaveEntries.length>1?'s':''} in period</div>
-    <div class="tbl-wrap"><table class="rt"><thead><tr><th>Engineer</th><th>Team</th><th style="text-align:right">Days on Leave</th></tr></thead><tbody>${leaveRows}</tbody></table></div>
+    <div class="rpt-sec-title">Annual Leave in Period</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div>
+        <div style="font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#4b5563;padding:.35rem .65rem;background:#f3f4f6;border-radius:6px 6px 0 0;border:1px solid #e5e7eb;border-bottom:none">Rack Builders${rbLeaveEntries.length ? ` <span style="font-weight:400;color:#9ca3af">(${rbLeaveEntries.length})</span>` : ''}</div>
+        <div class="tbl-wrap" style="border-radius:0 0 6px 6px"><table class="rt"><thead><tr><th>Name</th><th>Dates Away</th></tr></thead><tbody>${mkLeaveRows(rbLeaveEntries)}</tbody></table></div>
+      </div>
+      <div>
+        <div style="font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#4b5563;padding:.35rem .65rem;background:#f3f4f6;border-radius:6px 6px 0 0;border:1px solid #e5e7eb;border-bottom:none">Offsite Commissioners${osLeaveEntries.length ? ` <span style="font-weight:400;color:#9ca3af">(${osLeaveEntries.length})</span>` : ''}</div>
+        <div class="tbl-wrap" style="border-radius:0 0 6px 6px"><table class="rt"><thead><tr><th>Name</th><th>Dates Away</th></tr></thead><tbody>${mkLeaveRows(osLeaveEntries)}</tbody></table></div>
+      </div>
+    </div>
   </div>` : ''}
 
   <div class="rpt-sec">
