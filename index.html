@@ -3636,6 +3636,12 @@ function buildReportHtml({ from, to, wiremen, comms }) {
   const sColor   = s => ({ 'In Build':'#f97316','Test Department Working On Rack':'#8b5cf6','Onsite build':'#f59e0b','Ready To Send':'#ec4899','Built and waiting testing':'#3b82f6','Canceled':'#ef4444','On Hold':'#9ca3af' }[s]||'#6b7280');
   const sPill    = s => `<span style="display:inline-block;font-size:9px;font-weight:600;padding:2px 7px;border-radius:20px;background:${sColor(s)}22;color:${sColor(s)};white-space:nowrap">${esc(s||'—')}</span>`;
 
+  // Project / rack counts — group by SEQF so multi-room projects count once
+  const uniqueSeqfs  = new Set(inRange.map(t => t.seqf).filter(Boolean));
+  const totalProjects = uniqueSeqfs.size + inRange.filter(t => !t.seqf).length;
+  const mainRacks    = mainTasks.reduce((s,t) => s + (t.qty||1), 0);
+  const onsiteRacks  = onsiteTasks.reduce((s,t) => s + (t.qty||1), 0);
+
   const periodLabel  = `${fmtLong(from)} – ${fmtLong(to)}`;
   const generatedBy  = currentUser?.email ? fmtPerson(currentUser.email) : '';
   const todayLabel   = fmtLong(fmtISO(new Date()));
@@ -3731,9 +3737,9 @@ table.rt tbody tr:last-child td{border-bottom:none}
   <div class="rpt-sec">
     <div class="rpt-sec-title">Executive Summary</div>
     <div class="cards">
-      <div class="card"><div class="card-lbl">Total Projects</div><div class="card-val neu">${inRange.length}</div><div class="card-sub">in period</div></div>
-      <div class="card"><div class="card-lbl">Main Builds</div><div class="card-val neu">${mainTasks.length}</div><div class="card-sub">rack build &amp; test</div></div>
-      <div class="card"><div class="card-lbl">Onsite Builds</div><div class="card-val amber">${onsiteTasks.length}</div><div class="card-sub">installation projects</div></div>
+      <div class="card"><div class="card-lbl">Total Projects</div><div class="card-val neu">${totalProjects}</div><div class="card-sub">unique SEQF${totalProjects!==1?'s':''} in period</div></div>
+      <div class="card"><div class="card-lbl">Main Builds</div><div class="card-val neu">${mainRacks}</div><div class="card-sub">rack${mainRacks!==1?'s':''} across ${mainTasks.length} system${mainTasks.length!==1?'s':''}</div></div>
+      <div class="card"><div class="card-lbl">Onsite Builds</div><div class="card-val amber">${onsiteRacks}</div><div class="card-sub">rack${onsiteRacks!==1?'s':''} across ${onsiteTasks.length} project${onsiteTasks.length!==1?'s':''}</div></div>
       <div class="card"><div class="card-lbl">Capacity Alerts</div><div class="card-val ${conflictsInRange.length ? 'bad' : 'ok'}">${conflictsInRange.length || '✓'}</div><div class="card-sub">${conflictsInRange.length ? `days over capacity` : 'all clear'}</div></div>
     </div>
   </div>
