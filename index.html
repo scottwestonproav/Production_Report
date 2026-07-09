@@ -2991,14 +2991,20 @@ window.openRequestReview = async function(id) {
         if (w.to   && _sysStart && _sysStart > w.to)   return false;
         return true;
       });
-      const _avail = [], _onLeave = [];
+      const _avail = [], _onLeave = [], _busy = [];
       for (const n of _filtered) {
         const lv = getLeaveInRange(n, _sysStart, _sysEnd);
-        (lv.length ? _onLeave : _avail).push({ n, lv });
+        if (lv.length) { _onLeave.push({ n, lv }); continue; }
+        const conflict = _sysStart && _sysEnd && tasks.find(t =>
+          t.status === ONSITE_STATUS && t.wireman === n && t.projStart && t.projEnd &&
+          t.projStart <= _sysEnd && t.projEnd >= _sysStart);
+        (conflict ? _busy : _avail).push({ n, conflict });
       }
       const rosterOpts = [
-        ...(_avail.length === 0 && _onLeave.length === 0 ? [`<option disabled>No available engineers</option>`] : []),
+        ...(_avail.length === 0 && _onLeave.length === 0 && _busy.length === 0 ? [`<option disabled>No available engineers</option>`] : []),
         ..._avail.map(({ n }) => `<option value="${escH(n)}" ${s.assigned_engineer===n?'selected':''}>${escH(n)}</option>`),
+        ...(_busy.length ? [`<option disabled>── Already assigned this period ──</option>`] : []),
+        ..._busy.map(({ n, conflict }) => `<option value="${escH(n)}" ${s.assigned_engineer===n?'selected':''}>${escH(n)} (busy: ${escH(conflict.name || conflict.seqf || 'another rack')})</option>`),
         ...(_onLeave.length ? [`<option disabled>── On leave during this period ──</option>`] : []),
         ..._onLeave.map(({ n, lv }) => `<option value="${escH(n)}" ${s.assigned_engineer===n?'selected':''}>${escH(n)} (${lv.length} day${lv.length>1?'s':''} leave)</option>`),
       ].join('');
