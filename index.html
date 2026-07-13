@@ -174,7 +174,8 @@ tbody tr:hover td { background: var(--bg3); }
 .advisory-panel h4 { font-size: .8rem; font-weight: 500; color: var(--amber); margin-bottom: .5rem; }
 .advisory-item { font-size: .75rem; color: #fcd34d; padding: .2rem 0; }
 
-.assign-planner { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: .85rem; }
+.assign-planner { display: none; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
+#assignSection.expanded .assign-planner { display: flex; }
 .assign-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: .9rem 1rem; flex: 1; min-width: 280px; }
 .assign-card h4 { font-size: .8rem; font-weight: 600; color: var(--text); margin-bottom: .5rem; display: flex; align-items: center; gap: .4rem; }
 .assign-card h4 small { font-size: .68rem; font-weight: 400; color: var(--text3); }
@@ -480,7 +481,15 @@ tbody tr { cursor: default; }
     <div class="metric"><div class="metric-label">Peak demand</div><div class="metric-val neutral">—</div></div>
   </div>
 
-  <div class="assign-planner" id="assignPlanner"></div>
+  <div class="notif-section" id="assignSection" style="display:none">
+    <div class="notif-bar" onclick="toggleAssignPlanner()">
+      <button class="notif-toggle" id="assignToggleBtn" aria-label="Toggle assignment planner">
+        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <span class="notif-bar-label">🔧 Assignment Planner</span>
+    </div>
+    <div class="assign-planner" id="assignPlanner"></div>
+  </div>
 
   <div class="controls">
     <div id="sliderGroup" style="display:flex;flex-direction:column;gap:.45rem;flex-shrink:0">
@@ -764,6 +773,19 @@ const TEAM_KEY  = 'gantt_team_v1';
 const TEST_KEY  = 'gantt_test_v1';
 const NOTIF_KEY = 'notif_expanded_v1';
 let notifExpanded = localStorage.getItem(NOTIF_KEY) === 'true'; // default collapsed
+
+const ASSIGN_KEY = 'assign_planner_expanded_v1';
+let assignExpanded = localStorage.getItem(ASSIGN_KEY) === 'true'; // default collapsed
+
+function applyAssignState() {
+  document.getElementById('assignSection').classList.toggle('expanded', assignExpanded);
+}
+window.toggleAssignPlanner = function() {
+  assignExpanded = !assignExpanded;
+  localStorage.setItem(ASSIGN_KEY, assignExpanded);
+  applyAssignState();
+};
+applyAssignState();
 
 function applyNotifState() {
   document.getElementById('notifSection').classList.toggle('expanded', notifExpanded);
@@ -1753,10 +1775,11 @@ const ASSIGN_PLANNER_EXCLUDE_STATUS = new Set([
 ]);
 
 function renderAssignPlanner() {
-  const el = document.getElementById('assignPlanner');
-  if (!el) return;
-  if (currentUser?.email !== 'scott.weston@proav.com') { el.style.display = 'none'; el.innerHTML = ''; return; }
-  el.style.display = '';
+  const el      = document.getElementById('assignPlanner');
+  const section = document.getElementById('assignSection');
+  if (!el || !section) return;
+  if (currentUser?.email !== 'scott.weston@proav.com') { section.style.display = 'none'; el.innerHTML = ''; return; }
+  section.style.display = '';
 
   const todayStr = fmtISO(new Date());
   const horizon  = addDays(todayStr, 7);
@@ -2628,7 +2651,7 @@ window.switchView = function(view) {
   document.querySelector('.legend').style.display            = isGantt ? '' : 'none';
   document.querySelector('.controls').style.display          = isGantt ? '' : 'none';
   document.getElementById('notifSection').style.display        = isGantt ? '' : 'none';
-  document.getElementById('assignPlanner').style.display       = isGantt ? '' : 'none';
+  if (!isGantt) document.getElementById('assignSection').style.display = 'none'; // re-shown by renderAssignPlanner() when back on Gantt
   document.getElementById('onsiteSettingsPanel').style.display  = isGantt ? 'none' : (onsiteSettingsOpen ? '' : 'none');
   document.getElementById('onsiteView').style.display           = isGantt ? 'none' : '';
   const gearBtn = document.getElementById('tabOnsiteSettings');
