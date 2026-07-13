@@ -188,6 +188,7 @@ tbody tr:hover td { background: var(--bg3); }
 .assign-sub { font-size: .68rem; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .assign-leave { font-size: .66rem; color: var(--amber); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .assign-onsite { font-size: .66rem; color: var(--purple); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.assign-queued { font-size: .66rem; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .assign-badge { flex-shrink: 0; font-family: var(--mono); font-size: .66rem; padding: .15rem .55rem; border-radius: 20px; white-space: nowrap; }
 .assign-badge-overdue { background: var(--red-dim); color: var(--red); }
 .assign-badge-soon { background: var(--amber-dim); color: var(--amber); }
@@ -1838,6 +1839,19 @@ function findOnsiteBuildsFuzzy(name, startISO, endISO) {
   ).sort((a, b) => a.projStart.localeCompare(b.projStart));
 }
 
+// Other office rack builds (status 'In Build', excluding the one used to compute this
+// person's "freeing up" date) overlapping [startISO, endISO] — so a wireman who already
+// has another rack queued/underway isn't shown as fully free.
+function findOtherBuildsFuzzy(name, excludeTaskId, startISO, endISO) {
+  if (!name || !startISO || !endISO) return [];
+  return tasks.filter(t =>
+    t.status === 'In Build' && t.wireman && t.id !== excludeTaskId &&
+    t.projStart && t.projEnd &&
+    t.projStart <= endISO && t.projEnd >= startISO &&
+    namesLikelyMatch(t.wireman, name)
+  ).sort((a, b) => a.projStart.localeCompare(b.projStart));
+}
+
 window.toggleAssignMore = function(section) {
   if (section === 'needs') assignNeedsExpanded = !assignNeedsExpanded;
   else assignFreeExpanded = !assignFreeExpanded;
@@ -1909,12 +1923,17 @@ function renderAssignPlanner() {
     const onsiteNote = onsiteJobs.length
       ? `<span class="assign-onsite">🏗 onsite ${fmtMed(onsiteJobs[0].projStart)}–${fmtMed(onsiteJobs[0].projEnd)}${onsiteJobs[0].name ? ` · ${escH(onsiteJobs[0].name)}` : ''}</span>`
       : '';
+    const otherBuilds = findOtherBuildsFuzzy(f.name, f.task.id, f.end, lookaheadEnd);
+    const otherBuildNote = otherBuilds.length
+      ? `<span class="assign-queued">➕ also building ${fmtMed(otherBuilds[0].projStart)}–${fmtMed(otherBuilds[0].projEnd)}${otherBuilds[0].name ? ` · ${escH(otherBuilds[0].name)}` : ''}</span>`
+      : '';
     return `<div class="assign-row" data-id="${escH(String(f.task.id))}">
       <div class="assign-main">
         <span class="assign-name">${escH(f.name)}</span>
         <span class="assign-sub">on ${escH(f.task.name || '—')}${f.task.room ? ` · ${escH(f.task.room)}` : ''}</span>
         ${leaveNote}
         ${onsiteNote}
+        ${otherBuildNote}
       </div>
       ${badge}
     </div>`;
