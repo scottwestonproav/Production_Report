@@ -179,9 +179,10 @@ tbody tr:hover td { background: var(--bg3); }
 .assign-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: .9rem 1rem; flex: 1; min-width: 280px; }
 .assign-card h4 { font-size: .8rem; font-weight: 600; color: var(--text); margin-bottom: .5rem; display: flex; align-items: center; gap: .4rem; }
 .assign-card h4 small { font-size: .68rem; font-weight: 400; color: var(--text3); }
-.assign-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .35rem 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.assign-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .55rem .1rem; margin: 0 -.1rem; border-bottom: 1px solid var(--border); cursor: pointer; border-radius: 6px; -webkit-tap-highlight-color: transparent; }
 .assign-row:last-child { border-bottom: none; }
 .assign-row:hover { background: var(--bg3); }
+.assign-row:active { background: var(--bg3); border-color: var(--border2); }
 .assign-main { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
 .assign-name { font-size: .75rem; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .assign-sub { font-size: .68rem; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -189,6 +190,8 @@ tbody tr:hover td { background: var(--bg3); }
 .assign-badge-overdue { background: var(--red-dim); color: var(--red); }
 .assign-badge-soon { background: var(--amber-dim); color: var(--amber); }
 .assign-badge-ok { background: var(--green-dim); color: var(--green); }
+.assign-more { text-align: center; font-size: .7rem; font-weight: 500; color: var(--blue); padding: .5rem 0 .1rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.assign-more:hover { text-decoration: underline; }
 .assign-empty { font-size: .75rem; color: var(--text3); padding: .3rem 0; }
 
 
@@ -1773,6 +1776,27 @@ const ASSIGN_PLANNER_EXCLUDE_STATUS = new Set([
   'Ready To Send', 'Built and waiting testing', 'Test Department Working On Rack',
   'Onsite build', 'DSP Only System', 'Loose Kit Systems', 'Ireland Office Build'
 ]);
+const ASSIGN_PLANNER_CAP = 5;
+let assignNeedsExpanded = false;
+let assignFreeExpanded  = false;
+
+window.toggleAssignMore = function(section) {
+  if (section === 'needs') assignNeedsExpanded = !assignNeedsExpanded;
+  else assignFreeExpanded = !assignFreeExpanded;
+  renderAssignPlanner();
+};
+
+// Renders up to ASSIGN_PLANNER_CAP rows plus a "+N more"/"Show less" toggle when the list is longer.
+function renderAssignRows(items, expanded, sectionKey, rowFn, emptyMsg) {
+  if (!items.length) return `<div class="assign-empty">${emptyMsg}</div>`;
+  const shown = expanded ? items : items.slice(0, ASSIGN_PLANNER_CAP);
+  const rows  = shown.map(rowFn).join('');
+  const rest  = items.length - ASSIGN_PLANNER_CAP;
+  const more  = rest > 0
+    ? `<div class="assign-more" onclick="toggleAssignMore('${sectionKey}')">${expanded ? 'Show less' : `+${rest} more`}</div>`
+    : '';
+  return rows + more;
+}
 
 function renderAssignPlanner() {
   const el      = document.getElementById('assignPlanner');
@@ -1796,10 +1820,9 @@ function renderAssignPlanner() {
   });
   const freeingUp = Object.entries(busy)
     .map(([name, info]) => ({ name, ...info }))
-    .sort((a, b) => a.end.localeCompare(b.end))
-    .slice(0, 8);
+    .sort((a, b) => a.end.localeCompare(b.end));
 
-  const needsRows = needsWireman.length ? needsWireman.map(t => {
+  const needsRows = renderAssignRows(needsWireman, assignNeedsExpanded, 'needs', t => {
     const days = daysBetween(todayStr, t.projStart);
     const badge = days < 0
       ? `<span class="assign-badge assign-badge-overdue">${Math.abs(days)}d overdue</span>`
@@ -1811,9 +1834,9 @@ function renderAssignPlanner() {
       </div>
       ${badge}
     </div>`;
-  }).join('') : `<div class="assign-empty">Nothing unassigned overdue or due in the next 7 days.</div>`;
+  }, 'Nothing unassigned overdue or due in the next 7 days.');
 
-  const freeRows = freeingUp.length ? freeingUp.map(f => {
+  const freeRows = renderAssignRows(freeingUp, assignFreeExpanded, 'free', f => {
     const overdue = f.end < todayStr;
     const badge = overdue
       ? `<span class="assign-badge assign-badge-ok">should be free</span>`
@@ -1825,7 +1848,7 @@ function renderAssignPlanner() {
       </div>
       ${badge}
     </div>`;
-  }).join('') : `<div class="assign-empty">No one currently on an active build.</div>`;
+  }, 'No one currently on an active build.');
 
   el.innerHTML = `
     <div class="assign-card">
