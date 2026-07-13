@@ -1755,6 +1755,8 @@ const ASSIGN_PLANNER_EXCLUDE_STATUS = new Set([
 function renderAssignPlanner() {
   const el = document.getElementById('assignPlanner');
   if (!el) return;
+  if (currentUser?.email !== 'scott.weston@proav.com') { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = '';
 
   const todayStr = fmtISO(new Date());
   const horizon  = addDays(todayStr, 7);
@@ -3267,6 +3269,7 @@ function updateAuthUI() {
   }
   const reportBtn = document.getElementById('reportBtn');
   if (reportBtn) reportBtn.style.display = (currentUser?.email === 'scott.weston@proav.com') ? '' : 'none';
+  if (currentView === 'gantt') renderAssignPlanner();
 }
 window.openSignIn = function() {
   const m = document.getElementById('signInModal');
