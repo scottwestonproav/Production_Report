@@ -174,6 +174,22 @@ tbody tr:hover td { background: var(--bg3); }
 .advisory-panel h4 { font-size: .8rem; font-weight: 500; color: var(--amber); margin-bottom: .5rem; }
 .advisory-item { font-size: .75rem; color: #fcd34d; padding: .2rem 0; }
 
+.assign-planner { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: .85rem; }
+.assign-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: .9rem 1rem; flex: 1; min-width: 280px; }
+.assign-card h4 { font-size: .8rem; font-weight: 600; color: var(--text); margin-bottom: .5rem; display: flex; align-items: center; gap: .4rem; }
+.assign-card h4 small { font-size: .68rem; font-weight: 400; color: var(--text3); }
+.assign-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .35rem 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.assign-row:last-child { border-bottom: none; }
+.assign-row:hover { background: var(--bg3); }
+.assign-main { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
+.assign-name { font-size: .75rem; color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.assign-sub { font-size: .68rem; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.assign-badge { flex-shrink: 0; font-family: var(--mono); font-size: .66rem; padding: .15rem .55rem; border-radius: 20px; white-space: nowrap; }
+.assign-badge-overdue { background: var(--red-dim); color: var(--red); }
+.assign-badge-soon { background: var(--amber-dim); color: var(--amber); }
+.assign-badge-ok { background: var(--green-dim); color: var(--green); }
+.assign-empty { font-size: .75rem; color: var(--text3); padding: .3rem 0; }
+
 
 /* ── TOAST ── */
 .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: var(--bg2); border: 1px solid var(--border2); color: var(--text); font-size: .8rem; padding: .6rem 1.1rem; border-radius: var(--radius); z-index: 2000; box-shadow: 0 4px 24px rgba(0,0,0,.5); animation: toastIn .2s ease, toastOut .3s ease 2.5s forwards; white-space: nowrap; }
@@ -463,6 +479,8 @@ tbody tr { cursor: default; }
     <div class="metric"><div class="metric-label">Slipped</div><div class="metric-val neutral">—</div></div>
     <div class="metric"><div class="metric-label">Peak demand</div><div class="metric-val neutral">—</div></div>
   </div>
+
+  <div class="assign-planner" id="assignPlanner"></div>
 
   <div class="controls">
     <div id="sliderGroup" style="display:flex;flex-direction:column;gap:.45rem;flex-shrink:0">
@@ -1514,6 +1532,8 @@ window.render = function() {
         </div>
       </div></div>`;
 
+  renderAssignPlanner();
+
   const badge = document.getElementById('capBadge');
   if (!conflicts.length) { badge.className='cap-badge cap-ok'; badge.textContent='Builders: within capacity'; }
   else { badge.className='cap-badge cap-bad'; badge.textContent=`Builders: ${conflicts.length} day${conflicts.length>1?'s':''} over capacity`; }
@@ -1723,6 +1743,82 @@ function renderTestConflicts(conflicts, advisories) {
   ).join('');
 }
 
+// ── ASSIGNMENT PLANNER ────────────────────────────
+// "Needs a wireman": unassigned racks whose build start is already overdue or within 7 days.
+// "Freeing up soonest": wiremen currently on an active build, ranked by when that build ends.
+const ASSIGN_PLANNER_EXCLUDE_STATUS = new Set([
+  'Canceled', 'On Hold', 'Parked (work stopped on it - build/test)',
+  'Ready To Send', 'Built and waiting testing', 'Test Department Working On Rack',
+  'Onsite build', 'DSP Only System', 'Loose Kit Systems', 'Ireland Office Build'
+]);
+
+function renderAssignPlanner() {
+  const el = document.getElementById('assignPlanner');
+  if (!el) return;
+
+  const todayStr = fmtISO(new Date());
+  const horizon  = addDays(todayStr, 7);
+
+  const needsWireman = tasks.filter(t =>
+    !t.wireman && t.projStart && t.projStart <= horizon && !ASSIGN_PLANNER_EXCLUDE_STATUS.has(t.status)
+  ).sort((a, b) => a.projStart.localeCompare(b.projStart));
+
+  const busy = {};
+  tasks.forEach(t => {
+    if (t.status === 'In Build' && t.wireman && t.projEnd) {
+      if (!busy[t.wireman] || t.projEnd > busy[t.wireman].end) busy[t.wireman] = { end: t.projEnd, task: t };
+    }
+  });
+  const freeingUp = Object.entries(busy)
+    .map(([name, info]) => ({ name, ...info }))
+    .sort((a, b) => a.end.localeCompare(b.end))
+    .slice(0, 8);
+
+  const needsRows = needsWireman.length ? needsWireman.map(t => {
+    const days = daysBetween(todayStr, t.projStart);
+    const badge = days < 0
+      ? `<span class="assign-badge assign-badge-overdue">${Math.abs(days)}d overdue</span>`
+      : `<span class="assign-badge assign-badge-soon">${days === 0 ? 'today' : `in ${days}d`}</span>`;
+    return `<div class="assign-row" data-id="${escH(String(t.id))}">
+      <div class="assign-main">
+        <span class="assign-name">${escH(t.name || '—')}</span>
+        <span class="assign-sub">${escH(t.room || '')}${t.seqf ? ` · ${escH(t.seqf)}` : ''}</span>
+      </div>
+      ${badge}
+    </div>`;
+  }).join('') : `<div class="assign-empty">Nothing unassigned overdue or due in the next 7 days.</div>`;
+
+  const freeRows = freeingUp.length ? freeingUp.map(f => {
+    const overdue = f.end < todayStr;
+    const badge = overdue
+      ? `<span class="assign-badge assign-badge-ok">should be free</span>`
+      : `<span class="assign-badge assign-badge-soon">${fmtMed(f.end)}</span>`;
+    return `<div class="assign-row" data-id="${escH(String(f.task.id))}">
+      <div class="assign-main">
+        <span class="assign-name">${escH(f.name)}</span>
+        <span class="assign-sub">on ${escH(f.task.name || '—')}${f.task.room ? ` · ${escH(f.task.room)}` : ''}</span>
+      </div>
+      ${badge}
+    </div>`;
+  }).join('') : `<div class="assign-empty">No one currently on an active build.</div>`;
+
+  el.innerHTML = `
+    <div class="assign-card">
+      <h4>🔧 Needs a wireman <small>(overdue + next 7 days)</small></h4>
+      ${needsRows}
+    </div>
+    <div class="assign-card">
+      <h4>⏱ Freeing up soonest</h4>
+      ${freeRows}
+    </div>`;
+}
+
+document.getElementById('assignPlanner').addEventListener('click', e => {
+  const row = e.target.closest('.assign-row[data-id]');
+  if (!row) return;
+  const task = tasks.find(t => String(t.id) === row.dataset.id);
+  if (task) showTaskDetail(task);
+});
 
 // ── TEAM ──────────────────────────────────────────
 window.onTeamChange = function(v) {
@@ -2530,6 +2626,7 @@ window.switchView = function(view) {
   document.querySelector('.legend').style.display            = isGantt ? '' : 'none';
   document.querySelector('.controls').style.display          = isGantt ? '' : 'none';
   document.getElementById('notifSection').style.display        = isGantt ? '' : 'none';
+  document.getElementById('assignPlanner').style.display       = isGantt ? '' : 'none';
   document.getElementById('onsiteSettingsPanel').style.display  = isGantt ? 'none' : (onsiteSettingsOpen ? '' : 'none');
   document.getElementById('onsiteView').style.display           = isGantt ? 'none' : '';
   const gearBtn = document.getElementById('tabOnsiteSettings');
