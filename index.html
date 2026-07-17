@@ -415,6 +415,24 @@ tbody tr { cursor: default; }
 .rpt-toggle-row { display:flex; gap:.4rem; margin-bottom:.4rem; }
 .rpt-toggle { font-size:.7rem; color:var(--text3); cursor:pointer; padding:.1rem .4rem; border-radius:4px; background:none; border:none; font-family:var(--font); }
 .rpt-toggle:hover { color:var(--blue); background:var(--blue-dim); }
+
+/* ── AI CHAT WIDGET ── */
+.ai-chat-bubble { position:fixed; bottom:1.5rem; right:1.5rem; width:52px; height:52px; border-radius:50%; background:var(--blue); color:#fff; border:none; cursor:pointer; box-shadow:0 4px 16px rgba(122,184,0,.4); display:flex; align-items:center; justify-content:center; z-index:1500; transition:background .15s; }
+.ai-chat-bubble:hover { background:#639600; }
+.ai-chat-panel { position:fixed; bottom:1.5rem; right:1.5rem; width:min(400px, calc(100vw - 2rem)); height:min(560px, calc(100vh - 3rem)); background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius-lg); box-shadow:0 8px 48px rgba(0,0,0,.7); display:flex; flex-direction:column; z-index:1500; overflow:hidden; }
+.ai-chat-hdr { display:flex; align-items:center; justify-content:space-between; padding:.75rem 1rem; border-bottom:1px solid var(--border); flex-shrink:0; }
+.ai-chat-title { font-size:.85rem; font-weight:600; color:var(--text); }
+.ai-chat-sub { font-size:.65rem; color:var(--text3); margin-top:.1rem; }
+.ai-chat-msgs { flex:1; overflow-y:auto; padding:.85rem 1rem; display:flex; flex-direction:column; gap:.6rem; }
+.ai-chat-msg { max-width:88%; padding:.5rem .7rem; border-radius:var(--radius); font-size:.8rem; line-height:1.5; white-space:pre-wrap; }
+.ai-chat-msg.user { align-self:flex-end; background:var(--blue); color:#fff; }
+.ai-chat-msg.assistant { align-self:flex-start; background:var(--bg3); border:1px solid var(--border); color:var(--text); }
+.ai-chat-msg.error { align-self:flex-start; background:var(--red-dim); border:1px solid var(--red); color:var(--red); }
+.ai-chat-msg.pending { align-self:flex-start; background:var(--bg3); border:1px solid var(--border); color:var(--text3); font-style:italic; }
+.ai-chat-empty { color:var(--text3); font-size:.78rem; text-align:center; margin-top:1.5rem; line-height:1.6; padding:0 .5rem; }
+.ai-chat-input-row { display:flex; gap:.5rem; padding:.75rem; border-top:1px solid var(--border); flex-shrink:0; }
+.ai-chat-input { flex:1; resize:none; background:var(--bg3); border:1px solid var(--border2); color:var(--text); font-family:var(--font); font-size:.8rem; padding:.5rem .6rem; border-radius:var(--radius); outline:none; max-height:90px; }
+.ai-chat-input:focus { border-color:var(--blue); }
 </style>
 </head>
 <body>
@@ -753,6 +771,24 @@ tbody tr { cursor: default; }
   </div>
 </div>
 
+<!-- ── AI CHAT WIDGET (scott.weston@proav.com only) ── -->
+<button id="aiChatBubble" class="ai-chat-bubble" style="display:none" onclick="toggleAiChat()" title="Ask about capacity &amp; scheduling">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+</button>
+<div id="aiChatPanel" class="ai-chat-panel" style="display:none">
+  <div class="ai-chat-hdr">
+    <div>
+      <div class="ai-chat-title">Capacity Assistant</div>
+      <div class="ai-chat-sub">Read-only · grounded in live data</div>
+    </div>
+    <button class="detail-close" onclick="toggleAiChat()">✕</button>
+  </div>
+  <div class="ai-chat-msgs" id="aiChatMsgs"></div>
+  <div class="ai-chat-input-row">
+    <textarea id="aiChatInput" class="ai-chat-input" rows="1" placeholder="Ask about capacity, conflicts, what-ifs…" onkeydown="if(event.key==='Enter'&amp;&amp;!event.shiftKey){event.preventDefault();sendAiChatMessage();}"></textarea>
+    <button class="btn btn-primary" id="aiChatSendBtn" onclick="sendAiChatMessage()">Send</button>
+  </div>
+</div>
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -2462,6 +2498,33 @@ function getOnsiteWeeks(extraItems = []) {
   return weeks;
 }
 
+function estOnsiteDays(t) {
+  const dpu = onsiteSettings.daysPerType[t.rack_type] || onsiteSettings.defaultDays || 5;
+  return Math.max(1, (t.qty || 1) * dpu);
+}
+
+// weekCounts: concurrent onsite demand (confirmed tasks + active requests) per week, aligned to `weeks`.
+// engClashSet: "<engineer>|<weekStart>" keys where the same wireman is booked on >1 confirmed task that week.
+function computeOnsiteWeekSummary(weeks, onsiteTasks, activeRequests) {
+  const allCapItems = [
+    ...onsiteTasks.map(t => ({ start: t.projStart, end: t.projEnd })),
+    ...activeRequests.map(r => ({ start: r.effectiveStart, end: r.effectiveEnd })),
+  ];
+  const weekCounts = weeks.map(w =>
+    allCapItems.filter(item => item.start <= w.end && item.end >= w.start).length
+  );
+  const engClashSet = new Set();
+  weeks.forEach(w => {
+    const ec = {};
+    onsiteTasks.forEach(t => {
+      if (t.projStart <= w.end && t.projEnd >= w.start && t.wireman)
+        ec[t.wireman] = (ec[t.wireman] || 0) + 1;
+    });
+    Object.entries(ec).forEach(([eng, n]) => { if (n > 1) engClashSet.add(`${eng}|${w.start}`); });
+  });
+  return { weekCounts, engClashSet };
+}
+
 function updateOnsiteMetrics() {
   const activeBuilds  = tasks.filter(t => t.status === ONSITE_STATUS && t.projStart && t.projEnd).length;
   const pendingCount  = requests.filter(r => r.request_status === 'Pending').length;
@@ -2556,29 +2619,7 @@ function renderOnsiteView() {
   const totalW = LCOL + weeks.length * WCOL;
 
   // Capacity counts: confirmed tasks + active requests combined
-  const allCapItems = [
-    ...onsiteTasks.map(t => ({ start: t.projStart, end: t.projEnd })),
-    ...activeRequests.map(r => ({ start: r.effectiveStart, end: r.effectiveEnd })),
-  ];
-  const weekCounts = weeks.map(w =>
-    allCapItems.filter(item => item.start <= w.end && item.end >= w.start).length
-  );
-
-  // Same-engineer double-booking (confirmed tasks only)
-  const engClashSet = new Set();
-  weeks.forEach(w => {
-    const ec = {};
-    onsiteTasks.forEach(t => {
-      if (t.projStart <= w.end && t.projEnd >= w.start && t.wireman)
-        ec[t.wireman] = (ec[t.wireman] || 0) + 1;
-    });
-    Object.entries(ec).forEach(([eng, n]) => { if (n > 1) engClashSet.add(`${eng}|${w.start}`); });
-  });
-
-  function estDays(t) {
-    const dpu = onsiteSettings.daysPerType[t.rack_type] || onsiteSettings.defaultDays || 5;
-    return Math.max(1, (t.qty || 1) * dpu);
-  }
+  const { weekCounts, engClashSet } = computeOnsiteWeekSummary(weeks, onsiteTasks, activeRequests);
 
   // Week header
   const weekHdrHtml = weeks.map(w => {
@@ -2597,7 +2638,7 @@ function renderOnsiteView() {
   const taskRowsHtml = onsiteTasks.map(t => {
     const eng     = t.wireman || '';
     const style   = onsiteEngStyle(eng || null);
-    const est     = estDays(t);
+    const est     = estOnsiteDays(t);
     const schDays = Math.max(1, daysBetween(t.projStart, t.projEnd) + 1);
     const isTight = est > schDays;
     const isCapClash = weeks.some((w, i) => t.projStart <= w.end && t.projEnd >= w.start && weekCounts[i] > cap);
@@ -3379,6 +3420,148 @@ async function doReview(id, status) {
   }
 }
 
+// ── AI CHAT CONTEXT ────────────────────────────────
+// Compact JSON snapshot of live capacity/schedule data, sent to the ai-chat
+// edge function as grounding context. Reuses the same functions that drive
+// the Gantt and Onsite views so the chat's understanding of "capacity" never
+// drifts from what's on screen.
+const AI_CHAT_HORIZON_DAYS      = 270; // ~9 months ahead
+const AI_CHAT_EXCLUDED_STATUSES = new Set(['Canceled']);
+
+function buildAiChatContext() {
+  const today    = fmtISO(new Date());
+  const horizon  = addDays(today, AI_CHAT_HORIZON_DAYS);
+  const lookback = addDays(today, -30);
+
+  const relevantTasks = tasks
+    .filter(t => !AI_CHAT_EXCLUDED_STATUSES.has(t.status))
+    .filter(t => {
+      const dates = [t.projStart, t.projEnd, t.testStart, t.testEnd, t.fat_date, t.site_date].filter(Boolean);
+      if (!dates.length) return true; // undated rows (e.g. "Dates Required") still matter
+      return dates.some(d => d >= lookback && d <= horizon);
+    })
+    .map(t => ({
+      id: t.id, name: t.name, seqf: t.seqf, room: t.room, rack_type: t.rack_type, qty: t.qty,
+      status: t.status, wireman: t.wireman, test_engineer: t.test_engineer,
+      rack_build_start: t.projStart, rack_build_end: t.projEnd,
+      test_start: t.testStart, test_end: t.testEnd,
+      fat_date: t.fat_date, site_date: t.site_date,
+      comments: (t.comments || '').slice(0, 300),
+    }));
+
+  const activeReqStatuses = new Set(['Pending', 'Approved', 'Scheduled']);
+  const relevantRequests = requests
+    .filter(r => activeReqStatuses.has(r.request_status))
+    .map(r => {
+      const rid  = String(r.id);
+      const span = reqsWithChildren.has(rid) ? reqSysSpans[rid] : null;
+      return {
+        id: r.id, project_name: r.project_name, seqf: r.seqf, project_manager: r.project_manager,
+        request_status: r.request_status, urgent: !!r.urgent,
+        start: span?.start || r.requested_start, end: span?.end || r.requested_end,
+      };
+    })
+    .filter(r => r.start && r.end);
+
+  const onsiteTasks       = tasks.filter(t => t.status === ONSITE_STATUS && t.projStart && t.projEnd);
+  const activeOnsiteItems = relevantRequests.map(r => ({ effectiveStart: r.start, effectiveEnd: r.end }));
+  const weeks             = getOnsiteWeeks(activeOnsiteItems.map(r => ({ start: r.effectiveStart, end: r.effectiveEnd })));
+  const { weekCounts }    = computeOnsiteWeekSummary(weeks, onsiteTasks, activeOnsiteItems);
+  const onsiteWeeklyDemand = weeks.map((w, i) => ({
+    week_start: w.start, week_end: w.end,
+    demand: weekCounts[i], capacity: onsiteSettings.engineerCapacity || 1,
+  }));
+
+  return {
+    today,
+    rackBuilderCapacity:         teamSize,
+    offsiteCommissionerCapacity: testSize,
+    onsiteEngineerCapacity:      onsiteSettings.engineerCapacity || 1,
+    onsiteDurationFormula: {
+      defaultDaysPerRack: onsiteSettings.defaultDays || 5,
+      daysPerRackType:    onsiteSettings.daysPerType || {},
+    },
+    onsiteRoster:                 onsiteSettings.roster || [],
+    rackBuilderConflicts:         getConflicts(),
+    offsiteCommissionerConflicts: getTestConflicts(),
+    onsiteWeeklyDemand,
+    tasks:                        relevantTasks,
+    pendingAndApprovedRequests:   relevantRequests,
+    upcomingLeave:                upcomingLeaveRecords,
+  };
+}
+
+// ── AI CHAT WIDGET ─────────────────────────────────
+let aiChatMessages = []; // [{role:'user'|'assistant'|'error'|'pending', content}]
+let aiChatOpen = false;
+let aiChatBusy = false;
+
+window.toggleAiChat = function() {
+  aiChatOpen = !aiChatOpen;
+  const panel  = document.getElementById('aiChatPanel');
+  const bubble = document.getElementById('aiChatBubble');
+  if (panel)  panel.style.display  = aiChatOpen ? 'flex' : 'none';
+  if (bubble) bubble.style.display = aiChatOpen ? 'none' : 'flex';
+  if (aiChatOpen) {
+    renderAiChatMessages();
+    setTimeout(() => document.getElementById('aiChatInput')?.focus(), 50);
+  }
+};
+
+function renderAiChatMessages() {
+  const el = document.getElementById('aiChatMsgs');
+  if (!el) return;
+  if (!aiChatMessages.length) {
+    el.innerHTML = `<div class="ai-chat-empty">Ask about capacity, conflicts, or "what if" scheduling — e.g. "If we added 4 racks in August, what impact would that have?"</div>`;
+    return;
+  }
+  el.innerHTML = aiChatMessages.map(m => `<div class="ai-chat-msg ${m.role}">${escH(m.content)}</div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+window.sendAiChatMessage = async function() {
+  if (aiChatBusy) return;
+  if (currentUser?.email !== 'scott.weston@proav.com') { showToast('Sign in as an authorized user first.', 'error'); return; }
+  const input = document.getElementById('aiChatInput');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  aiChatMessages.push({ role: 'user', content: text });
+  aiChatMessages.push({ role: 'pending', content: 'Thinking…' });
+  input.value = '';
+  renderAiChatMessages();
+
+  aiChatBusy = true;
+  const sendBtn = document.getElementById('aiChatSendBtn');
+  if (sendBtn) sendBtn.disabled = true;
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Not signed in.');
+
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/ai-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        messages: aiChatMessages.filter(m => m.role === 'user' || m.role === 'assistant').slice(-10),
+        context: buildAiChatContext(),
+      }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.error) throw new Error(data.error || `Request failed (${resp.status})`);
+    aiChatMessages.pop(); // remove "Thinking…" placeholder
+    aiChatMessages.push({ role: 'assistant', content: data.reply || '(no response)' });
+  } catch (e) {
+    aiChatMessages.pop(); // remove "Thinking…" placeholder
+    aiChatMessages.push({ role: 'error', content: e.message || 'Something went wrong.' });
+  } finally {
+    aiChatBusy = false;
+    if (sendBtn) sendBtn.disabled = false;
+    renderAiChatMessages();
+  }
+};
+
 // ── AUTH ──────────────────────────────────────────
 function updateAuthUI() {
   const userEl  = document.getElementById('authUser');
@@ -3404,6 +3587,14 @@ function updateAuthUI() {
   }
   const reportBtn = document.getElementById('reportBtn');
   if (reportBtn) reportBtn.style.display = (currentUser?.email === 'scott.weston@proav.com') ? '' : 'none';
+  const isAiChatUser = currentUser?.email === 'scott.weston@proav.com';
+  const aiChatBubble = document.getElementById('aiChatBubble');
+  if (aiChatBubble) aiChatBubble.style.display = isAiChatUser ? 'flex' : 'none';
+  if (!isAiChatUser) {
+    const aiChatPanel = document.getElementById('aiChatPanel');
+    if (aiChatPanel) aiChatPanel.style.display = 'none';
+    aiChatOpen = false;
+  }
   if (currentView === 'gantt') renderAssignPlanner();
 }
 window.openSignIn = function() {
