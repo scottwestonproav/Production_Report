@@ -79,7 +79,13 @@ ${JSON.stringify(body?.context ?? {})}`
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1024,
+        max_tokens: 2048,
+        // Sonnet 5 runs adaptive thinking by default when `thinking` is omitted,
+        // which can consume the entire token budget on reasoning and leave none
+        // for the answer. We want the capacity arithmetic visible in the reply
+        // text itself (per the system prompt), not hidden in a thinking block,
+        // so thinking is disabled outright rather than tuned via effort.
+        thinking: { type: 'disabled' },
         system: systemPrompt,
         messages: trimmedMessages,
       }),
