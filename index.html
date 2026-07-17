@@ -1808,7 +1808,7 @@ function renderTestConflicts(conflicts, advisories) {
 }
 
 // ── ASSIGNMENT PLANNER ────────────────────────────
-// "Needs a wireman": unassigned racks whose build start is already overdue or within 7 days.
+// "Needs a wireman": unassigned racks whose build start is already overdue or within 14 days.
 // "Freeing up soonest": wiremen currently on an active build, ranked by when that build ends.
 const ASSIGN_PLANNER_EXCLUDE_STATUS = new Set([
   'Canceled', 'On Hold', 'Parked (work stopped on it - build/test)',
@@ -1914,7 +1914,7 @@ function renderAssignPlanner() {
   section.style.display = '';
 
   const todayStr = fmtISO(new Date());
-  const horizon  = addDays(todayStr, 7);
+  const horizon  = addDays(todayStr, 14);
 
   const needsWireman = tasks.filter(t =>
     !t.wireman && t.projStart && t.projStart <= horizon && !ASSIGN_PLANNER_EXCLUDE_STATUS.has(t.status)
@@ -1942,7 +1942,7 @@ function renderAssignPlanner() {
       </div>
       ${badge}
     </div>`;
-  }, 'Nothing unassigned overdue or due in the next 7 days.');
+  }, 'Nothing unassigned overdue or due in the next 14 days.');
 
   const freeRows = renderAssignRows(freeingUp, assignFreeExpanded, 'free', f => {
     const overdue = f.end < todayStr;
@@ -1977,7 +1977,7 @@ function renderAssignPlanner() {
 
   el.innerHTML = `
     <div class="assign-card">
-      <h4>🔧 Needs a wireman <small>(overdue + next 7 days)</small></h4>
+      <h4>🔧 Needs a wireman <small>(overdue + next 14 days)</small></h4>
       ${needsRows}
     </div>
     <div class="assign-card">
