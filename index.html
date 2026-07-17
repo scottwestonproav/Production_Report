@@ -1926,9 +1926,16 @@ function renderAssignPlanner() {
       if (!busy[t.wireman] || t.projEnd > busy[t.wireman].end) busy[t.wireman] = { end: t.projEnd, task: t };
     }
   });
+  // A wireman isn't truly free until their office build AND any overlapping onsite
+  // commitment have both ended, so fold onsite end dates into the "free" date up front
+  // (this also drives sort order, so onsite-booked people rank by their real free date).
   const freeingUp = Object.entries(busy)
-    .map(([name, info]) => ({ name, ...info }))
-    .sort((a, b) => a.end.localeCompare(b.end));
+    .map(([name, info]) => {
+      const onsiteJobs  = findOnsiteBuildsFuzzy(name, info.end, addDays(info.end, 13));
+      const effectiveEnd = onsiteJobs.reduce((max, j) => j.projEnd > max ? j.projEnd : max, info.end);
+      return { name, ...info, onsiteJobs, effectiveEnd };
+    })
+    .sort((a, b) => a.effectiveEnd.localeCompare(b.effectiveEnd));
 
   const needsRows = renderAssignRows(needsWireman, assignNeedsExpanded, 'needs', t => {
     const days = daysBetween(todayStr, t.projStart);
@@ -1945,21 +1952,22 @@ function renderAssignPlanner() {
   }, 'Nothing unassigned overdue or due in the next 14 days.');
 
   const freeRows = renderAssignRows(freeingUp, assignFreeExpanded, 'free', f => {
-    const overdue = f.end < todayStr;
+    const overdue = f.effectiveEnd < todayStr;
     const badge = overdue
       ? `<span class="assign-badge assign-badge-ok">should be free</span>`
-      : `<span class="assign-badge assign-badge-soon">${fmtMed(f.end)}</span>`;
-    // Look 14 days past the build end for booked leave / onsite work that would block scheduling them straight away.
-    const lookaheadEnd = addDays(f.end, 13);
-    const leaveDays = findLeaveDaysFuzzy(f.name, f.end, lookaheadEnd);
+      : `<span class="assign-badge assign-badge-soon">${fmtMed(f.effectiveEnd)}</span>`;
+    // Look 14 days past the (onsite-adjusted) free date for booked leave / other builds
+    // that would block scheduling them straight away.
+    const lookaheadEnd = addDays(f.effectiveEnd, 13);
+    const leaveDays = findLeaveDaysFuzzy(f.name, f.effectiveEnd, lookaheadEnd);
     const leaveNote = leaveDays.length
       ? `<span class="assign-leave">⚠ leave ${fmtMed(leaveDays[0])}${leaveDays.length > 1 ? `–${fmtMed(leaveDays[leaveDays.length - 1])}` : ''}</span>`
       : '';
-    const onsiteJobs = findOnsiteBuildsFuzzy(f.name, f.end, lookaheadEnd);
+    const onsiteJobs = f.onsiteJobs;
     const onsiteNote = onsiteJobs.length
-      ? `<span class="assign-onsite">🏗 onsite ${fmtMed(onsiteJobs[0].projStart)}–${fmtMed(onsiteJobs[0].projEnd)}${onsiteJobs[0].name ? ` · ${escH(onsiteJobs[0].name)}` : ''}</span>`
+      ? `<span class="assign-onsite">🏗 onsite until ${fmtMed(f.effectiveEnd)}${onsiteJobs[0].name ? ` · ${escH(onsiteJobs[0].name)}` : ''}</span>`
       : '';
-    const otherBuilds = findOtherBuildsFuzzy(f.name, f.task.id, f.end, lookaheadEnd);
+    const otherBuilds = findOtherBuildsFuzzy(f.name, f.task.id, f.effectiveEnd, lookaheadEnd);
     const otherBuildNote = otherBuilds.length
       ? `<span class="assign-queued">➕ also building ${fmtMed(otherBuilds[0].projStart)}–${fmtMed(otherBuilds[0].projEnd)}${otherBuilds[0].name ? ` · ${escH(otherBuilds[0].name)}` : ''}</span>`
       : '';
