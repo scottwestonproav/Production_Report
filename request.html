@@ -457,13 +457,17 @@ function updateWeekendWarnings() {
 }
 
 // ── CAPACITY ─────────────────────────────────────
+function updateCapLabel() {
+  const lbl = document.getElementById('capLabel');
+  if (lbl) lbl.textContent = `capacity: ${capacity} concurrent`;
+}
+
 function loadCapacity() {
   try {
     const s = JSON.parse(localStorage.getItem(ONSITE_CAP_KEY) || 'null');
     if (s && typeof s.engineerCapacity === 'number') capacity = Math.max(1, s.engineerCapacity);
   } catch {}
-  const lbl = document.getElementById('capLabel');
-  if (lbl) lbl.textContent = `capacity: ${capacity} concurrent`;
+  updateCapLabel();
   const wkLeg = document.getElementById('legendWeekend');
   if (wkLeg) wkLeg.style.display = localStorage.getItem(WEEKEND_POLICY_KEY) !== 'true' ? '' : 'none';
 }
@@ -825,6 +829,7 @@ async function loadData() {
         // current format: { roster: [all names], engineers: [ticked/available names], engineerWindows }
         roster = rosterData.engineers;
       }
+      updateCapLabel();
     }
 
     tasks = (await tr.json()||[]).map(dbToTask)
