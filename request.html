@@ -77,6 +77,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .cal-past { color:var(--text3); opacity:.45; }
 .cal-available { background:var(--blue-dim); color:var(--blue); cursor:pointer; border:1px solid rgba(122,184,0,.2); }
 .cal-available:hover { filter:brightness(1.4); }
+.cal-partial { background:var(--green-dim); color:var(--green); cursor:pointer; border:1px solid rgba(16,185,129,.25); }
+.cal-partial:hover { filter:brightness(1.4); }
+.cal-avail-badge { position:absolute; bottom:1px; right:2px; font-size:.5rem; line-height:1; color:var(--green); opacity:.9; pointer-events:none; font-family:var(--mono); }
 .cal-tentative { background:var(--amber-dim); color:var(--amber); cursor:not-allowed; border:1px solid rgba(245,158,11,.2); }
 .cal-booked { background:var(--red-dim); color:var(--red); cursor:not-allowed; border:1px solid rgba(239,68,68,.2); }
 .cal-today { outline:2px solid var(--blue); outline-offset:-2px; }
@@ -207,6 +210,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 
   <div class="legend-bar">
     <div class="leg"><div class="leg-sw" style="background:var(--blue-dim);border:1px solid rgba(122,184,0,.25)"></div><span>Available</span></div>
+    <div class="leg"><div class="leg-sw" style="background:var(--green-dim);border:1px solid rgba(16,185,129,.25)"></div><span>Some engineers busy</span></div>
     <div class="leg"><div class="leg-sw" style="background:var(--amber-dim);border:1px solid rgba(245,158,11,.25)"></div><span>Pending request</span></div>
     <div class="leg"><div class="leg-sw" style="background:var(--red-dim);border:1px solid rgba(239,68,68,.25)"></div><span>Fully booked</span></div>
     <div class="leg"><div class="leg-sw" style="background:rgba(30,37,53,.5);border:1px dashed var(--border2)"></div><span>Preparation period</span></div>
@@ -488,7 +492,7 @@ function effectiveSpan(r) {
   return { start, end };
 }
 
-function dayState(dateStr) {
+function dayCounts(dateStr) {
   // Count occupied slots from tasks.
   // When a roster is set, deduplicate by engineer name so one person on two
   // overlapping tasks only consumes one slot, and non-roster engineers are ignored.
@@ -513,9 +517,22 @@ function dayState(dateStr) {
     if (r.request_status === 'Approved' || r.request_status === 'Scheduled') confirmed++;
     else if (r.request_status === 'Pending') pending++;
   });
+  return { confirmed, pending };
+}
+
+function dayState(dateStr) {
+  const { confirmed, pending } = dayCounts(dateStr);
   if (confirmed >= capacity) return 'booked';
   if (confirmed + pending >= capacity) return 'tentative';
+  if (confirmed > 0) return 'partial';
   return 'available';
+}
+
+// Named engineers still free that day (roster/ticked pool minus busy-confirmed slots).
+// Only meaningful when a roster is configured; falls back to a generic slot count otherwise.
+function dayEngineersFree(dateStr) {
+  const { confirmed } = dayCounts(dateStr);
+  return Math.max(0, capacity - confirmed);
 }
 
 // ── CALENDAR NAV ─────────────────────────────────
@@ -595,7 +612,8 @@ function getFirstAvailableDate() {
     const dow = d.getDay();
     const isWeekend = dow === 0 || dow === 6;
     if (!isWeekend || !weekendsBlocked) {
-      if (dayState(fmtISO(d)) === 'available') return fmtISO(d);
+      const s = dayState(fmtISO(d));
+      if (s === 'available' || s === 'partial') return fmtISO(d);
     }
     d.setDate(d.getDate() + 1);
   }
@@ -639,16 +657,19 @@ function renderMonth(monthDate, firstAvail) {
     if (isSE && !isWkBlocked) cls += ' cal-sel-edge';
     else if (isIn && !isWkBlocked) cls += ' cal-sel-in';
     if (isToday) cls += ' cal-today';
+    const freeCount = state === 'partial' ? dayEngineersFree(ds) : null;
     let title;
     if (isWkBlocked)              title = 'Weekends are not available';
     else if (isLocked)            title = `First available: ${toDay(firstAvail).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
     else if (state==='booked')    title = 'Fully booked';
     else if (state==='tentative') title = isUrgTen ? 'Request pending (includes urgent)' : 'Request pending';
+    else if (state==='partial')   title = `${freeCount} of ${capacity} engineer${capacity!==1?'s':''} available — click to select`;
     else if (isPast)              title = '';
     else                          title = 'Click to select';
-    const click = (!isPast && !isLocked && !isWkBlocked && state === 'available') ? ` onclick="selectDay('${ds}')"` : '';
+    const click = (!isPast && !isLocked && !isWkBlocked && (state === 'available' || state === 'partial')) ? ` onclick="selectDay('${ds}')"` : '';
     const urgDot = isUrgTen ? '<span class="cal-urg-dot"></span>' : '';
-    cells += `<div class="${cls}"${click}${title?` title="${escH(title)}"`:''} >${d}${urgDot}</div>`;
+    const availBadge = state === 'partial' ? `<span class="cal-avail-badge">${freeCount}/${capacity}</span>` : '';
+    cells += `<div class="${cls}"${click}${title?` title="${escH(title)}"`:''} >${d}${urgDot}${availBadge}</div>`;
   }
   return `<div class="cal-month">
     <div class="cal-month-title">${escH(name)}</div>
