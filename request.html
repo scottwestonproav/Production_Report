@@ -796,7 +796,14 @@ async function loadData() {
     if (settRes.ok) {
       const settData = await settRes.json();
       if (settData?.[0]?.engineer_capacity) capacity = Math.max(1, settData[0].engineer_capacity);
-      if (Array.isArray(settData?.[0]?.engineer_roster)) roster = settData[0].engineer_roster;
+      const rosterData = settData?.[0]?.engineer_roster;
+      if (Array.isArray(rosterData)) {
+        // legacy format: flat array of checked engineers only
+        roster = rosterData;
+      } else if (rosterData && typeof rosterData === 'object' && Array.isArray(rosterData.engineers)) {
+        // current format: { roster: [all names], engineers: [ticked/available names], engineerWindows }
+        roster = rosterData.engineers;
+      }
     }
 
     tasks = (await tr.json()||[]).map(dbToTask)
