@@ -1242,7 +1242,7 @@ function dbToTask(r) {
     projStart: r.rack_build_start || '', projEnd: r.rack_build_end || '',
     testStart: r.test_start || '', testEnd: r.test_end || '',
     fat_date: r.fat_date || '', site_date: r.site_date || '',
-    comments: r.comments || '', qty: r.qty || 1,
+    comments: r.comments || '', notes: r.notes || '', qty: r.qty || 1,
     earliestDate: r.rack_build_start || '',
   };
 }
@@ -1259,7 +1259,7 @@ function taskToDb(t) {
     rack_build_start: d(t.projStart), rack_build_end: d(t.projEnd),
     test_start: d(t.testStart), test_end: d(t.testEnd),
     fat_date: d(t.fat_date), site_date: d(t.site_date),
-    comments: d(t.comments), qty: t.qty || 1,
+    comments: d(t.comments), notes: d(t.notes), qty: t.qty || 1,
   };
 }
 
@@ -1644,7 +1644,7 @@ window.render = function() {
   if (searchText) {
     const q = searchText.toLowerCase();
     visible = visible.filter(t =>
-      [t.name, t.seqf, t.project_manager, t.wireman, t.test_engineer, t.status, t.comments, t.room, t.rack_pa, t.coordinator]
+      [t.name, t.seqf, t.project_manager, t.wireman, t.test_engineer, t.status, t.comments, t.notes, t.room, t.rack_pa, t.coordinator]
         .some(v => v && v.toLowerCase().includes(q))
     );
   }
@@ -2324,6 +2324,12 @@ window.showTaskDetail = function(t) {
       <div class="detail-section-title">Comments</div>
       <div class="detail-grid">
         ${field('', escH(t.comments), true)}
+      </div>
+    </div>` : ''}
+    ${t.notes ? `<div class="detail-section">
+      <div class="detail-section-title">Notes</div>
+      <div class="detail-grid">
+        ${field('', escH(t.notes), true)}
       </div>
     </div>` : ''}`;
 

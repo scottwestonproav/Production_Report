@@ -65,6 +65,7 @@ async function main(workbook: ExcelScript.Workbook) {
         site_date: string | null;
         status: string | null;
         comments: string | null;
+        notes: string | null;
         qty: number;
     }
 
@@ -107,6 +108,7 @@ async function main(workbook: ExcelScript.Workbook) {
             site_date: toISO(get(row, "RACK TO SITE DATE")) || null,
             status: get(row, "ProjectStatus") || null,
             comments: get(row, "Notes (dates for build)") || null,
+            notes: get(row, "Notes") || null,
             qty: parseInt(get(row, "QTY")) || 1,
         };
 
