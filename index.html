@@ -2295,7 +2295,7 @@ window.showTaskDetail = function(t) {
         ${field('SEQF', escH(t.seqf||'—'))}
         ${field('PA Number', escH(t.rack_pa||'—'))}
         ${field('Rack Type', escH(t.rack_type||'—'))}
-        ${field('Priority', escH(t.priority||'—'))}
+        ${field('Notes', escH(t.notes||'—'))}
       </div>
     </div>
     <div class="detail-section">
@@ -2324,12 +2324,6 @@ window.showTaskDetail = function(t) {
       <div class="detail-section-title">Comments</div>
       <div class="detail-grid">
         ${field('', escH(t.comments), true)}
-      </div>
-    </div>` : ''}
-    ${t.notes ? `<div class="detail-section">
-      <div class="detail-section-title">Notes</div>
-      <div class="detail-grid">
-        ${field('', escH(t.notes), true)}
       </div>
     </div>` : ''}`;
 
