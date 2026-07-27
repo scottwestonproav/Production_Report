@@ -193,6 +193,10 @@ tbody tr:hover td { background: var(--bg3); }
 .assign-badge-overdue { background: var(--red-dim); color: var(--red); }
 .assign-badge-soon { background: var(--amber-dim); color: var(--amber); }
 .assign-badge-ok { background: var(--green-dim); color: var(--green); }
+.assign-row-right { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+.assign-kit { display: flex; align-items: center; gap: .25rem; font-size: .66rem; color: var(--text3); white-space: nowrap; cursor: pointer; }
+.assign-kit input { cursor: pointer; }
+.kit-flag { font-size: .68rem; margin-left: .3rem; cursor: default; }
 .assign-more { text-align: center; font-size: .7rem; font-weight: 500; color: var(--blue); padding: .5rem 0 .1rem; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .assign-more:hover { text-decoration: underline; }
 .assign-empty { font-size: .75rem; color: var(--text3); padding: .3rem 0; }
@@ -1220,6 +1224,16 @@ async function upsertTask(data, id) {
   finally { setSaving(false); }
 }
 
+window.toggleKitRequested = async function(id, checked, cb) {
+  try {
+    const { error } = await supabase.from('tasks').update({ kit_requested: checked }).eq('id', id);
+    if (error) throw error;
+  } catch(e) {
+    if (cb) cb.checked = !checked;
+    showToast(`Update failed: ${e.message}`, 'error');
+  }
+};
+
 async function removeTask(id) {
   setSaving(true);
   try {
@@ -1245,6 +1259,7 @@ function dbToTask(r) {
     fat_date: r.fat_date || '', site_date: r.site_date || '',
     comments: r.comments || '', notes: r.notes || '', qty: r.qty || 1,
     earliestDate: r.rack_build_start || '',
+    kit_requested: !!r.kit_requested,
   };
 }
 
@@ -1261,6 +1276,7 @@ function taskToDb(t) {
     test_start: d(t.testStart), test_end: d(t.testEnd),
     fat_date: d(t.fat_date), site_date: d(t.site_date),
     comments: d(t.comments), notes: d(t.notes), qty: t.qty || 1,
+    kit_requested: !!t.kit_requested,
   };
 }
 
@@ -1713,6 +1729,7 @@ window.render = function() {
     const fat  = barPct(t.fat_date,  t.fat_date, range.min, total2);
     const site = barPct(t.site_date, t.site_date, range.min, total2);
     const capFlag = conflict ? `<span class="cap-flag">⚠</span>` : '';
+    const kitFlag = t.kit_requested ? `<span class="kit-flag" title="Kit request created">📦</span>` : '';
     const projBar = proj ? `<div class="bar-seg${conflict?' conflict-ring':''}"
         style="left:${proj.left}%;width:${proj.width}%;background:#eab308;opacity:.9"
         title="Rack Build: ${fmtShort(t.projStart)} – ${fmtShort(t.projEnd)}"></div>` : '';
@@ -1730,12 +1747,12 @@ window.render = function() {
         <td><span class="muted">${fmtPerson(t.test_engineer)||'—'}</span></td>
         <td><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
         <td><span class="mono-sm">${t.rack_pa||'—'}</span></td>
-        <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
+        <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}${kitFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
         <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${t.status||''}">${t.status||'—'}</span></td>
         ${barCell}</tr>`;
     }
     return `<tr data-idx="${idx}" title="Double-click for full details">
-      <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
+      <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}${kitFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
       <td><span class="mono-sm">${t.seqf||'—'}</span></td>
       <td><span class="mono-sm">${t.rack_pa||'—'}</span></td>
       <td><span class="muted">${t.wireman||'—'}</span></td>
@@ -1943,12 +1960,18 @@ function renderAssignPlanner() {
     const badge = days < 0
       ? `<span class="assign-badge assign-badge-overdue">${Math.abs(days)}d overdue</span>`
       : `<span class="assign-badge assign-badge-soon">${days === 0 ? 'today' : `in ${days}d`}</span>`;
-    return `<div class="assign-row" data-id="${escH(String(t.id))}">
+    const kitId = escH(String(t.id));
+    return `<div class="assign-row" data-id="${kitId}">
       <div class="assign-main">
         <span class="assign-name">${escH(t.name || '—')}</span>
         <span class="assign-sub">${escH(t.room || '')}${t.seqf ? ` · ${escH(t.seqf)}` : ''}</span>
       </div>
-      ${badge}
+      <div class="assign-row-right">
+        <label class="assign-kit" title="Mark kit request as created" onclick="event.stopPropagation()">
+          <input type="checkbox" ${t.kit_requested ? 'checked' : ''} onchange="toggleKitRequested('${kitId}', this.checked, this)"> Kit
+        </label>
+        ${badge}
+      </div>
     </div>`;
   }, 'Nothing unassigned overdue or due in the next 14 days.');
 
@@ -2037,7 +2060,7 @@ function renderMobile() {
       const pm   = t.project_manager ? fmtPerson(t.project_manager) : '';
       return `<div class="m-card" data-idx="${i}">
         <div class="m-card-header">
-          <span class="m-card-project">${escH(t.name || '—')}</span>
+          <span class="m-card-project">${escH(t.name || '—')}${t.kit_requested ? ' <span class="kit-flag" title="Kit request created">📦</span>' : ''}</span>
           <span class="pill ${statusCls}" style="flex-shrink:0;max-width:130px">${escH(t.status || '—')}</span>
         </div>
         ${t.room ? `<div class="m-card-room">${escH(t.room)}</div>` : ''}
