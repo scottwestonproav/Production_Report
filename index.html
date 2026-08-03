@@ -527,6 +527,7 @@ tbody tr { cursor: default; }
           <span class="ctrl-label">Rack Builders</span>
           <input type="range" min="1" max="20" step="1" id="teamSlider" value="9" oninput="onTeamChange(this.value)">
           <span class="val-badge" id="teamLabel">9</span>
+          <span class="cap-badge cap-ok" id="teamLiveBadge" title="Full roster minus anyone on leave or assigned onsite today"></span>
         </div>
         <div class="divider"></div>
         <div class="ctrl-group">
@@ -534,6 +535,7 @@ tbody tr { cursor: default; }
           <span class="ctrl-label">Offsite Commissioners</span>
           <input type="range" min="1" max="20" step="1" id="testSlider" value="3" oninput="onTestChange(this.value)">
           <span class="val-badge" id="testLabel">3</span>
+          <span class="cap-badge cap-ok" id="testLiveBadge" title="Full roster minus anyone on leave today"></span>
         </div>
         <div class="divider"></div>
         <button class="btn btn-ghost" onclick="openLeaveModal()" style="font-size:.75rem;padding:.3rem .75rem;white-space:nowrap;flex-shrink:0">Leave ↗</button>
@@ -872,6 +874,30 @@ const LEE_BEACON_FROM = '2026-06-01';
 const OFFSITE_IDS = new Set(['1048','556','190','467','482','133']);
 let rackbuildLeave = {}; // { 'YYYY-MM-DD': { count: number, names: string[] } }
 let offsiteLeave   = {}; // { 'YYYY-MM-DD': { count: number, names: string[] } }
+
+// Named rosters behind the Rack Builders / Offsite Commissioners sliders, used to compute
+// today's live "available" readout (full team minus anyone on BambooHR leave or, for
+// rack builders, currently assigned onsite). `aliases` cover cases where the BambooHR
+// legal name differs from the name used in the Wireman field (e.g. Steve vs Stephen).
+const RACKBUILD_ROSTER = [
+  { name: 'Andrew Bradley' },
+  { name: 'Alan Nielsen' },
+  { name: 'Dan Godbold' },
+  { name: 'Steve Lynch',    aliases: ['Stephen Lynch'] },
+  { name: 'Mick Brown',     aliases: ['Michael Brown'] },
+  { name: 'Lee Beacon' },
+  { name: 'Tony Potter' },
+  { name: 'Tony Thompson',  aliases: ['John Thompson'] },
+  { name: 'Dave Edwards' }, // contractor
+];
+const OFFSITE_ROSTER = [
+  { name: 'Ashton Lindemann' },
+  { name: 'Aidan Aston' },
+  { name: 'Ross Kingswood' },
+  { name: 'Alain Carver' },
+  { name: 'Scott Weston' },
+  { name: 'Chris Elms' },
+];
 let upcomingLeaveRecords = []; // [{ name, dates: string[], team: 'rackbuild'|'offsite' }]
 let leaveDataLoaded = false;
 
@@ -1624,6 +1650,8 @@ window.render = function() {
   else if (!testConflicts.length) { testBadge.className='cap-badge cap-warn'; testBadge.textContent=`Commissioners: advisory (${testAdvisories.length} project${testAdvisories.length>1?'s':''})`; }
   else { testBadge.className='cap-badge cap-bad'; testBadge.textContent=`Commissioners: ${testConflicts.length} day${testConflicts.length>1?'s':''} over capacity`; }
 
+  updateLiveCapacityBadges();
+
   // Notification bar chips
   const chips = [];
   if (conflicts.length)      chips.push(`<span class="notif-chip chip-red">⚠ Builders: ${conflicts.length} day${conflicts.length>1?'s':''} over</span>`);
@@ -1891,6 +1919,39 @@ function findOnsiteBuildsFuzzy(name, startISO, endISO) {
     t.projStart <= endISO && t.projEnd >= startISO &&
     namesLikelyMatch(t.wireman, name)
   ).sort((a, b) => a.projStart.localeCompare(b.projStart));
+}
+
+// Today's live headcount for a roster: full team minus anyone on booked BambooHR leave
+// today, minus (rack builders only) anyone currently assigned onsite for today.
+function computeLiveCapacity(roster, leaveMap, checkOnsite) {
+  const todayStr    = fmtISO(new Date());
+  const leaveNames  = leaveMap[todayStr]?.names || [];
+  let onLeave = 0, onsite = 0;
+  roster.forEach(p => {
+    const names = [p.name, ...(p.aliases || [])];
+    if (names.some(n => leaveNames.some(ln => namesLikelyMatch(ln, n)))) { onLeave++; return; }
+    if (checkOnsite && names.some(n => findOnsiteBuildsFuzzy(n, todayStr, todayStr).length)) onsite++;
+  });
+  return { total: roster.length, onLeave, onsite, available: Math.max(0, roster.length - onLeave - onsite) };
+}
+
+function updateLiveCapacityBadges() {
+  const teamEl = document.getElementById('teamLiveBadge');
+  const testEl = document.getElementById('testLiveBadge');
+  if (!teamEl || !testEl) return;
+
+  const rb = computeLiveCapacity(RACKBUILD_ROSTER, rackbuildLeave, true);
+  const rbParts = [];
+  if (rb.onLeave) rbParts.push(`${rb.onLeave} on leave`);
+  if (rb.onsite)  rbParts.push(`${rb.onsite} onsite`);
+  teamEl.textContent = `${rb.available}/${rb.total} available today` + (rbParts.length ? ` (${rbParts.join(', ')})` : '');
+  teamEl.className = `cap-badge ${rb.available === rb.total ? 'cap-ok' : rb.available > 0 ? 'cap-warn' : 'cap-bad'}`;
+
+  const os = computeLiveCapacity(OFFSITE_ROSTER, offsiteLeave, false);
+  const osParts = [];
+  if (os.onLeave) osParts.push(`${os.onLeave} on leave`);
+  testEl.textContent = `${os.available}/${os.total} available today` + (osParts.length ? ` (${osParts.join(', ')})` : '');
+  testEl.className = `cap-badge ${os.available === os.total ? 'cap-ok' : os.available > 0 ? 'cap-warn' : 'cap-bad'}`;
 }
 
 // Other office rack builds (status 'In Build', excluding the one used to compute this
