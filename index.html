@@ -619,7 +619,7 @@ tbody tr { cursor: default; }
   <div id="leaveModal" class="detail-overlay" style="display:none" onclick="if(event.target===this)closeLeaveModal()">
     <div class="detail-box" onclick="event.stopPropagation()" style="width:min(420px,100%);max-height:80vh">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem .75rem;border-bottom:1px solid var(--border2)">
-        <span style="font-weight:600;font-size:.9rem">Upcoming Leave — next 14 days</span>
+        <span style="font-weight:600;font-size:.9rem">Upcoming Leave — next 31 days</span>
         <button onclick="closeLeaveModal()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1rem;padding:.2rem .4rem;border-radius:4px;line-height:1">✕</button>
       </div>
       <div id="leaveModalContent" style="padding:1rem 1.25rem;overflow-y:auto"></div>
@@ -972,7 +972,7 @@ async function loadLeaveData() {
       }
     }
     const todayStr = new Date().toISOString().slice(0, 10);
-    const end14    = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+    const end14    = new Date(Date.now() + 31 * 864e5).toISOString().slice(0, 10);
     const upcoming = [];
     for (const rec of records) {
       const id   = String(rec.employeeId);
