@@ -1928,7 +1928,7 @@ function renderAssignPlanner() {
   const el      = document.getElementById('assignPlanner');
   const section = document.getElementById('assignSection');
   if (!el || !section) return;
-  if (currentUser?.email !== 'scott.weston@proav.com') { section.style.display = 'none'; el.innerHTML = ''; return; }
+  if (!['scott.weston@proav.com', 'ashton.lindemann@proav.com'].includes(currentUser?.email)) { section.style.display = 'none'; el.innerHTML = ''; return; }
   section.style.display = '';
 
   const todayStr = fmtISO(new Date());
