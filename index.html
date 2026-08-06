@@ -1896,18 +1896,26 @@ function namesLikelyMatch(a, b) {
   return dist <= Math.max(1, Math.floor(Math.min(na.length, nb.length) * 0.15));
 }
 
-// Days (within [startISO, endISO]) that a person — matched fuzzily by name — is on
-// booked BambooHR leave, checking both rack-build and offsite leave records.
-function findLeaveDaysFuzzy(name, startISO, endISO) {
+// Contiguous booked-leave blocks (merged consecutive days) for a person — matched fuzzily
+// — that overlap [startISO, endISO], checking both rack-build and offsite leave records.
+// Scans a bit earlier than `startISO` so a block already in progress at the start of the
+// window reports its true start date instead of being clipped to `startISO`.
+function findLeaveBlocksFuzzy(name, startISO, endISO, lookbackDays = 14) {
   if (!name || !startISO || !endISO || !leaveDataLoaded) return [];
   const days = [];
-  let cur = startISO;
+  let cur = addDays(startISO, -lookbackDays);
   while (cur <= endISO) {
     const names = [...(rackbuildLeave[cur]?.names || []), ...(offsiteLeave[cur]?.names || [])];
     if (names.some(n => namesLikelyMatch(n, name))) days.push(cur);
     cur = addDays(cur, 1);
   }
-  return days;
+  const blocks = [];
+  for (const d of days) {
+    const last = blocks[blocks.length - 1];
+    if (last && addDays(last.end, 1) === d) last.end = d;
+    else blocks.push({ start: d, end: d });
+  }
+  return blocks.filter(b => b.end >= startISO && b.start <= endISO);
 }
 
 // Onsite-build tasks (attending engineer = `wireman`, matched fuzzily) overlapping
@@ -2044,9 +2052,9 @@ function renderAssignPlanner() {
     // Look 14 days past the (onsite-adjusted) free date for booked leave / other builds
     // that would block scheduling them straight away.
     const lookaheadEnd = addDays(f.effectiveEnd, 13);
-    const leaveDays = findLeaveDaysFuzzy(f.name, f.effectiveEnd, lookaheadEnd);
-    const leaveNote = leaveDays.length
-      ? `<span class="assign-leave">⚠ leave ${fmtMed(leaveDays[0])}${leaveDays.length > 1 ? `–${fmtMed(leaveDays[leaveDays.length - 1])}` : ''}</span>`
+    const leaveBlocks = findLeaveBlocksFuzzy(f.name, f.effectiveEnd, lookaheadEnd);
+    const leaveNote = leaveBlocks.length
+      ? `<span class="assign-leave">⚠ leave ${fmtMed(leaveBlocks[0].start)}${leaveBlocks[0].end !== leaveBlocks[0].start ? `–${fmtMed(leaveBlocks[0].end)}` : ''}</span>`
       : '';
     const onsiteJobs = f.onsiteJobs;
     const onsiteNote = onsiteJobs.length
