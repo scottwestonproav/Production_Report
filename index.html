@@ -140,7 +140,7 @@ tbody tr:hover td { background: var(--bg3); }
 .pill-iob { background: rgba(134,239,172,.2);  color: #4ade80; }  /* Ireland Office Build: light green */
 .pill-par { background: rgba(234,179,8,.2);    color: #ca8a04; }  /* Parked: yellow */
 .pill-oh  { background: rgba(156,163,175,.2);  color: #9ca3af; }  /* On Hold: grey */
-.pill-pd  { background: rgba(20,184,166,.18);  color: #14b8a6; }  /* Provisional Dates: teal */
+.pill-pd  { background: rgba(30,58,138,.25);   color: #6d8fef; }  /* Provisional Dates: dark blue */
 
 /* ── TIMELINE BARS ── */
 .bar-cell { padding: .3rem .75rem; min-width: 280px; }
@@ -4094,7 +4094,7 @@ function rptDonutSVG(taskList) {
     { key: 'Ready To Send',                            color: '#ec4899' },
     { key: 'Built and waiting testing',                color: '#3b82f6' },
     { key: 'Dates Required',                           color: '#ef4444' },
-    { key: 'Provisional Dates',                        color: '#14b8a6' },
+    { key: 'Provisional Dates',                        color: '#1e3a8a' },
     { key: 'OTHER',                                    color: '#9ca3af' },
   ];
   const counts = {};
@@ -4128,7 +4128,7 @@ function rptDonutLegend(taskList) {
     { key: 'Ready To Send',                            color: '#ec4899', label: 'Ready to Send' },
     { key: 'Built and waiting testing',                color: '#3b82f6', label: 'Built / Waiting' },
     { key: 'Dates Required',                           color: '#ef4444', label: 'Dates Required' },
-    { key: 'Provisional Dates',                        color: '#14b8a6', label: 'Provisional Dates' },
+    { key: 'Provisional Dates',                        color: '#1e3a8a', label: 'Provisional Dates' },
     { key: 'OTHER',                                    color: '#9ca3af', label: 'Other' },
   ];
   const counts = {};
