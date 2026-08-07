@@ -1792,20 +1792,20 @@ window.render = function() {
         <td><span class="mono-sm">${t.seqf||'—'}</span></td>
         <td><span class="muted">${t.wireman||'—'}</span></td>
         <td><span class="muted">${fmtPerson(t.test_engineer)||'—'}</span></td>
-        <td><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
+        <td><span class="muted" title="${escH(t.project_manager||'')}">${pmShort||'—'}</span></td>
         <td><span class="mono-sm">${t.rack_pa||'—'}</span></td>
-        <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}${kitFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
-        <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${t.status||''}">${t.status||'—'}</span></td>
+        <td class="td-name"><div class="task-name" title="${escH(t.name)} · ${escH(t.room)}">${t.name}${capFlag}${kitFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
+        <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${escH(t.status||'')}">${t.status||'—'}</span></td>
         ${barCell}</tr>`;
     }
     return `<tr data-idx="${idx}" title="Double-click for full details">
-      <td class="td-name"><div class="task-name" title="${t.name} · ${t.room}">${t.name}${capFlag}${kitFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
+      <td class="td-name"><div class="task-name" title="${escH(t.name)} · ${escH(t.room)}">${t.name}${capFlag}${kitFlag}</div><div class="muted" style="font-size:.68rem">${t.room||''}</div></td>
       <td><span class="mono-sm">${t.seqf||'—'}</span></td>
       <td><span class="mono-sm">${t.rack_pa||'—'}</span></td>
       <td><span class="muted">${t.wireman||'—'}</span></td>
       <td><span class="muted">${fmtPerson(t.test_engineer)||'—'}</span></td>
-      <td><span class="muted" title="${t.project_manager||''}">${pmShort||'—'}</span></td>
-      <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${t.status||''}">${t.status||'—'}</span></td>
+      <td><span class="muted" title="${escH(t.project_manager||'')}">${pmShort||'—'}</span></td>
+      <td><span class="pill ${STATUS_CLS[t.status]||'pill-ns'}" title="${escH(t.status||'')}">${t.status||'—'}</span></td>
       ${barCell}</tr>`;
   }
 
@@ -2275,29 +2275,42 @@ window.exportPNG = async function() {
       img.src = src;
     });
 
+    // Pull the actual offending text out of the markup using the line/column the browser's
+    // parsererror reports, instead of the generic boilerplate wrapper it comes wrapped in
+    // ("This page contains the following errors... Below is a rendering of the page up to the
+    // first error.") — that wrapper is what a naive .textContent.slice(0, N) shows, which is
+    // useless since the real content is at the very end of a very long string.
+    const describeSvgParseError = (markup, parserErrorEl) => {
+      const raw = parserErrorEl.textContent || '';
+      const m = raw.match(/line\s+(\d+)\s+at\s+column\s+(\d+)/i);
+      if (!m) return { where: '(location unknown)', snippet: raw.slice(0, 200) };
+      const lineNo = parseInt(m[1], 10), colNo = parseInt(m[2], 10);
+      const line = markup.split('\n')[lineNo - 1] || '';
+      const start = Math.max(0, colNo - 80);
+      const snippet = line.slice(start, colNo + 80);
+      return { where: `line ${lineNo}, col ${colNo}`, snippet };
+    };
+
     // html-to-image's own toCanvas()/toPng() do `img.onerror = reject`, so a failed decode of
     // the intermediate SVG-wrapped <img> surfaces as a bare Event with no message. Drive the
     // SVG step ourselves so we can validate the markup is well-formed XML and surface a real
     // parser error instead of a mystery Event.
-    //
-    // Embedding the Google Fonts webfont means splicing a huge base64 woff2 payload into a
-    // <style> block inside the cloned node; that payload has been observed to break the SVG's
-    // XML well-formedness ("error parsing attribute name" at the font-embed's line/column) —
-    // toSvg() doesn't throw when this happens, it just returns broken markup, so the fix has to
-    // be checked-for via parsing, not caught via try/catch. Try with fonts embedded first (best
-    // visual fidelity) and fall back to skipFonts only if that markup doesn't parse as XML.
     const svgForOpts = async (opts) => {
       const withFontsUrl = await htmlToImage.toSvg(app, opts);
       const withFontsMarkup = decodeURIComponent(withFontsUrl.slice(withFontsUrl.indexOf(',') + 1));
       const withFontsErr = new DOMParser().parseFromString(withFontsMarkup, 'image/svg+xml').querySelector('parsererror');
       if (!withFontsErr) return withFontsMarkup;
 
-      console.warn('[exportPNG] embedded-font SVG did not parse as XML, retrying without fonts:', withFontsErr.textContent);
+      const withInfo = describeSvgParseError(withFontsMarkup, withFontsErr);
+      console.warn(`[exportPNG] SVG (with fonts) invalid at ${withInfo.where}:`, withInfo.snippet);
+
       const noFontsUrl = await htmlToImage.toSvg(app, { ...opts, skipFonts: true });
       const noFontsMarkup = decodeURIComponent(noFontsUrl.slice(noFontsUrl.indexOf(',') + 1));
       const noFontsErr = new DOMParser().parseFromString(noFontsMarkup, 'image/svg+xml').querySelector('parsererror');
       if (noFontsErr) {
-        throw new Error('Invalid SVG generated for export: ' + noFontsErr.textContent.replace(/\s+/g, ' ').slice(0, 300));
+        const noInfo = describeSvgParseError(noFontsMarkup, noFontsErr);
+        console.error(`[exportPNG] SVG (no fonts) still invalid at ${noInfo.where}:`, noInfo.snippet);
+        throw new Error(`Invalid export markup at ${noInfo.where}: …${noInfo.snippet}…`);
       }
       return noFontsMarkup;
     };
