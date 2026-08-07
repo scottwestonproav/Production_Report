@@ -2243,13 +2243,23 @@ window.exportPNG = async function() {
     const targetH = app.scrollHeight;
 
     const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0f1117';
-    const dataUrl = await htmlToImage.toPng(app, {
+    const pngOpts = {
       cacheBust: true,
       pixelRatio: 2,
       width:  targetW,
       height: targetH,
       backgroundColor: bgColor,
-    });
+    };
+
+    let dataUrl;
+    try {
+      dataUrl = await htmlToImage.toPng(app, pngOpts);
+    } catch (imgErr) {
+      // Embedding the Google Fonts webfont (fetched from fonts.gstatic.com) can fail
+      // on some networks/proxies. Retry without font embedding rather than failing outright.
+      console.warn('[exportPNG] retrying without embedded fonts:', imgErr);
+      dataUrl = await htmlToImage.toPng(app, { ...pngOpts, skipFonts: true });
+    }
 
     restoreAll();
 
@@ -2268,7 +2278,9 @@ window.exportPNG = async function() {
 
   } catch (err) {
     restoreAll();
-    showToast('Export failed — ' + err.message, 'error');
+    const msg = (err && (err.message || (typeof err === 'string' ? err : err.toString?.())))
+      || 'Unknown error — see browser console for details';
+    showToast('Export failed — ' + msg, 'error');
     console.error('[exportPNG]', err);
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = btnHTML; }
