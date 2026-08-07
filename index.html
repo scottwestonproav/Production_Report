@@ -2277,28 +2277,37 @@ window.exportPNG = async function() {
 
     // html-to-image's own toCanvas()/toPng() do `img.onerror = reject`, so a failed decode of
     // the intermediate SVG-wrapped <img> surfaces as a bare Event with no message. Drive the
-    // SVG step ourselves so we can (a) validate the markup is well-formed XML and surface a
-    // real parser error instead of a mystery Event, and (b) strip
-    // foreignObject[externalResourcesRequired="true"] — some browsers refuse to rasterize a
-    // foreignObject with that attribute unless every referenced resource is confirmed loaded,
-    // which can silently fail the whole image even though everything needed is already inlined.
-    const captureTile = async (opts) => {
-      let svgDataUrl;
-      try {
-        svgDataUrl = await htmlToImage.toSvg(app, opts);
-      } catch (svgErr) {
-        // Embedding the Google Fonts webfont (fetched from fonts.gstatic.com) can fail on some
-        // networks/proxies. Retry without font embedding rather than failing outright.
-        console.warn('[exportPNG] toSvg failed, retrying without embedded fonts:', svgErr);
-        svgDataUrl = await htmlToImage.toSvg(app, { ...opts, skipFonts: true });
-      }
+    // SVG step ourselves so we can validate the markup is well-formed XML and surface a real
+    // parser error instead of a mystery Event.
+    //
+    // Embedding the Google Fonts webfont means splicing a huge base64 woff2 payload into a
+    // <style> block inside the cloned node; that payload has been observed to break the SVG's
+    // XML well-formedness ("error parsing attribute name" at the font-embed's line/column) —
+    // toSvg() doesn't throw when this happens, it just returns broken markup, so the fix has to
+    // be checked-for via parsing, not caught via try/catch. Try with fonts embedded first (best
+    // visual fidelity) and fall back to skipFonts only if that markup doesn't parse as XML.
+    const svgForOpts = async (opts) => {
+      const withFontsUrl = await htmlToImage.toSvg(app, opts);
+      const withFontsMarkup = decodeURIComponent(withFontsUrl.slice(withFontsUrl.indexOf(',') + 1));
+      const withFontsErr = new DOMParser().parseFromString(withFontsMarkup, 'image/svg+xml').querySelector('parsererror');
+      if (!withFontsErr) return withFontsMarkup;
 
-      const svgMarkup = decodeURIComponent(svgDataUrl.slice(svgDataUrl.indexOf(',') + 1));
-      const parsedSvg = new DOMParser().parseFromString(svgMarkup, 'image/svg+xml');
-      const parserError = parsedSvg.querySelector('parsererror');
-      if (parserError) {
-        throw new Error('Invalid SVG generated for export: ' + parserError.textContent.replace(/\s+/g, ' ').slice(0, 300));
+      console.warn('[exportPNG] embedded-font SVG did not parse as XML, retrying without fonts:', withFontsErr.textContent);
+      const noFontsUrl = await htmlToImage.toSvg(app, { ...opts, skipFonts: true });
+      const noFontsMarkup = decodeURIComponent(noFontsUrl.slice(noFontsUrl.indexOf(',') + 1));
+      const noFontsErr = new DOMParser().parseFromString(noFontsMarkup, 'image/svg+xml').querySelector('parsererror');
+      if (noFontsErr) {
+        throw new Error('Invalid SVG generated for export: ' + noFontsErr.textContent.replace(/\s+/g, ' ').slice(0, 300));
       }
+      return noFontsMarkup;
+    };
+
+    const captureTile = async (opts) => {
+      const svgMarkup = await svgForOpts(opts);
+      const parsedSvg = new DOMParser().parseFromString(svgMarkup, 'image/svg+xml');
+      // Some browsers refuse to rasterize a foreignObject with externalResourcesRequired="true"
+      // unless every referenced resource is confirmed loaded, which can silently fail the whole
+      // image even though everything needed is already inlined — strip it before rasterizing.
       parsedSvg.querySelectorAll('foreignObject[externalResourcesRequired]')
         .forEach(fo => fo.removeAttribute('externalResourcesRequired'));
       const cleanedDataUrl = 'data:image/svg+xml;charset=utf-8,'
