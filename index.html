@@ -216,6 +216,12 @@ tbody tr:hover td { background: var(--bg3); }
 .date-filter-input:focus { border-color: var(--blue); }
 .date-filter-input::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
 
+/* ── DATE TYPE FILTER PILLS ── */
+.date-type-pills { display: inline-flex; gap: .3rem; }
+.date-type-pill { background: var(--bg3); border: 1px solid var(--border2); color: var(--text3); font-family: var(--font); font-size: .72rem; padding: .3rem .55rem; border-radius: 999px; cursor: pointer; outline: none; white-space: nowrap; transition: background .12s, color .12s, border-color .12s; }
+.date-type-pill:hover { color: var(--text2); border-color: var(--border2); }
+.date-type-pill.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+
 /* ── TEXT SEARCH INPUT ── */
 .search-wrap { position: relative; display: inline-flex; align-items: center; }
 .search-wrap svg { position: absolute; left: .45rem; pointer-events: none; }
@@ -563,6 +569,12 @@ tbody tr { cursor: default; }
       <input type="date" id="dateFromInput" class="date-filter-input" onchange="onDateFilterChange()">
       <span class="ctrl-label">To</span>
       <input type="date" id="dateToInput" class="date-filter-input" onchange="onDateFilterChange()">
+      <div class="date-type-pills" id="dateTypePills">
+        <button type="button" class="date-type-pill active" data-type="build" onclick="toggleDateType('build')" title="Rack build dates">Build</button>
+        <button type="button" class="date-type-pill active" data-type="test"  onclick="toggleDateType('test')"  title="Offsite test/commissioning dates">Test</button>
+        <button type="button" class="date-type-pill active" data-type="fat"   onclick="toggleDateType('fat')"   title="FAT date">FAT</button>
+        <button type="button" class="date-type-pill active" data-type="site"  onclick="toggleDateType('site')"  title="Rack-to-site date">Site</button>
+      </div>
     </div>
     <div class="divider"></div>
     <div id="searchGroup" class="ctrl-group" style="gap:.4rem">
@@ -919,6 +931,8 @@ function getLeaveInRange(engineerName, startISO, endISO) {
 let sortCol   = 'earliestDate', sortDir = 1;
 const filterSets = { project: new Set(), pm: new Set(), wireman: new Set(), commissioner: new Set(), status: new Set() };
 let dateFrom = '', dateTo = '', searchText = '';
+const ALL_DATE_TYPES = ['build', 'test', 'fat', 'site'];
+let dateTypeFilter = new Set(ALL_DATE_TYPES); // which date fields the From/To range applies to
 let metricFilter = null; // { type: 'status'|'noDates'|'conflicts', value: string }
 let lastConflicts = [], lastTestConflicts = [];
 let supabase  = null, realtimeSub = null;
@@ -1672,19 +1686,22 @@ window.render = function() {
     (!fw.size || fw.has(t.wireman)) && (!fc.size || fc.has(t.test_engineer)) &&
     (!fs.size || fs.has(t.status)));
 
-  // date range filter — task overlaps with [dateFrom, dateTo] on any of its date ranges
+  // date range filter — task overlaps with [dateFrom, dateTo] on any of its INCLUDED date ranges
   if (dateFrom || dateTo) {
-    visible = visible.filter(t => {
-      const spans = [
-        [t.projStart, t.projEnd], [t.testStart, t.testEnd],
-        [t.fat_date,  t.fat_date],[t.site_date, t.site_date],
-      ];
-      return spans.some(([s, e]) => {
+    const spanDefs = [
+      ['build', t => [t.projStart, t.projEnd]],
+      ['test',  t => [t.testStart, t.testEnd]],
+      ['fat',   t => [t.fat_date,  t.fat_date]],
+      ['site',  t => [t.site_date, t.site_date]],
+    ].filter(([type]) => dateTypeFilter.has(type));
+    visible = visible.filter(t =>
+      spanDefs.some(([, getSpan]) => {
+        const [s, e] = getSpan(t);
         if (!s && !e) return false;
         const rs = s || e, re = e || s;
         return (!dateFrom || re >= dateFrom) && (!dateTo || rs <= dateTo);
-      });
-    });
+      })
+    );
   }
 
   // text search
@@ -2348,6 +2365,8 @@ window.closeLeaveModal = function() {
 window.clearAllFilters = function() {
   Object.values(filterSets).forEach(s => s.clear());
   dateFrom = ''; dateTo = ''; searchText = ''; metricFilter = null;
+  dateTypeFilter = new Set(ALL_DATE_TYPES);
+  syncDateTypePills();
   const df = document.getElementById('dateFromInput');
   const dt = document.getElementById('dateToInput');
   const si = document.getElementById('searchInput');
@@ -2363,6 +2382,23 @@ window.onDateFilterChange = function() {
   dateTo   = document.getElementById('dateToInput').value;
   render();
 };
+
+// Which date field(s) — build / test / FAT / site — the From/To range is matched against.
+window.toggleDateType = function(type) {
+  if (dateTypeFilter.has(type)) {
+    if (dateTypeFilter.size === 1) return; // keep at least one type selected
+    dateTypeFilter.delete(type);
+  } else {
+    dateTypeFilter.add(type);
+  }
+  syncDateTypePills();
+  render();
+};
+function syncDateTypePills() {
+  document.querySelectorAll('#dateTypePills .date-type-pill').forEach(btn => {
+    btn.classList.toggle('active', dateTypeFilter.has(btn.dataset.type));
+  });
+}
 
 // ── TEXT SEARCH ───────────────────────────────────
 window.onSearchChange = function(val) {
