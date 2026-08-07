@@ -2262,22 +2262,62 @@ window.exportPNG = async function() {
     const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0f1117';
     const pixelRatio = 2;
 
-    // html-to-image renders the whole node as one SVG-wrapped <img> before it's ever drawn to
-    // canvas. On a tall table (lots of visible rows) that intermediate image can exceed the
-    // browser's/GPU's image-decode size limit, which fails silently as a bare Event with no
-    // usable message ('[object Event]'). Capture in horizontal strips and stitch them onto one
-    // canvas whenever the natural height is tall enough to be at risk.
+    // Kept as a size safety net (see captureTile below) even though it turned out not to be
+    // the root cause of the '[object Event]' failure — capture in horizontal strips and stitch
+    // them onto one canvas whenever the natural height is tall enough to be at risk.
     const SAFE_TILE_H = 3000;
 
+    const loadImage = src => new Promise((resolve, reject) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('decode failed'));
+      img.src = src;
+    });
+
+    // html-to-image's own toCanvas()/toPng() do `img.onerror = reject`, so a failed decode of
+    // the intermediate SVG-wrapped <img> surfaces as a bare Event with no message. Drive the
+    // SVG step ourselves so we can (a) validate the markup is well-formed XML and surface a
+    // real parser error instead of a mystery Event, and (b) strip
+    // foreignObject[externalResourcesRequired="true"] — some browsers refuse to rasterize a
+    // foreignObject with that attribute unless every referenced resource is confirmed loaded,
+    // which can silently fail the whole image even though everything needed is already inlined.
     const captureTile = async (opts) => {
+      let svgDataUrl;
       try {
-        return await htmlToImage.toCanvas(app, opts);
-      } catch (imgErr) {
+        svgDataUrl = await htmlToImage.toSvg(app, opts);
+      } catch (svgErr) {
         // Embedding the Google Fonts webfont (fetched from fonts.gstatic.com) can fail on some
         // networks/proxies. Retry without font embedding rather than failing outright.
-        console.warn('[exportPNG] retrying without embedded fonts:', imgErr);
-        return await htmlToImage.toCanvas(app, { ...opts, skipFonts: true });
+        console.warn('[exportPNG] toSvg failed, retrying without embedded fonts:', svgErr);
+        svgDataUrl = await htmlToImage.toSvg(app, { ...opts, skipFonts: true });
       }
+
+      const svgMarkup = decodeURIComponent(svgDataUrl.slice(svgDataUrl.indexOf(',') + 1));
+      const parsedSvg = new DOMParser().parseFromString(svgMarkup, 'image/svg+xml');
+      const parserError = parsedSvg.querySelector('parsererror');
+      if (parserError) {
+        throw new Error('Invalid SVG generated for export: ' + parserError.textContent.replace(/\s+/g, ' ').slice(0, 300));
+      }
+      parsedSvg.querySelectorAll('foreignObject[externalResourcesRequired]')
+        .forEach(fo => fo.removeAttribute('externalResourcesRequired'));
+      const cleanedDataUrl = 'data:image/svg+xml;charset=utf-8,'
+        + encodeURIComponent(new XMLSerializer().serializeToString(parsedSvg.documentElement));
+
+      let img;
+      try {
+        img = await loadImage(cleanedDataUrl);
+      } catch {
+        throw new Error(`Export image failed to decode (declared ${opts.width}×${opts.height}px, markup ${svgMarkup.length.toLocaleString()} chars)`);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width  = opts.width  * pixelRatio;
+      canvas.height = opts.height * pixelRatio;
+      const ctx = canvas.getContext('2d');
+      if (opts.backgroundColor) { ctx.fillStyle = opts.backgroundColor; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      return canvas;
     };
 
     let finalCanvas;
