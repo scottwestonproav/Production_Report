@@ -2260,27 +2260,51 @@ window.exportPNG = async function() {
     const targetH = app.scrollHeight;
 
     const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#0f1117';
-    const pngOpts = {
-      cacheBust: true,
-      pixelRatio: 2,
-      width:  targetW,
-      height: targetH,
-      backgroundColor: bgColor,
+    const pixelRatio = 2;
+
+    // html-to-image renders the whole node as one SVG-wrapped <img> before it's ever drawn to
+    // canvas. On a tall table (lots of visible rows) that intermediate image can exceed the
+    // browser's/GPU's image-decode size limit, which fails silently as a bare Event with no
+    // usable message ('[object Event]'). Capture in horizontal strips and stitch them onto one
+    // canvas whenever the natural height is tall enough to be at risk.
+    const SAFE_TILE_H = 3000;
+
+    const captureTile = async (opts) => {
+      try {
+        return await htmlToImage.toCanvas(app, opts);
+      } catch (imgErr) {
+        // Embedding the Google Fonts webfont (fetched from fonts.gstatic.com) can fail on some
+        // networks/proxies. Retry without font embedding rather than failing outright.
+        console.warn('[exportPNG] retrying without embedded fonts:', imgErr);
+        return await htmlToImage.toCanvas(app, { ...opts, skipFonts: true });
+      }
     };
 
-    let dataUrl;
-    try {
-      dataUrl = await htmlToImage.toPng(app, pngOpts);
-    } catch (imgErr) {
-      // Embedding the Google Fonts webfont (fetched from fonts.gstatic.com) can fail
-      // on some networks/proxies. Retry without font embedding rather than failing outright.
-      console.warn('[exportPNG] retrying without embedded fonts:', imgErr);
-      dataUrl = await htmlToImage.toPng(app, { ...pngOpts, skipFonts: true });
+    let finalCanvas;
+    if (targetH <= SAFE_TILE_H) {
+      finalCanvas = await captureTile({ cacheBust: true, pixelRatio, width: targetW, height: targetH, backgroundColor: bgColor });
+    } else {
+      finalCanvas = document.createElement('canvas');
+      finalCanvas.width  = targetW * pixelRatio;
+      finalCanvas.height = targetH * pixelRatio;
+      const ctx = finalCanvas.getContext('2d');
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+      override(app, { transform: '' }); // restored by restoreAll below; mutated per-tile in the loop
+      for (let y = 0; y < targetH; y += SAFE_TILE_H) {
+        const tileH = Math.min(SAFE_TILE_H, targetH - y);
+        app.style.transform = `translateY(${-y}px)`;
+        await new Promise(r => setTimeout(r, 20));
+        const tileCanvas = await captureTile({ cacheBust: true, pixelRatio, width: targetW, height: tileH, backgroundColor: bgColor });
+        ctx.drawImage(tileCanvas, 0, y * pixelRatio);
+      }
     }
 
     restoreAll();
 
-    if (!dataUrl) throw new Error('No image data returned');
+    const dataUrl = finalCanvas.toDataURL('image/png');
+    if (!dataUrl || dataUrl === 'data:,') throw new Error('No image data returned');
 
     const a = document.createElement('a');
     a.href = dataUrl;
@@ -2295,8 +2319,10 @@ window.exportPNG = async function() {
 
   } catch (err) {
     restoreAll();
-    const msg = (err && (err.message || (typeof err === 'string' ? err : err.toString?.())))
-      || 'Unknown error — see browser console for details';
+    const msg = (typeof Event !== 'undefined' && err instanceof Event)
+      ? 'image failed to render (report may be too large — try narrowing filters)'
+      : (err && (err.message || (typeof err === 'string' ? err : err.toString?.())))
+        || 'Unknown error — see browser console for details';
     showToast('Export failed — ' + msg, 'error');
     console.error('[exportPNG]', err);
   } finally {
