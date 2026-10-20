@@ -168,12 +168,31 @@ tbody tr:hover td { background: var(--bg3); }
 .chip-ok    { background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,185,129,.35); }
 .notif-panels { display: none; flex-direction: row; flex-wrap: wrap; gap: .6rem; align-items: flex-start; margin-top: .5rem; }
 .notif-section.expanded .notif-panels { display: flex; }
-.conflicts-panel { background: var(--red-dim); border: 1px solid var(--red); border-radius: var(--radius-lg); padding: .9rem 1rem; flex: 1; min-width: 260px; }
-.conflicts-panel h4 { font-size: .8rem; font-weight: 500; color: var(--red); margin-bottom: .5rem; }
-.conflict-item { font-size: .75rem; color: #f08080; padding: .2rem 0; }
-.advisory-panel { background: var(--amber-dim); border: 1px solid var(--amber); border-radius: var(--radius-lg); padding: .9rem 1rem; flex: 1; min-width: 260px; }
-.advisory-panel h4 { font-size: .8rem; font-weight: 500; color: var(--amber); margin-bottom: .5rem; }
-.advisory-item { font-size: .75rem; color: #fcd34d; padding: .2rem 0; }
+.conflicts-panel, .advisory-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); flex: 1; min-width: 300px; overflow: hidden; }
+.conflicts-panel { border-top: 2px solid var(--red); }
+.advisory-panel  { border-top: 2px solid var(--amber); }
+.conflicts-panel h4, .advisory-panel h4 { display: flex; align-items: center; gap: .5rem; font-size: .78rem; font-weight: 500; padding: .55rem .75rem; border-bottom: 1px solid var(--border); }
+.conflicts-panel h4 { color: var(--red); }
+.advisory-panel h4  { color: var(--amber); }
+.cap-hd-r { margin-left: auto; display: flex; align-items: center; gap: .5rem; font-weight: 400; font-size: .68rem; color: var(--text3); }
+.cap-all { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 6px; font-size: .66rem; padding: .1rem .45rem; cursor: pointer; font-family: var(--font); }
+.cap-all:hover { background: var(--bg3); }
+.cap-grp { border-bottom: 1px solid var(--border); }
+.cap-grp:last-child { border-bottom: none; }
+.cap-gh { display: flex; align-items: center; gap: .5rem; padding: .42rem .75rem; cursor: pointer; font-size: .75rem; color: var(--text); user-select: none; }
+.cap-gh:hover { background: var(--bg3); }
+.cap-chev { display: inline-block; font-size: .6rem; color: var(--text3); transition: transform .15s; }
+.cap-grp.open .cap-chev { transform: rotate(90deg); }
+.cap-n { color: var(--text3); font-size: .68rem; }
+.cap-sp { flex: 1; }
+.cap-rows { display: none; background: var(--bg); padding: .15rem 0; }
+.cap-grp.open .cap-rows { display: block; }
+.cap-r { display: grid; grid-template-columns: 5.5rem 6.5rem 2.6rem 1fr; gap: .5rem; align-items: center; padding: .22rem .75rem .22rem 1.75rem; font-size: .7rem; }
+.cap-r .cap-who { color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cap-lv { margin-left: .4rem; background: var(--amber-dim); color: var(--amber); border-radius: 4px; padding: 0 .3rem; font-size: .62rem; }
+.cap-bad { display: inline-block; min-width: 2rem; text-align: center; background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,.35); border-radius: 6px; padding: 0 .35rem; font-size: .7rem; font-weight: 500; font-family: var(--mono); }
+.cap-adv { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(245,158,11,.35); border-radius: 6px; padding: 0 .45rem; font-size: .68rem; }
+.cap-win { padding: .22rem .75rem .22rem 1.75rem; font-size: .7rem; color: var(--text3); font-family: var(--mono); }
 
 .assign-planner { display: none; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
 #assignSection.expanded .assign-planner { display: flex; }
@@ -608,15 +627,15 @@ tbody tr { cursor: default; }
     </div>
     <div class="notif-panels" id="notifPanels">
       <div class="conflicts-panel" id="conflictsPanel" style="display:none">
-        <h4>⚠ Rack Builder conflicts — Rack Build dates require more rack builders than available</h4>
+        <h4><span title="Rack Build dates require more rack builders than available">⚠ Rack builder shortfall</span><span class="cap-hd-r"></span></h4>
         <div id="conflictsList"></div>
       </div>
       <div class="conflicts-panel" id="testConflictsPanel" style="display:none">
-        <h4>⚠ Offsite Commissioner conflicts — test windows require more offsite commissioners than available</h4>
+        <h4><span title="Test windows require more offsite commissioners than available">⚠ Commissioner shortfall</span><span class="cap-hd-r"></span></h4>
         <div id="testConflictsList"></div>
       </div>
       <div class="advisory-panel" id="testAdvisoryPanel" style="display:none">
-        <h4>ℹ Offsite Commissioner advisory — projects with multiple systems sharing the same test window (assumed 1 commissioner each)</h4>
+        <h4><span title="Projects with multiple systems sharing the same test window (assumed 1 commissioner each)">ℹ Commissioner overlap</span><span class="cap-hd-r"></span></h4>
         <div id="testAdvisoryList"></div>
       </div>
     </div>
@@ -1670,8 +1689,12 @@ window.render = function() {
 
   // Notification bar chips
   const chips = [];
-  if (conflicts.length)      chips.push(`<span class="notif-chip chip-red">⚠ Builders: ${conflicts.length} day${conflicts.length>1?'s':''} over</span>`);
-  if (testConflicts.length)  chips.push(`<span class="notif-chip chip-red">⚠ Commissioners: ${testConflicts.length} day${testConflicts.length>1?'s':''} over</span>`);
+  const chipWorst = (list, size) => {
+    const w = list.reduce((m, c) => { const s = c.count - Math.max(0, size - c.onLeave.count); return s > m.s ? { s, day: c.day } : m; }, { s: 0, day: '' });
+    return w.s ? ` · worst -${w.s} on ${fmtShort(w.day)}` : '';
+  };
+  if (conflicts.length)      chips.push(`<span class="notif-chip chip-red">⚠ Builders: ${conflicts.length} day${conflicts.length>1?'s':''} over${chipWorst(conflicts, teamSize)}</span>`);
+  if (testConflicts.length)  chips.push(`<span class="notif-chip chip-red">⚠ Commissioners: ${testConflicts.length} day${testConflicts.length>1?'s':''} over${chipWorst(testConflicts, testSize)}</span>`);
   if (testAdvisories.length) chips.push(`<span class="notif-chip chip-amber">ℹ Advisory: ${testAdvisories.length} project${testAdvisories.length>1?'s':''}</span>`);
   if (!chips.length)         chips.push(`<span class="notif-chip chip-ok">✓ All clear</span>`);
   document.getElementById('notifChips').innerHTML = chips.join('');
@@ -1822,24 +1845,87 @@ window.render = function() {
   if (currentView === 'onsite') renderOnsiteView();
 };
 
+// Capacity alert panels: grouped by month, collapsed rows. Open/closed state survives re-renders.
+const capOpenState = {};
+const capMonthLabel = ym => new Date(+ym.slice(0,4), +ym.slice(5,7)-1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+const capDayGap = (a, b) => Math.round((toDay(b) - toDay(a)) / 86400000);
+
+window.capToggle = function(head) {
+  const grp = head.parentElement;
+  grp.classList.toggle('open');
+  capOpenState[grp.dataset.k] = grp.classList.contains('open');
+};
+window.capSetAll = function(listId, open) {
+  document.querySelectorAll(`#${listId} .cap-grp`).forEach(g => {
+    g.classList.toggle('open', open);
+    capOpenState[g.dataset.k] = open;
+  });
+};
+function capHeader(panelId, listId, subText) {
+  const el = document.querySelector(`#${panelId} .cap-hd-r`);
+  if (!el) return;
+  el.innerHTML = `<span>${subText}</span>`
+    + `<button class="cap-all" onclick="capSetAll('${listId}',true)">Expand all</button>`
+    + `<button class="cap-all" onclick="capSetAll('${listId}',false)">Collapse</button>`;
+}
+function capGroupHtml(listId, key, idx, headHtml, bodyHtml) {
+  const k = `${listId}:${key}`;
+  const open = k in capOpenState ? capOpenState[k] : idx === 0;
+  return `<div class="cap-grp${open?' open':''}" data-k="${escH(k)}">`
+    + `<div class="cap-gh" onclick="capToggle(this)"><span class="cap-chev">▶</span>${headHtml}</div>`
+    + `<div class="cap-rows">${bodyHtml}</div></div>`;
+}
+
+// Shared by builder + commissioner shortfall panels. Consecutive days with identical demand collapse into one run;
+// runs are then grouped by month with the worst shortfall shown on the month header.
+function renderShortfallGroups(conflicts, o) {
+  const runs = [];
+  conflicts.forEach(c => {
+    const k = [...c.people].sort().join('|') + ':' + c.unassigned + ':' + [...c.onLeave.names].sort().join(',');
+    const last = runs[runs.length-1];
+    if (last && last.k === k && capDayGap(last.end, c.day) === 1) { last.end = c.day; }
+    else runs.push({ k, start: c.day, end: c.day, count: c.count, people: c.people, unassigned: c.unassigned, onLeave: c.onLeave });
+  });
+  runs.forEach(r => { r.avail = Math.max(0, o.size - r.onLeave.count); r.short = r.count - r.avail; });
+
+  const months = {};
+  runs.forEach(r => { (months[r.start.slice(0,7)] = months[r.start.slice(0,7)] || []).push(r); });
+
+  const html = Object.keys(months).sort().map((ym, i) => {
+    const rs = months[ym];
+    const worst = rs.reduce((m, r) => r.short > m.short ? r : m, rs[0]);
+    const head = `<span style="font-weight:500">${capMonthLabel(ym)}</span>`
+      + `<span class="cap-n">${rs.length} run${rs.length>1?'s':''} · worst ${fmtShort(worst.start)}</span>`
+      + `<span class="cap-sp"></span><span class="cap-bad">-${worst.short}</span>`;
+    const body = rs.map(r => {
+      const names = r.people.map(o.fmtName);
+      const shown = names.slice(0, 3).join(', ') + (names.length > 3 ? ` +${names.length-3} more` : '');
+      const un    = r.unassigned ? `${r.unassigned} ${o.unassignedLabel(r.unassigned)}` : '';
+      const who   = [shown, un].filter(Boolean).join(' · ');
+      const full  = [...names, un].filter(Boolean).join(', ');
+      const lvN   = r.onLeave.names.map(o.fmtName);
+      const lv    = r.onLeave.count
+        ? `<span class="cap-lv" title="On leave: ${escH(lvN.join(', '))}">${r.onLeave.count === 1 && lvN[0] ? escH(lvN[0]) : r.onLeave.count + ' on leave'}</span>` : '';
+      const dates = r.start === r.end ? fmtShort(r.start) : `${fmtShort(r.start)}–${fmtShort(r.end)}`;
+      return `<div class="cap-r"><span>${dates}</span><span>needs ${r.count} · has ${r.avail}</span>`
+        + `<span class="cap-bad">-${r.short}</span><span class="cap-who" title="${escH(full)}">${escH(who)}${lv}</span></div>`;
+    }).join('');
+    return capGroupHtml(o.listId, ym, i, head, body);
+  }).join('');
+
+  const worstAll = runs.reduce((m, r) => r.short > m.short ? r : m, runs[0]);
+  capHeader(o.panelId, o.listId, `${runs.length} run${runs.length>1?'s':''} · worst -${worstAll.short} on ${fmtShort(worstAll.start)}`);
+  document.getElementById(o.listId).innerHTML = html;
+}
+
 function renderConflicts(conflicts) {
   const panel = document.getElementById('conflictsPanel');
-  const list  = document.getElementById('conflictsList');
   if (!conflicts.length) { panel.style.display='none'; return; }
   panel.style.display = '';
-  const grouped = {};
-  conflicts.forEach(c => {
-    const k = [...c.people].sort().join('|') + ':' + c.unassigned + ':' + c.onLeave.names.sort().join(',');
-    if (!grouped[k]) grouped[k] = { people: c.people, unassigned: c.unassigned, days: [], count: c.count, onLeave: c.onLeave };
-    grouped[k].days.push(c.day);
+  renderShortfallGroups(conflicts, {
+    panelId: 'conflictsPanel', listId: 'conflictsList', size: teamSize,
+    fmtName: n => n, unassignedLabel: () => 'unassigned'
   });
-  list.innerHTML = Object.values(grouped).map(g => {
-    const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
-    const who    = [...g.people, ...(g.unassigned ? [`${g.unassigned} unassigned`] : [])].join(', ');
-    const avail  = Math.max(0, teamSize - g.onLeave.count);
-    const lvNote = g.onLeave.count ? ` · on leave: ${g.onLeave.names.join(', ')}` : '';
-    return `<div class="conflict-item">→ ${g.count} rack builders needed (available: ${avail}${lvNote}) · ${nd===1?first:`${first}–${last}`} · ${who}</div>`;
-  }).join('');
 }
 
 function renderTestConflicts(conflicts, advisories) {
@@ -1848,28 +1934,31 @@ function renderTestConflicts(conflicts, advisories) {
   if (!conflicts.length) { panel.style.display='none'; }
   else {
     panel.style.display = '';
-    const grouped = {};
-    conflicts.forEach(c => {
-      const k = [...c.people].sort().join('|') + ':' + c.unassigned + ':' + c.onLeave.names.sort().join(',');
-      if (!grouped[k]) grouped[k] = { people: c.people, unassigned: c.unassigned, days: [], count: c.count, onLeave: c.onLeave };
-      grouped[k].days.push(c.day);
+    renderShortfallGroups(conflicts, {
+      panelId: 'testConflictsPanel', listId: 'testConflictsList', size: testSize,
+      fmtName: fmtPerson, unassignedLabel: n => `project group${n>1?'s':''}`
     });
-    list.innerHTML = Object.values(grouped).map(g => {
-      const nd=g.days.length, first=fmtShort(g.days[0]), last=fmtShort(g.days[nd-1]);
-      const who    = [...g.people.map(fmtPerson), ...(g.unassigned ? [`${g.unassigned} project group${g.unassigned>1?'s':''}`] : [])].join(', ');
-      const avail  = Math.max(0, testSize - g.onLeave.count);
-      const lvNote = g.onLeave.count ? ` · on leave: ${g.onLeave.names.map(fmtPerson).join(', ')}` : '';
-      return `<div class="conflict-item">→ ${g.count} commissioners needed (available: ${avail}${lvNote}) · ${nd===1?first:`${first}–${last}`} · ${who}</div>`;
-    }).join('');
   }
 
   const advPanel = document.getElementById('testAdvisoryPanel');
   const advList  = document.getElementById('testAdvisoryList');
   if (!advisories.length) { advPanel.style.display='none'; return; }
   advPanel.style.display = '';
-  advList.innerHTML = advisories.map(a =>
-    `<div class="advisory-item">→ ${escH(a.name)} · ${fmtShort(a.start)}–${fmtShort(a.end)} · ${a.count} systems, assumed 1 commissioner</div>`
-  ).join('');
+  // One row per project; each shared test window listed inside the expander
+  const byProj = {};
+  advisories.forEach(a => { (byProj[a.name] = byProj[a.name] || []).push(a); });
+  const projs = Object.entries(byProj);
+  advList.innerHTML = projs.map(([name, ws]) => {
+    const lo = Math.min(...ws.map(w => w.count)), hi = Math.max(...ws.map(w => w.count));
+    const sys = lo === hi ? `${hi} systems` : `${lo}–${hi} systems`;
+    const head = `<span style="font-weight:500">${escH(name)}</span><span class="cap-n">${sys}</span>`
+      + `<span class="cap-sp"></span><span class="cap-adv">${ws.length} window${ws.length>1?'s':''}</span>`;
+    const body = ws.map(w =>
+      `<div class="cap-win">${w.start === w.end ? fmtShort(w.start) : `${fmtShort(w.start)}–${fmtShort(w.end)}`} · ${w.count} systems</div>`
+    ).join('');
+    return capGroupHtml('testAdvisoryList', name, -1, head, body);
+  }).join('');
+  capHeader('testAdvisoryPanel', 'testAdvisoryList', `${projs.length} project${projs.length>1?'s':''} · assumed 1 commissioner each`);
 }
 
 // ── ASSIGNMENT PLANNER ────────────────────────────
