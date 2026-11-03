@@ -194,6 +194,41 @@ tbody tr:hover td { background: var(--bg3); }
 .cap-adv { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(245,158,11,.35); border-radius: 6px; padding: 0 .45rem; font-size: .68rem; }
 .cap-win { padding: .22rem .75rem .22rem 1.75rem; font-size: .7rem; color: var(--text3); font-family: var(--mono); }
 
+/* ── DASHBOARD VIEW ── */
+.dash-tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: .6rem; margin-bottom: .75rem; }
+.dash-lights { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; margin-bottom: .75rem; }
+.dash-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .85rem 1rem; margin-bottom: .75rem; }
+.dash-card h4 { font-size: .72rem; font-weight: 500; color: var(--text2); margin-bottom: .55rem; }
+.dash-light { cursor: pointer; transition: border-color .15s; }
+.dash-light:hover { border-color: var(--border2); }
+.dash-light-top { display: flex; align-items: center; gap: .5rem; font-size: .8rem; font-weight: 500; }
+.dash-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.dash-light-val { font-size: 1.35rem; font-weight: 600; margin: .45rem 0 .25rem; }
+.dash-light-sub { font-size: .72rem; color: var(--text2); }
+.dash-red   { color: var(--red); }   .dash-red-bg   { background: var(--red); }
+.dash-amber { color: var(--amber); } .dash-amber-bg { background: var(--amber); }
+.dash-green { color: var(--green); } .dash-green-bg { background: var(--green); }
+.dash-why { display: none; font-size: .74rem; color: var(--text2); }
+.dash-why.on { display: block; }
+.dash-why .dash-row { cursor: pointer; }
+.dash-heat { display: grid; grid-template-columns: 8rem repeat(8, 1fr); gap: 3px; align-items: center; font-size: .72rem; }
+.dash-heat .dash-wk { text-align: center; color: var(--text3); font-size: .65rem; }
+.dash-heat .dash-c { height: 1.5rem; border-radius: 4px; text-align: center; line-height: 1.5rem; font-size: .68rem; font-family: var(--mono); }
+.dash-c-red { background: var(--red-dim); color: var(--red); }
+.dash-c-amber { background: var(--amber-dim); color: var(--amber); }
+.dash-c-ok { background: var(--green-dim); color: var(--green); }
+.dash-legend { display: flex; gap: 1rem; font-size: .66rem; color: var(--text3); margin-top: .6rem; }
+.dash-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: .3rem; vertical-align: -1px; }
+.dash-row { display: flex; align-items: center; gap: .6rem; padding: .32rem 0; border-bottom: 1px solid var(--border); font-size: .74rem; }
+.dash-row:last-child { border-bottom: none; }
+.dash-row .dash-kind { width: 4.5rem; color: var(--text3); flex: none; }
+.dash-row .dash-sp { flex: 1; }
+.dash-row .dash-date { font-family: var(--mono); color: var(--text2); }
+.dash-clickable { cursor: pointer; }
+.dash-clickable:hover { background: var(--bg3); }
+@media (max-width: 1100px) { .dash-tiles { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 700px) { .dash-tiles { grid-template-columns: repeat(2, 1fr); } .dash-lights { grid-template-columns: 1fr; } .dash-heat { grid-template-columns: 5.5rem repeat(8, 1fr); } }
+
 .assign-planner { display: none; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
 #assignSection.expanded .assign-planner { display: flex; }
 .assign-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: .9rem 1rem; flex: 1; min-width: 280px; }
@@ -504,7 +539,8 @@ tbody tr { cursor: default; }
     </div>
     <div class="header-actions">
       <div class="view-tabs">
-        <button class="view-tab active" id="tabGantt" onclick="switchView('gantt')">Gantt</button>
+        <button class="view-tab active" id="tabDashboard" onclick="switchView('dashboard')">Dashboard</button>
+        <button class="view-tab" id="tabGantt" onclick="switchView('gantt')">Gantt</button>
         <button class="view-tab" id="tabOnsite" onclick="switchView('onsite')">Onsite Availability</button>
         <button class="view-tab" id="tabOnsiteSettings" onclick="toggleOnsiteSettings()" style="display:none" title="Capacity settings">⚙</button>
       </div>
@@ -784,6 +820,7 @@ tbody tr { cursor: default; }
   <div id="mobileList"></div>
 
   <div id="onsiteSettingsPanel" style="display:none"></div>
+  <div id="dashView" style="display:none"></div>
   <div id="onsiteView" style="display:none"></div>
 
   <div class="table-wrap">
@@ -878,7 +915,7 @@ window.toggleNotif = function() {
 applyNotifState();
 let tasks     = [];
 let visibleTasks = [];
-let currentView        = 'gantt'; // 'gantt' | 'onsite'
+let currentView        = 'dashboard'; // 'dashboard' | 'gantt' | 'onsite'
 let _deepLinkReqId     = null;   // ?request=<uuid> URL param
 let _deepLinkSysId     = null;   // ?system=<id> URL param
 let _deepLinkDone      = false;  // true once scroll+highlight has fired
@@ -1843,6 +1880,7 @@ window.render = function() {
     hasScrolledToToday = true;
   }
   if (currentView === 'onsite') renderOnsiteView();
+  if (currentView === 'dashboard') renderDashboard();
 };
 
 // Capacity alert panels: grouped by month, collapsed rows. Open/closed state survives re-renders.
@@ -1959,6 +1997,140 @@ function renderTestConflicts(conflicts, advisories) {
     return capGroupHtml('testAdvisoryList', name, -1, head, body);
   }).join('');
   capHeader('testAdvisoryPanel', 'testAdvisoryList', `${projs.length} project${projs.length>1?'s':''} · assumed 1 commissioner each`);
+}
+
+// ── DASHBOARD VIEW ────────────────────────────────
+// Statuses are free text; '' is a rack with no status, which means dates exist but the rack hasn't started.
+const DASH_TILES = [
+  { key: 'notstarted', label: 'Not started',   statuses: [''] },
+  { key: 'inbuild',    label: 'In build',      statuses: ['In Build'] },
+  { key: 'testing',    label: 'Testing',       statuses: ['Built and waiting testing', 'Test Department Working On Rack'] },
+  { key: 'rts',        label: 'Ready to send', statuses: ['Ready To Send'] },
+  { key: 'onsite',     label: 'Onsite builds', statuses: ['Onsite build'] },
+  { key: 'needdates',  label: 'Need dates',    statuses: ['Dates Required', 'Resubmit Dates Required'], warn: true },
+];
+const DASH_NOT_STARTED = new Set(['', 'Dates Required', 'Provisional Dates', 'Resubmit Dates Required']);
+const DASH_NOT_BUILT   = new Set([...DASH_NOT_STARTED, 'In Build']);
+const DASH_NEEDS_DATES = ['', 'In Build', 'Onsite build'];   // statuses where missing build dates are a data problem
+const DASH_HORIZON_WEEKS = 8;
+const DASH_UPCOMING_DAYS = 14;
+let dashWhy = null; // 'delivery' | null — which traffic light has its detail panel open
+
+function dashWeeks() {
+  const d = toDay(fmtISO(new Date()));
+  d.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1));
+  return Array.from({ length: DASH_HORIZON_WEEKS }, (_, i) => {
+    const s = new Date(d); s.setDate(s.getDate() + 7 * i);
+    const e = new Date(s); e.setDate(e.getDate() + 6);
+    return { start: fmtISO(s), end: fmtISO(e) };
+  });
+}
+
+// Worst single-day shortfall per week for one team, from the same conflict lists the Capacity Alerts use.
+function dashWeekShortfalls(weeks, conflicts, size) {
+  return weeks.map(w => conflicts.reduce((m, c) =>
+    c.day >= w.start && c.day <= w.end ? Math.max(m, c.count - Math.max(0, size - c.onLeave.count)) : m, 0));
+}
+
+window.dashGo = function(kind) {
+  filterSets.status.clear(); metricFilter = null;
+  const tile = DASH_TILES.find(t => t.key === kind);
+  if (tile) tile.statuses.forEach(s => filterSets.status.add(s));
+  else if (kind === 'quality') { DASH_NEEDS_DATES.forEach(s => filterSets.status.add(s)); metricFilter = { type: 'noDates', value: '' }; }
+  else if (kind === 'capacity') { notifExpanded = true; localStorage.setItem(NOTIF_KEY, notifExpanded); applyNotifState(); }
+  switchView('gantt');
+};
+window.dashWhyToggle = function(kind) { dashWhy = dashWhy === kind ? null : kind; renderDashboard(); };
+window.dashOpenTask = function(id) { const t = tasks.find(x => String(x.id) === String(id)); if (t) showTaskDetail(t); };
+
+function renderDashboard() {
+  const el = document.getElementById('dashView');
+  if (!el) return;
+  if (!tasks.length) { el.innerHTML = '<div class="dash-card" style="color:var(--text3);font-size:.8rem">Loading…</div>'; return; }
+  const today = fmtISO(new Date());
+  const cnt = statuses => tasks.filter(t => statuses.includes(t.status)).length;
+
+  // Headline numbers
+  const tiles = DASH_TILES.map(t => `<div class="metric" onclick="dashGo('${t.key}')" title="Show these racks in the Gantt">
+      <div class="metric-label">${t.label}</div><div class="metric-val ${t.warn ? 'warn' : 'neutral'}">${cnt(t.statuses)}</div></div>`).join('');
+
+  // Capacity: worst weekly shortfall over the next 8 weeks, builders + commissioners
+  const weeks = dashWeeks();
+  const rows  = [
+    { label: 'Rack builders', vals: dashWeekShortfalls(weeks, lastConflicts,     teamSize) },
+    { label: 'Commissioners', vals: dashWeekShortfalls(weeks, lastTestConflicts, testSize) },
+  ];
+  const worst = Math.max(0, ...rows.flatMap(r => r.vals));
+  const capCol = worst >= 3 ? 'red' : worst > 0 ? 'amber' : 'green';
+  const capTxt = worst >= 3 ? 'Over' : worst > 0 ? 'Tight' : 'OK';
+  const overWeeks = r => r.vals.filter(v => v > 0).length;
+  const capSub = worst
+    ? rows.filter(r => overWeeks(r)).map(r => `${r.label} short in ${overWeeks(r)} of ${DASH_HORIZON_WEEKS} weeks`).join(' · ')
+    : `Within capacity for the next ${DASH_HORIZON_WEEKS} weeks`;
+
+  // Delivery: racks past their build end and not built = red; past their build start and not started = amber
+  const late    = tasks.filter(t => DASH_NOT_BUILT.has(t.status) && t.projEnd && t.projEnd < today);
+  const lateSet = new Set(late);
+  const slow    = tasks.filter(t => DASH_NOT_STARTED.has(t.status) && t.projStart && t.projStart < today && !lateSet.has(t));
+  const delCol  = late.length ? 'red' : slow.length ? 'amber' : 'green';
+  const delTxt  = late.length ? 'Late' : slow.length ? 'Watch' : 'On track';
+  const delSub  = late.length ? `${late.length} rack${late.length>1?'s':''} past build end and not built`
+                : slow.length ? `${slow.length} rack${slow.length>1?'s':''} past build start, not started`
+                : 'Nothing overdue';
+
+  // Data quality: racks that should have build dates and don't
+  const missing = tasks.filter(t => DASH_NEEDS_DATES.includes(t.status) && !t.projStart && !t.projEnd);
+  const dqCol = missing.length ? 'amber' : 'green';
+
+  const light = (kind, label, col, txt, sub, onclick) => `<div class="dash-card dash-light" style="margin-bottom:0" onclick="${onclick}">
+      <div class="dash-light-top"><span class="dash-dot dash-${col}-bg"></span>${label}</div>
+      <div class="dash-light-val dash-${col}">${txt}</div><div class="dash-light-sub">${sub}</div></div>`;
+  const lights = light('capacity', 'Capacity', capCol, capTxt, capSub, "dashGo('capacity')")
+    + light('delivery', 'Delivery', delCol, delTxt, delSub, "dashWhyToggle('delivery')")
+    + light('quality', 'Data quality', dqCol, missing.length ? 'Check' : 'Clean',
+        missing.length ? `${missing.length} rack${missing.length>1?'s':''} missing build dates` : 'All racks have dates', "dashGo('quality')");
+
+  const whyRows = [...late, ...slow].slice(0, 12).map(t =>
+    `<div class="dash-row dash-clickable" onclick="dashOpenTask('${escH(String(t.id))}')"><span class="dash-kind">${late.includes(t) ? 'Past end' : 'Past start'}</span>`
+    + `<span>${escH(t.name || '—')}${t.room ? ' · ' + escH(t.room) : ''}</span><span class="dash-sp"></span>`
+    + `<span class="dash-date">${fmtShort(t.projStart)}–${fmtShort(t.projEnd)}</span></div>`).join('');
+  const more = late.length + slow.length - 12;
+  const whyHtml = dashWhy === 'delivery'
+    ? `<div class="dash-card dash-why on"><h4>Racks behind schedule</h4>${whyRows || 'Nothing overdue.'}${more > 0 ? `<div style="padding-top:.4rem">+${more} more</div>` : ''}</div>` : '';
+
+  // Heat strip
+  const wkLabel = w => toDay(w.start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const cell = v => { const n = +v.toFixed(1);   // slider sizes can be fractional (e.g. 3.5)
+    return v >= 3 ? `<div class="dash-c dash-c-red" title="Worst day short by ${n}">-${n}</div>`
+         : v >  0 ? `<div class="dash-c dash-c-amber" title="Worst day short by ${n}">-${n}</div>`
+         : `<div class="dash-c dash-c-ok">ok</div>`; };
+  const heat = `<div class="dash-heat"><div></div>${weeks.map(w => `<div class="dash-wk">${wkLabel(w)}</div>`).join('')}`
+    + rows.map(r => `<div>${r.label}</div>${r.vals.map(cell).join('')}`).join('') + `</div>`
+    + `<div class="dash-legend"><span><i style="background:var(--red-dim)"></i>Short by 3 or more</span><span><i style="background:var(--amber-dim)"></i>Short by 1–2</span><span><i style="background:var(--green-dim)"></i>OK</span></div>`;
+
+  // Coming up
+  const end = addDays(today, DASH_UPCOMING_DAYS);
+  const live = tasks.filter(t => !['Canceled', 'On Hold', 'Parked (work stopped on it - build/test)'].includes(t.status));
+  const inWin = d => d && d >= today && d <= end;
+  const up = [];
+  live.forEach(t => {
+    if (inWin(t.projStart)) up.push({ t, kind: 'Build starts', d: t.projStart });
+    if (inWin(t.fat_date))  up.push({ t, kind: 'FAT',          d: t.fat_date });
+    if (inWin(t.site_date)) up.push({ t, kind: 'To site',      d: t.site_date });
+  });
+  up.sort((a, b) => a.d.localeCompare(b.d));
+  const nOf = k => up.filter(u => u.kind === k).length;
+  const upHtml = up.slice(0, 10).map(u =>
+    `<div class="dash-row dash-clickable" onclick="dashOpenTask('${escH(String(u.t.id))}')"><span class="dash-kind">${u.kind}</span>`
+    + `<span>${escH(u.t.name || '—')}${u.t.room ? ' · ' + escH(u.t.room) : ''}</span><span class="dash-sp"></span><span class="dash-date">${fmtShort(u.d)}</span></div>`).join('');
+
+  el.innerHTML = `<div class="dash-tiles">${tiles}</div>
+    <div class="dash-lights">${lights}</div>
+    ${whyHtml ? `<div style="margin-top:.75rem">${whyHtml}</div>` : ''}
+    <div class="dash-card" style="margin-top:.75rem"><h4>Capacity, next ${DASH_HORIZON_WEEKS} weeks</h4>${heat}</div>
+    <div class="dash-card"><h4>Coming up in the next ${DASH_UPCOMING_DAYS} days · ${nOf('Build starts')} builds start · ${nOf('FAT')} FAT · ${nOf('To site')} to site</h4>
+      ${upHtml || '<div style="color:var(--text3);font-size:.74rem">Nothing scheduled.</div>'}
+      ${up.length > 10 ? `<div style="color:var(--text3);font-size:.7rem;padding-top:.4rem">+${up.length - 10} more</div>` : ''}</div>`;
 }
 
 // ── ASSIGNMENT PLANNER ────────────────────────────
@@ -3124,21 +3296,25 @@ async function markRequestScheduled(reqId, taskId) {
 
 window.switchView = function(view) {
   currentView = view;
-  document.getElementById('tabGantt').classList.toggle('active',  view === 'gantt');
-  document.getElementById('tabOnsite').classList.toggle('active', view === 'onsite');
-  const isGantt = view === 'gantt';
+  const isGantt = view === 'gantt', isOnsite = view === 'onsite', isDash = view === 'dashboard';
+  document.getElementById('tabDashboard').classList.toggle('active', isDash);
+  document.getElementById('tabGantt').classList.toggle('active',  isGantt);
+  document.getElementById('tabOnsite').classList.toggle('active', isOnsite);
   document.querySelector('.app').classList.toggle('onsite-mode', !isGantt);
   document.querySelector('.table-wrap').style.display        = isGantt ? '' : 'none';
   document.querySelector('.legend').style.display            = isGantt ? '' : 'none';
   document.querySelector('.controls').style.display          = isGantt ? '' : 'none';
   document.getElementById('notifSection').style.display        = isGantt ? '' : 'none';
+  document.getElementById('metricsRow').style.display          = isDash ? 'none' : '';
   if (!isGantt) document.getElementById('assignSection').style.display = 'none'; // re-shown by renderAssignPlanner() when back on Gantt
-  document.getElementById('onsiteSettingsPanel').style.display  = isGantt ? 'none' : (onsiteSettingsOpen ? '' : 'none');
-  document.getElementById('onsiteView').style.display           = isGantt ? 'none' : '';
+  document.getElementById('onsiteSettingsPanel').style.display  = isOnsite ? (onsiteSettingsOpen ? '' : 'none') : 'none';
+  document.getElementById('onsiteView').style.display           = isOnsite ? '' : 'none';
+  document.getElementById('dashView').style.display             = isDash ? '' : 'none';
   const gearBtn = document.getElementById('tabOnsiteSettings');
-  if (gearBtn) gearBtn.style.display = isGantt ? 'none' : (currentUser ? '' : 'none');
-  if (isGantt) { onsiteSettingsOpen = false; if (gearBtn) gearBtn.classList.remove('active'); render(); }
-  else renderOnsiteView();
+  if (gearBtn) gearBtn.style.display = isOnsite ? (currentUser ? '' : 'none') : 'none';
+  if (isGantt) { onsiteSettingsOpen = false; if (gearBtn) gearBtn.classList.remove('active'); hasScrolledToToday = false; render(); }
+  else if (isOnsite) renderOnsiteView();
+  else renderDashboard();
 };
 
 window.showOnsiteDetail = async function(id) {
@@ -4201,7 +4377,7 @@ document.addEventListener('click', () => {
 
 // Apply ?view= deep-link here, after all window.X assignments are in place
 { const _vp = new URLSearchParams(window.location.search).get('view');
-  if (_vp === 'onsite') switchView('onsite'); }
+  switchView(_vp === 'onsite' || _vp === 'gantt' ? _vp : 'dashboard'); }
 
 // ── REPORT GENERATION ─────────────────────────────
 window.openReportModal = function() {
