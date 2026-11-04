@@ -194,6 +194,32 @@ tbody tr:hover td { background: var(--bg3); }
 .cap-adv { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(245,158,11,.35); border-radius: 6px; padding: 0 .45rem; font-size: .68rem; }
 .cap-win { padding: .22rem .75rem .22rem 1.75rem; font-size: .7rem; color: var(--text3); font-family: var(--mono); }
 
+/* ── COMPLETED RACKS VIEW ── */
+.pill-done { background: rgba(16,185,129,.18); color: #34d399; }
+.comp-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: .7rem; }
+.comp-msg { padding: 2rem 1rem; text-align: center; color: var(--text3); font-size: .85rem; }
+.comp-top { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; padding: .85rem 1rem; }
+.comp-total-n { font-size: 1.9rem; font-weight: 600; font-family: var(--mono); line-height: 1; }
+.comp-total-l { font-size: .68rem; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-top: .3rem; }
+.comp-years { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.comp-chip { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); font-family: var(--font); font-size: .72rem; padding: .3rem .65rem; border-radius: 999px; cursor: pointer; outline: none; white-space: nowrap; }
+.comp-chip:hover { color: var(--text); }
+.comp-chip.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+.comp-chip b { font-family: var(--mono); font-weight: 500; margin-left: .25rem; }
+.comp-controls { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .7rem 1rem; display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .7rem; }
+.comp-controls input[type=search] { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); font-family: var(--font); font-size: .78rem; padding: .35rem .6rem; border-radius: var(--radius); outline: none; width: 240px; }
+.comp-controls input[type=search]:focus { border-color: var(--blue); }
+.comp-controls label { font-size: .72rem; color: var(--text3); display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; }
+.comp-spacer { flex: 1; }
+.comp-loaded { font-size: .68rem; color: var(--text3); font-family: var(--mono); }
+.comp-listcard { overflow: hidden; }
+.comp-scroll { overflow-x: auto; }
+.comp-table thead th { cursor: default; position: static; }
+.comp-table thead th:hover { color: var(--text3); }
+.comp-row { cursor: pointer; }
+.comp-more { padding: .8rem; text-align: center; border-top: 1px solid var(--border); }
+.comp-empty { padding: 2.5rem 1rem; text-align: center; color: var(--text3); font-size: .85rem; }
+
 .assign-planner { display: none; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
 #assignSection.expanded .assign-planner { display: flex; }
 .assign-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: .9rem 1rem; flex: 1; min-width: 280px; }
@@ -506,6 +532,7 @@ tbody tr { cursor: default; }
       <div class="view-tabs">
         <button class="view-tab active" id="tabGantt" onclick="switchView('gantt')">Gantt</button>
         <button class="view-tab" id="tabOnsite" onclick="switchView('onsite')">Onsite Availability</button>
+        <button class="view-tab" id="tabCompleted" onclick="switchView('completed')">Completed</button>
         <button class="view-tab" id="tabOnsiteSettings" onclick="toggleOnsiteSettings()" style="display:none" title="Capacity settings">⚙</button>
       </div>
       <div class="saving-indicator" id="savingIndicator">
@@ -784,6 +811,7 @@ tbody tr { cursor: default; }
   <div id="mobileList"></div>
 
   <div id="onsiteSettingsPanel" style="display:none"></div>
+  <div id="completedView" style="display:none"></div>
   <div id="onsiteView" style="display:none"></div>
 
   <div class="table-wrap">
@@ -1560,6 +1588,7 @@ const STATUS_CLS = {
   'Ireland Office Build':                     'pill-iob',
   'Parked (work stopped on it - build/test)': 'pill-par',
   'On Hold':                                  'pill-oh',
+  'COMPLETED':                                'pill-done',
 };
 
 // ── FILTERS ───────────────────────────────────────
@@ -2258,7 +2287,7 @@ document.getElementById('mobileList').addEventListener('click', e => {
 });
 
 function renderTableHeader() {
-  const tr = document.querySelector('table thead tr');
+  const tr = document.querySelector('.table-wrap table thead tr');   // the Gantt table only (other views have their own tables)
   if (!tr) return;
   if (mobileGanttMode) {
     tr.innerHTML =
@@ -2783,6 +2812,198 @@ window.closeStatusListModal = function() {
   document.getElementById('statusListModal').style.display = 'none';
 };
 
+// ── COMPLETED RACKS VIEW ──────────────────────────
+// Read-only list of the completed_racks table (filled from the Excel RacksGoneToSite table by the Power Automate flow).
+// Loaded once on first open; the Refresh button reloads it. Racks with no site date are kept and listed last.
+let completedRows = null;
+let completedLoading = false, completedError = '', completedLoadedAt = null;
+const compState = { q: '', pm: '', wireman: '', from: '', to: '', year: '', incNoDate: true, shown: 100 };
+const COMP_PAGE = 100;
+let compQTimer = null;
+
+const compDMY = d => d ? d.split('-').reverse().join('/') : '—';
+const compNum = n => Number(n).toLocaleString('en-GB');
+// The sheet spells the same person many ways (alan cox / Alan Cox / ALAN COX, first.last@proav.com / First Last),
+// so filters match on a normalised key and each person is listed once.
+const compPmKey = v => v ? fmtPerson(v).toLowerCase().replace(/\s+/g, ' ').trim() : '';
+const compWmKey = v => v ? String(v).toLowerCase().replace(/\s+/g, ' ').trim() : '';
+
+async function loadCompleted(force) {
+  if (completedLoading || (completedRows && !force)) return;
+  completedLoading = true; completedError = '';
+  renderCompleted();
+  try {
+    const rows = [];
+    for (let offset = 0; ; offset += 1000) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/completed_racks?select=*&order=id.asc&limit=1000&offset=${offset}`,
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const page = await res.json();
+      for (const r of page) rows.push(r);
+      if (page.length < 1000) break;
+    }
+    rows.forEach(r => {
+      r._pmKey = compPmKey(r.project_manager);
+      r._wmKey = compWmKey(r.wireman);
+      r._hay = [r.name, r.room, r.rack_pa, r.seqf, r.level, r.rack_type, r.project_manager, r.wireman,
+                r.test_engineer, r.coordinator, r.comments, r.notes].filter(Boolean).join(' ').toLowerCase();
+    });
+    rows.sort((a, b) => {
+      if (!a.site_date && !b.site_date) return (a.name || '').localeCompare(b.name || '');
+      if (!a.site_date) return 1;
+      if (!b.site_date) return -1;
+      return b.site_date.localeCompare(a.site_date) || (a.name || '').localeCompare(b.name || '');
+    });
+    completedRows = rows; completedLoadedAt = new Date();
+    document.getElementById('completedView').innerHTML = ''; // rebuild the shell so the filter lists refresh
+  } catch (e) {
+    console.warn('[Completed] load failed:', e);
+    completedError = e.message || 'unknown error';
+  }
+  completedLoading = false;
+  renderCompleted();
+}
+
+function compFiltered(skipYear) {
+  const q = compState.q.trim().toLowerCase();
+  return completedRows.filter(r => {
+    if (compState.pm && r._pmKey !== compState.pm) return false;
+    if (compState.wireman && r._wmKey !== compState.wireman) return false;
+    if (compState.from || compState.to) {
+      if (r.site_date) {
+        if (compState.from && r.site_date < compState.from) return false;
+        if (compState.to && r.site_date > compState.to) return false;
+      } else if (!compState.incNoDate) return false;
+    }
+    if (!skipYear && compState.year) {
+      if (compState.year === 'none' ? !!r.site_date : !(r.site_date || '').startsWith(compState.year)) return false;
+    }
+    return !q || r._hay.includes(q);
+  });
+}
+
+function renderCompleted() {
+  const el = document.getElementById('completedView');
+  if (!el) return;
+  if (!completedRows) {
+    el.innerHTML = completedError
+      ? `<div class="comp-card comp-msg">Couldn't load the completed racks (${escH(completedError)}).<br><br><button class="btn btn-ghost" onclick="loadCompleted(true)">Try again</button></div>`
+      : `<div class="comp-card comp-msg">Loading completed racks…</div>`;
+    return;
+  }
+  if (!el.querySelector('#compBody')) buildCompletedShell(el);
+  updateCompleted();
+}
+
+function buildCompletedShell(el) {
+  // one entry per person: normalised key, a nicely-cased label (prefer a mixed-case spelling), and a count
+  const groupOf = (keyOf, rawOf, labelOf) => {
+    const g = {};
+    completedRows.forEach(r => {
+      const raw = rawOf(r); if (!raw) return;
+      const k = keyOf(raw), e = g[k] || (g[k] = { n: 0, forms: {} });
+      e.n++; e.forms[raw] = (e.forms[raw] || 0) + 1;
+    });
+    return Object.keys(g).map(k => {
+      const forms = Object.entries(g[k].forms).sort((a, b) => b[1] - a[1]);
+      const nice = forms.find(([f]) => f !== f.toLowerCase() && f !== f.toUpperCase()) || forms[0];
+      return { key: k, label: labelOf(nice[0]), n: g[k].n };
+    }).sort((a, b) => a.label.localeCompare(b.label));
+  };
+  const pms = groupOf(compPmKey, r => r.project_manager, fmtPerson);
+  const wms = groupOf(compWmKey, r => r.wireman, s => s);
+  const opt = (g, sel) => `<option value="${escH(g.key)}"${sel === g.key ? ' selected' : ''}>${escH(g.label)} (${g.n})</option>`;
+  el.innerHTML = `
+    <div class="comp-card comp-top">
+      <div><div class="comp-total-n" id="compTotal">—</div><div class="comp-total-l" id="compTotalLabel">completed racks</div></div>
+      <div class="comp-years" id="compYears"></div>
+    </div>
+    <div class="comp-controls">
+      <input type="search" id="compQ" placeholder="Search project, room, PA, people…" autocomplete="off" value="${escH(compState.q)}" oninput="compSearch(this.value)">
+      <select id="compPm" onchange="compSet('pm', this.value)"><option value="">All project managers</option>${pms.map(p => opt(p, compState.pm)).join('')}</select>
+      <select id="compWm" onchange="compSet('wireman', this.value)"><option value="">All wiremen</option>${wms.map(w => opt(w, compState.wireman)).join('')}</select>
+      <label>Site date from <input type="date" class="date-filter-input" id="compFrom" value="${escH(compState.from)}" onchange="compSet('from', this.value)"></label>
+      <label>to <input type="date" class="date-filter-input" id="compTo" value="${escH(compState.to)}" onchange="compSet('to', this.value)"></label>
+      <label><input type="checkbox" id="compNoDate" ${compState.incNoDate ? 'checked' : ''} onchange="compSet('incNoDate', this.checked)"> Include racks with no date</label>
+      <button class="btn btn-ghost" id="compClear" onclick="compClear()" style="display:none;font-size:.75rem;padding:.3rem .7rem">✕ Clear filters</button>
+      <span class="comp-spacer"></span>
+      <span class="comp-loaded" id="compLoaded"></span>
+      <button class="btn btn-ghost" onclick="loadCompleted(true)" style="font-size:.75rem;padding:.3rem .7rem">Refresh</button>
+    </div>
+    <div class="comp-card comp-listcard">
+      <div class="comp-scroll"><table class="comp-table">
+        <thead><tr><th>Project / room</th><th>SEQF</th><th>PA number</th><th>Rack type</th><th>Wireman</th><th>Offsite commissioner</th><th>Project manager</th><th>Site date</th></tr></thead>
+        <tbody id="compBody"></tbody>
+      </table></div>
+      <div id="compMore"></div>
+    </div>`;
+}
+
+function updateCompleted() {
+  const base = compFiltered(true);                       // everything except the year chip
+  const rows = compState.year ? compFiltered(false) : base;
+
+  // running total + clickable year totals (counts follow the other filters)
+  document.getElementById('compTotal').textContent = compNum(rows.length);
+  const anyFilter = compState.q || compState.pm || compState.wireman || compState.from || compState.to || compState.year || !compState.incNoDate;
+  document.getElementById('compTotalLabel').textContent =
+    anyFilter ? `of ${compNum(completedRows.length)} completed racks` : 'completed racks';
+  const byYear = {}; let noDate = 0;
+  base.forEach(r => { if (r.site_date) { const y = r.site_date.slice(0, 4); byYear[y] = (byYear[y] || 0) + 1; } else noDate++; });
+  const chip = (key, label, n) => `<button class="comp-chip${compState.year === key ? ' active' : ''}" onclick="compSet('year','${key}')">${label}<b>${compNum(n)}</b></button>`;
+  document.getElementById('compYears').innerHTML =
+    chip('', 'All', base.length)
+    + Object.keys(byYear).sort().reverse().map(y => chip(y, y, byYear[y])).join('')
+    + (noDate ? chip('none', 'No date', noDate) : '');
+
+  document.getElementById('compClear').style.display = anyFilter || compState.year ? '' : 'none';
+  document.getElementById('compLoaded').textContent =
+    completedLoading ? 'Refreshing…' : completedLoadedAt ? `Loaded ${completedLoadedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : '';
+
+  // list
+  const shown = rows.slice(0, compState.shown);
+  document.getElementById('compBody').innerHTML = shown.length ? shown.map(r => `
+    <tr class="comp-row" onclick="compOpen(${r.id})" title="Click for full details">
+      <td class="td-name"><div class="task-name">${escH(r.name || '—')}</div><div class="muted" style="font-size:.68rem">${escH(r.room || '')}</div></td>
+      <td><span class="mono-sm">${escH(r.seqf || '—')}</span></td>
+      <td><span class="mono-sm">${escH(r.rack_pa || '—')}</span></td>
+      <td><span class="muted">${escH(r.rack_type || '—')}</span></td>
+      <td><span class="muted">${escH(r.wireman || '—')}</span></td>
+      <td><span class="muted">${escH(fmtPerson(r.test_engineer) || '—')}</span></td>
+      <td><span class="muted">${escH(fmtPerson(r.project_manager) || '—')}</span></td>
+      <td><span class="mono-sm">${compDMY(r.site_date)}</span></td>
+    </tr>`).join('') : `<tr><td colspan="8"><div class="comp-empty">No completed racks match these filters.</div></td></tr>`;
+  const left = rows.length - shown.length;
+  document.getElementById('compMore').innerHTML = left > 0
+    ? `<div class="comp-more"><button class="btn btn-ghost" onclick="compMore()">Show ${Math.min(COMP_PAGE, left)} more <span class="muted">(${compNum(left)} left)</span></button></div>` : '';
+}
+
+window.compSearch = function(v) {
+  clearTimeout(compQTimer);
+  compQTimer = setTimeout(() => { compState.q = v; compState.shown = COMP_PAGE; updateCompleted(); }, 150);
+};
+window.compSet = function(key, val) {
+  compState[key] = (key === 'year' && compState.year === val) ? '' : val;   // clicking the active year chip clears it
+  compState.shown = COMP_PAGE;
+  updateCompleted();
+};
+window.compMore = function() { compState.shown += COMP_PAGE; updateCompleted(); };
+window.compClear = function() {
+  Object.assign(compState, { q: '', pm: '', wireman: '', from: '', to: '', year: '', incNoDate: true, shown: COMP_PAGE });
+  document.getElementById('compQ').value = '';
+  document.getElementById('compPm').value = '';
+  document.getElementById('compWm').value = '';
+  document.getElementById('compFrom').value = '';
+  document.getElementById('compTo').value = '';
+  document.getElementById('compNoDate').checked = true;
+  updateCompleted();
+};
+window.loadCompleted = loadCompleted;
+window.compOpen = function(id) {
+  const r = completedRows && completedRows.find(x => x.id === id);
+  if (r) showTaskDetail(dbToTask({ ...r, status: 'COMPLETED' }));   // read-only pop-up, same as the Gantt
+};
+
 // ── ONSITE AVAILABILITY VIEW ──────────────────────
 const ONSITE_ENG_PALETTE = [
   { bg:'#7ab800', text:'#fff' }, { bg:'#8b5cf6', text:'#fff' },
@@ -3126,19 +3347,23 @@ window.switchView = function(view) {
   currentView = view;
   document.getElementById('tabGantt').classList.toggle('active',  view === 'gantt');
   document.getElementById('tabOnsite').classList.toggle('active', view === 'onsite');
-  const isGantt = view === 'gantt';
+  document.getElementById('tabCompleted').classList.toggle('active', view === 'completed');
+  const isGantt = view === 'gantt', isOnsite = view === 'onsite', isCompleted = view === 'completed';
   document.querySelector('.app').classList.toggle('onsite-mode', !isGantt);
   document.querySelector('.table-wrap').style.display        = isGantt ? '' : 'none';
   document.querySelector('.legend').style.display            = isGantt ? '' : 'none';
   document.querySelector('.controls').style.display          = isGantt ? '' : 'none';
   document.getElementById('notifSection').style.display        = isGantt ? '' : 'none';
+  document.getElementById('metricsRow').style.display          = isCompleted ? 'none' : '';
   if (!isGantt) document.getElementById('assignSection').style.display = 'none'; // re-shown by renderAssignPlanner() when back on Gantt
-  document.getElementById('onsiteSettingsPanel').style.display  = isGantt ? 'none' : (onsiteSettingsOpen ? '' : 'none');
-  document.getElementById('onsiteView').style.display           = isGantt ? 'none' : '';
+  document.getElementById('onsiteSettingsPanel').style.display  = isOnsite ? (onsiteSettingsOpen ? '' : 'none') : 'none';
+  document.getElementById('onsiteView').style.display           = isOnsite ? '' : 'none';
+  document.getElementById('completedView').style.display        = isCompleted ? '' : 'none';
   const gearBtn = document.getElementById('tabOnsiteSettings');
-  if (gearBtn) gearBtn.style.display = isGantt ? 'none' : (currentUser ? '' : 'none');
+  if (gearBtn) gearBtn.style.display = isOnsite ? (currentUser ? '' : 'none') : 'none';
   if (isGantt) { onsiteSettingsOpen = false; if (gearBtn) gearBtn.classList.remove('active'); render(); }
-  else renderOnsiteView();
+  else if (isOnsite) renderOnsiteView();
+  else { renderCompleted(); loadCompleted(); }
 };
 
 window.showOnsiteDetail = async function(id) {
@@ -4201,7 +4426,7 @@ document.addEventListener('click', () => {
 
 // Apply ?view= deep-link here, after all window.X assignments are in place
 { const _vp = new URLSearchParams(window.location.search).get('view');
-  if (_vp === 'onsite') switchView('onsite'); }
+  if (_vp === 'onsite' || _vp === 'completed') switchView(_vp); }
 
 // ── REPORT GENERATION ─────────────────────────────
 window.openReportModal = function() {
